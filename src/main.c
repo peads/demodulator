@@ -191,13 +191,13 @@ static uint64_t splitIntoRows(const uint8_t *buf, const uint64_t len, __m128 *re
     __m128 rms, mask;
 
     union {
-        uint8_t buf[VECTOR_WIDTH];
+        uint8_t buf[MATRIX_WIDTH];
         __m256i v;
     } z;
 
-    for (i = 0; leftToProcess > 0; i += VECTOR_WIDTH) {
+    for (i = 0; leftToProcess > 0; i += MATRIX_WIDTH) {
 
-        memcpy(z.buf, buf + i, VECTOR_WIDTH);
+        memcpy(z.buf, buf + i, MATRIX_WIDTH);
         result[j] = mm256Epi8convertmmPs(_mm256_sub_epi8(z.v, Z));
 
         if (squelch) {
@@ -208,33 +208,27 @@ static uint64_t splitIntoRows(const uint8_t *buf, const uint64_t len, __m128 *re
             result[j] = _mm_and_ps(result[j], mask);
         }
         j++;
-        leftToProcess -= VECTOR_WIDTH;
+        leftToProcess -= MATRIX_WIDTH;
     }
 
     return j;
 }
 
-static uint64_t processMatrix(const uint8_t *buf, const uint64_t len, __m128 **buff, __m128 *squelch) {
-
-    uint64_t depth;
-    uint64_t count = len & 3UL // len/VECTOR_WIDTH + (len % VECTOR_WIDTH != 0 ? 1 : 0))
-                     ? (len >> LOG2_VECTOR_WIDTH) + 1UL
-                     : (len >> LOG2_VECTOR_WIDTH);
-
-    *buff = calloc(count << 2, MATRIX_ELEMENT_BYTES);
-
-    depth = splitIntoRows(buf, len, *buff, squelch);
-
-    if (isRdc) {
-        removeDCSpike(*buff, depth);
-    }
-
-    if (!isOffsetTuning) {
-        rotateForNonOffsetTuning(*buff, depth);
-    }
-
-    return depth;
-}
+//static uint64_t processMatrix(__m128 *buf, const uint64_t len) {
+//
+////    uint64_t depth;
+////    uint64_t count = len & 3UL // len/MATRIX_WIDTH + (len % MATRIX_WIDTH != 0 ? 1 : 0))
+////                     ? (len >> LOG2_VECTOR_WIDTH) + 1UL
+////                     : (len >> LOG2_VECTOR_WIDTH);
+//
+////    *buff = calloc(count << 2, MATRIX_ELEMENT_BYTES);
+//
+////    depth = splitIntoRows(buf, len, *buff, squelch);
+//
+//
+//
+//    return len;
+//}
 
 static void handleFileError(FILE *file) {
 
@@ -262,7 +256,7 @@ struct readArgs {
     uint8_t isRdc;
     uint8_t isOt;
     __m128 *squelch;
-    uint8_t *buf;
+    __m128 *buf;
     uint64_t len;
     FILE *outFile;
 };
@@ -271,16 +265,19 @@ static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
 
     struct readArgs *args = ctx;
     uint64_t depth;
-    __m128 *lowPassed;
+//    __m128 *lowPassed;
     float *result;
 
-    depth = processMatrix(args->buf, args->len, &lowPassed, args->squelch);
-    args->buf[0] = args->buf[args->len-2];
-    args->buf[1] = args->buf[args->len-1];
+    if (args->isRdc) {
+        removeDCSpike(args->buf, args->len);
+    }
 
-    depth = downSample(lowPassed, depth, args->downsample);
-    depth = demodulateFmData(lowPassed, depth, &result);
-    free(lowPassed);
+    if (!args->isOt) {
+        rotateForNonOffsetTuning(args->buf, args->len);
+    }
+
+    depth = downSample(args->buf, args->len, args->downsample);
+    depth = demodulateFmData(args->buf, depth, &result);
 
     fprintf(stderr, "writing out!");
 
@@ -292,32 +289,32 @@ static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
 
 static inline int readFileData(struct readArgs *args) {
 
-//    if (args->inFile) {
-//        *buf = calloc(MAXIMUM_BUF_SIZE, INPUT_ELEMENT_BYTES);
-//        FILE *file = fopen(args->inFile, "rb");
-//        uint32_t result = fread(*buf, INPUT_ELEMENT_BYTES, MAXIMUM_BUF_SIZE, file);
-//
-//        fclose(file);
-//        *buf = realloc(*buf, INPUT_ELEMENT_BYTES * result);
-//
-//        return result;
-//    }
+    union {
+        uint8_t buf[MATRIX_WIDTH];
+        __m256i v;
+    } z;
 
+    uint64_t j = 0;
     pthread_t pid;
+
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
-    args->len = DEFAULT_BUF_SIZE;
-    args->buf = calloc(args->len, INPUT_ELEMENT_BYTES);
-    args->buf[0] = 0;
-    args->buf[1] = 0;
+    args->len = DEFAULT_BUF_SIZE >> 2;
+    args->buf = calloc(args->len, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
+
 
     while (!exitFlag) {
 
-        fread(args->buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         handleFileError(inFile);
 
-        pthread_create(&pid, NULL, runReadStreamData, args);
+        args->buf[j++] = mm256Epi8convertmmPs(_mm256_sub_epi8(z.v, Z));
+
+        if (j >= args->len) {
+            pthread_create(&pid, NULL, runReadStreamData, args);
+            j = 0;
+        }
     }
 
     pthread_join(pid, NULL);
