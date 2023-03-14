@@ -236,15 +236,6 @@ static uint64_t processMatrix(const uint8_t *buf, const uint64_t len, __m128 **b
     return depth;
 }
 
-struct readArgs {
-    char *inFile;
-    char *outFile;
-    uint8_t downsample;
-    uint8_t isRdc;
-    uint8_t isOt;
-    __m128 *squelch;
-};
-
 static void handleFileError(FILE *file) {
 
     char errorMsg[256];
@@ -264,79 +255,94 @@ static void handleFileError(FILE *file) {
 
     exitFlag = fileStatus;
 }
+struct readArgs {
+    char *inFile;
+    char *outFileName;
+    uint8_t downsample;
+    uint8_t isRdc;
+    uint8_t isOt;
+    __m128 *squelch;
+    uint8_t *buf;
+    uint64_t len;
+    FILE *outFile;
+};
 
 static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
 
     struct readArgs *args = ctx;
-
-    int i;
     uint64_t depth;
-    uint64_t len = DEFAULT_BUF_SIZE + 2;
-    uint8_t *buf = calloc(len, INPUT_ELEMENT_BYTES);
     __m128 *lowPassed;
     float *result;
-    FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
-    FILE *outFile = args->outFile? fopen(args->outFile, "wb") : stdout;
-    buf[0] = 0;
-    buf[1] = 0;
 
-    for (i = 2; !exitFlag && i < len; ++i) {
+    depth = processMatrix(args->buf, args->len, &lowPassed, args->squelch);
+    args->buf[0] = args->buf[args->len-2];
+    args->buf[1] = args->buf[args->len-1];
 
-        fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
-        handleFileError(inFile);
+    depth = downSample(lowPassed, depth, args->downsample);
+    depth = demodulateFmData(lowPassed, depth, &result);
+    free(lowPassed);
 
-        depth = processMatrix(buf, DEFAULT_BUF_SIZE, &lowPassed, args->squelch);
-        buf[0] = buf[len-2];
-        buf[1] = buf[len-1];
+    fprintf(stderr, "writing out!");
 
-        depth = downSample(lowPassed, depth, args->downsample);
-        depth = demodulateFmData(lowPassed, depth, &result);
-        free(lowPassed);
+    fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
+    free(result);
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-        free(result);
-    }
-    free(buf);
-    fclose(inFile);
-    fclose(outFile);
     return NULL;
 }
 
-static inline uint32_t readFileData(struct readArgs *args, uint8_t **buf) {
+static inline uint32_t readFileData(struct readArgs *args) {
 
-    if (args->inFile) {
-        *buf = calloc(MAXIMUM_BUF_SIZE, INPUT_ELEMENT_BYTES);
-        FILE *file = fopen(args->inFile, "rb");
-        uint32_t result = fread(*buf, INPUT_ELEMENT_BYTES, MAXIMUM_BUF_SIZE, file);
+//    if (args->inFile) {
+//        *buf = calloc(MAXIMUM_BUF_SIZE, INPUT_ELEMENT_BYTES);
+//        FILE *file = fopen(args->inFile, "rb");
+//        uint32_t result = fread(*buf, INPUT_ELEMENT_BYTES, MAXIMUM_BUF_SIZE, file);
+//
+//        fclose(file);
+//        *buf = realloc(*buf, INPUT_ELEMENT_BYTES * result);
+//
+//        return result;
+//    }
 
-        fclose(file);
-        *buf = realloc(*buf, INPUT_ELEMENT_BYTES * result);
+    pthread_t pid;
+    FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
-        return result;
+    args->len = DEFAULT_BUF_SIZE;
+    args->buf = calloc(args->len, INPUT_ELEMENT_BYTES);
+    args->buf[0] = 0;
+    args->buf[1] = 0;
+    args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
+
+    while (!exitFlag) {
+
+        fread(args->buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE-2, inFile);
+        handleFileError(inFile);
+
+        pthread_create(&pid, NULL, runReadStreamData, args);
     }
 
-    pthread_t pid = 0;
-    pthread_create(&pid, NULL, runReadStreamData, args);
     pthread_join(pid, NULL);
-    exit(exitFlag); // TODO refactor main to hand off processing to another function
+    fclose(inFile);
+    fclose(args->outFile);
+    free(args->buf);
+    exit(exitFlag);
             // to be in line with the threaded read.
 }
 
 int main(int argc, char **argv) {
 
     static struct readArgs args;
-
     int opt;
-    uint64_t depth;
-    uint64_t len;
-    float *result;
-    __m128 *lowPassed;
 
-#ifndef DEBUG
-    static uint8_t previousR, previousJ;
-#else
-    uint64_t i;
-#endif
+//    uint64_t depth;
+//    uint64_t len;
+//    float *result;
+//    __m128 *lowPassed;
+
+//#ifndef DEBUG
+//    static uint8_t previousR, previousJ;
+//#else
+//    uint64_t i;
+//#endif
 
     if (argc < 3) {
         return -1;
@@ -368,7 +374,7 @@ int main(int argc, char **argv) {
                     break;
                 case 'o':
                     if (NULL == strstr(optarg, "-")) {
-                        args.outFile = optarg;
+                        args.outFileName = optarg;
                     } else {
 //                        freopen(NULL, "wb", stdout);
                     }
@@ -379,74 +385,74 @@ int main(int argc, char **argv) {
             }
         }
     }
-
-#ifdef DEBUG
-    uint8_t buf[18] = {128,129,130,131,132,133,134,135,
-                       136,137,138,139,140,141,142,143, 0,0};
-    len = sizeof(buf)/sizeof(*buf);
-
-    printf("%hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu\n"
-           "%hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu\n\n",
-           buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
-           buf[8],buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
-           buf[16], buf[17]);
-#else
-    uint8_t *inBuf;
-    uint8_t *buf;
-    FILE *file;
-
-    len = readFileData(&args, &inBuf) + 2;
-    buf = calloc(len, INPUT_ELEMENT_BYTES);
-
-    buf[0] = previousR;
-    buf[1] = previousJ;
-    memcpy(buf + 2, inBuf, len - 2);
-    previousJ = buf[len-1];
-    previousR = buf[len-2];
-
-    free(inBuf);
-#endif
-
-    depth = processMatrix(buf, len, &lowPassed, args.squelch);
-
-#ifdef DEBUG
-    printf("Processed matrix:\n");
-    for (i = 0; i < depth; ++i) {
-        union m128_f temp = {.v = lowPassed[i]};
-        printf("(%.01f + %.01fI),\t(%.01f + %.01fI)\n",
-               temp.buf[0], temp.buf[1], temp.buf[2], temp.buf[3]);
-    }
-    printf("\n");
-#endif
-
-    depth = downSample(lowPassed, depth, args.downsample);
-
-#ifdef DEBUG
-    printf("Downsampled and windowed:\n");
-    for (i = 0; i < depth; ++i) {
-        union m128_f temp = {.v = lowPassed[i]};
-        printf("(%.02f + %.02fI),\t(%.02f + %.02fI)\n",
-            temp.buf[0], temp.buf[1], temp.buf[2], temp.buf[3]);
-    }
-    printf("\n");
-#endif
-
-    depth = demodulateFmData(lowPassed, depth, &result);
-    free(lowPassed);
-
-#ifdef DEBUG
-    printf("\nPhase angles:\n");
-    for (i = 0; i < depth; ++i) {
-        printf("%f, ", result[i]);
-    }
-    printf("\n");
-#else
-    file = fopen(args.outFile, "wb");
-    fwrite(result, OUTPUT_ELEMENT_BYTES, depth, file);
-    fclose(file);
-#endif
-
-    free(result);
+    readFileData(&args);
+//#ifdef DEBUG
+//    uint8_t buf[18] = {128,129,130,131,132,133,134,135,
+//                       136,137,138,139,140,141,142,143, 0,0};
+//    len = sizeof(buf)/sizeof(*buf);
+//
+//    printf("%hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu\n"
+//           "%hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu, %hhu\n\n",
+//           buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+//           buf[8],buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+//           buf[16], buf[17]);
+//#else
+//    uint8_t *inBuf;
+//    uint8_t *buf;
+//    FILE *file;
+//
+//    len = readFileData(&args) + 2;
+//    buf = calloc(len, INPUT_ELEMENT_BYTES);
+//
+//    buf[0] = previousR;
+//    buf[1] = previousJ;
+//    memcpy(buf + 2, inBuf, len - 2);
+//    previousJ = buf[len-1];
+//    previousR = buf[len-2];
+//
+//    free(inBuf);
+//#endif
+//
+//    depth = processMatrix(buf, len, &lowPassed, args.squelch);
+//
+//#ifdef DEBUG
+//    printf("Processed matrix:\n");
+//    for (i = 0; i < depth; ++i) {
+//        union m128_f temp = {.v = lowPassed[i]};
+//        printf("(%.01f + %.01fI),\t(%.01f + %.01fI)\n",
+//               temp.buf[0], temp.buf[1], temp.buf[2], temp.buf[3]);
+//    }
+//    printf("\n");
+//#endif
+//
+//    depth = downSample(lowPassed, depth, args.downsample);
+//
+//#ifdef DEBUG
+//    printf("Downsampled and windowed:\n");
+//    for (i = 0; i < depth; ++i) {
+//        union m128_f temp = {.v = lowPassed[i]};
+//        printf("(%.02f + %.02fI),\t(%.02f + %.02fI)\n",
+//            temp.buf[0], temp.buf[1], temp.buf[2], temp.buf[3]);
+//    }
+//    printf("\n");
+//#endif
+//
+//    depth = demodulateFmData(lowPassed, depth, &result);
+//    free(lowPassed);
+//
+//#ifdef DEBUG
+//    printf("\nPhase angles:\n");
+//    for (i = 0; i < depth; ++i) {
+//        printf("%f, ", result[i]);
+//    }
+//    printf("\n");
+//#else
+//    file = fopen(args.outFile, "wb");
+//    fwrite(result, OUTPUT_ELEMENT_BYTES, depth, file);
+//    fclose(file);
+//#endif
+//
+//    free(result);
 
     return 0;
 }
