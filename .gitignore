@@ -1,0 +1,9 @@
+a.out
+*.s
+*.S
+*.swp
+cmake-build-debug/
+.idea/
+build/
+
+.DS_Store
