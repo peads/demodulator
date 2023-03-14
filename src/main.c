@@ -134,7 +134,7 @@ static inline struct rotationMatrix generateRotationMatrix(const float theta, co
     return result;
 }
 
-static uint32_t downSample(__m128 *buf, uint32_t len, const uint32_t downsample) {
+static uint64_t downSample(__m128 *buf, uint32_t len, const uint8_t downsample) {
 
     uint64_t i,j;
 
@@ -236,39 +236,82 @@ static uint64_t processMatrix(const uint8_t *buf, const uint64_t len, __m128 **b
     return depth;
 }
 
+struct readArgs {
+    char *inFile;
+    char *outFile;
+    uint8_t downsample;
+    uint8_t isRdc;
+    uint8_t isOt;
+    __m128 *squelch;
+};
+
+static void handleFileError(FILE *file) {
+
+    char errorMsg[256];
+    int fileStatus = ferror(file) | feof(file);
+
+    switch (fileStatus) {
+        case 0:
+            break;
+        case 1:
+        default:
+            sprintf(errorMsg, "I/O error when reading file");
+            perror(errorMsg);
+        case EOF:
+            exitFlag = 1;
+            break;
+    }
+
+    exitFlag = fileStatus;
+}
+
 static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
+
+    struct readArgs *args = ctx;
 
     int i;
     uint64_t depth;
-    uint8_t buf[DEFAULT_BUF_SIZE];
+    uint64_t len = DEFAULT_BUF_SIZE + 2;
+    uint8_t *buf = calloc(len, INPUT_ELEMENT_BYTES);
     __m128 *lowPassed;
     float *result;
-    FILE *file = fopen("out.dat", "wb");
+    FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
+    FILE *outFile = args->outFile? fopen(args->outFile, "wb") : stdout;
+    buf[0] = 0;
+    buf[1] = 0;
 
-    for (i = 0; !exitFlag && i < DEFAULT_BUF_SIZE; ++i) {
+    for (i = 2; !exitFlag && i < len; ++i) {
 
-        buf[i] = fgetc(stdin);
-        if (i >= DEFAULT_BUF_SIZE-1) {
-            depth = processMatrix(buf, DEFAULT_BUF_SIZE, &lowPassed, NULL); // TODO pass squelch
-            depth = downSample(lowPassed, depth, 1); // TODO pass downsample
+//        buf[i] = fgetc(inFile);
+
+        fread(buf + 2, INPUT_ELEMENT_BYTES, len - 2, inFile);
+        handleFileError(inFile);
+
+//        if (i >= len-1) {
+            depth = processMatrix(buf, len, &lowPassed, args->squelch);
+            buf[0] = buf[len-2];
+            buf[1] = buf[len-1];
+
+            depth = downSample(lowPassed, depth, args->downsample);
             depth = demodulateFmData(lowPassed, depth, &result);
             free(lowPassed);
 
-            // TODO write/append to file, or stdout
-            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, stdout);
+            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
             free(result);
-            i = 0;
-        }
+//            i = 0;
+//        }
     }
-    fclose(file);
+    free(buf);
+    fclose(inFile);
+    fclose(outFile);
     return NULL;
 }
 
-static inline uint32_t readFileData(char *path, uint8_t **buf) {
+static inline uint32_t readFileData(struct readArgs *args, uint8_t **buf) {
 
-    if (path) {
+    if (args->inFile) {
         *buf = calloc(MAXIMUM_BUF_SIZE, INPUT_ELEMENT_BYTES);
-        FILE *file = fopen(path, "rb");
+        FILE *file = fopen(args->inFile, "rb");
         uint32_t result = fread(*buf, INPUT_ELEMENT_BYTES, MAXIMUM_BUF_SIZE, file);
 
         fclose(file);
@@ -278,16 +321,15 @@ static inline uint32_t readFileData(char *path, uint8_t **buf) {
     }
 
     pthread_t pid = 0;
-    pthread_create(&pid, NULL, runReadStreamData, NULL);
+    pthread_create(&pid, NULL, runReadStreamData, args);
     pthread_join(pid, NULL);
-    exit(0); // TODO refactor main to hand off processing to another function
+    exit(exitFlag); // TODO refactor main to hand off processing to another function
             // to be in line with the threaded read.
 }
 
 int main(int argc, char **argv) {
 
-    static uint8_t downsample;
-    static __m128 *squelch;
+    static struct readArgs args;
 
     int opt;
     uint64_t depth;
@@ -297,49 +339,43 @@ int main(int argc, char **argv) {
 
 #ifndef DEBUG
     static uint8_t previousR, previousJ;
-    char *inPath = NULL;
-    char *outPath = NULL;
-    int argsProcessed = 3;
 #else
     uint64_t i;
 #endif
 
-    if (argc < argsProcessed) {
+    if (argc < 3) {
         return -1;
     } else {
-        isRdc = 0;
-        isOffsetTuning = 0;
-        downsample = 0;
 
         while ((opt = getopt(argc, argv, "r:i:o:d:f:s:")) != -1) {
             switch (opt) {
                 case 'r':
-                    isRdc = atoi(optarg);
+                    args.isRdc = atoi(optarg);
                     break;
                 case 'f':
-                    isOffsetTuning = atoi(optarg);
+                    args.isOt = atoi(optarg);
                     break;
                 case 'd':
-                    downsample = atoi(optarg);
+                    args.downsample = atoi(optarg);
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                     // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    squelch = malloc(MATRIX_ELEMENT_BYTES);
-                    *squelch = _mm_set1_ps(powf(10.f, atof(optarg) / 10.f));
+                    args.squelch = malloc(MATRIX_ELEMENT_BYTES);
+                    *args.squelch = _mm_set1_ps(powf(10.f, atof(optarg) / 10.f));
                     break;
 #ifndef DEBUG
                 case 'i':
                     if (NULL == strstr(optarg, "-")) {
-                        inPath = optarg;
+                        args.inFile = optarg;
                     } else {
-                        freopen(NULL, "rb", stdin);
+//                        freopen(NULL, "rb", stdin);
                     }
                     break;
                 case 'o':
                     if (NULL == strstr(optarg, "-")) {
-                        outPath = optarg;
+                        args.outFile = optarg;
                     } else {
-                        freopen(NULL, "wb", stdout);
+//                        freopen(NULL, "wb", stdout);
                     }
                     break;
 #endif
@@ -364,7 +400,7 @@ int main(int argc, char **argv) {
     uint8_t *buf;
     FILE *file;
 
-    len = readFileData(inPath, &inBuf) + 2;
+    len = readFileData(&args, &inBuf) + 2;
     buf = calloc(len, INPUT_ELEMENT_BYTES);
 
     buf[0] = previousR;
@@ -376,7 +412,7 @@ int main(int argc, char **argv) {
     free(inBuf);
 #endif
 
-    depth = processMatrix(buf, len, &lowPassed, squelch);
+    depth = processMatrix(buf, len, &lowPassed, args.squelch);
 
 #ifdef DEBUG
     printf("Processed matrix:\n");
@@ -388,7 +424,7 @@ int main(int argc, char **argv) {
     printf("\n");
 #endif
 
-    depth = downSample(lowPassed, depth, downsample);
+    depth = downSample(lowPassed, depth, args.downsample);
 
 #ifdef DEBUG
     printf("Downsampled and windowed:\n");
@@ -410,7 +446,7 @@ int main(int argc, char **argv) {
     }
     printf("\n");
 #else
-    file = fopen(outPath, "wb");
+    file = fopen(args.outFile, "wb");
     fwrite(result, OUTPUT_ELEMENT_BYTES, depth, file);
     fclose(file);
 #endif
