@@ -282,24 +282,19 @@ static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
 
     for (i = 2; !exitFlag && i < len; ++i) {
 
-//        buf[i] = fgetc(inFile);
-
-        fread(buf + 2, INPUT_ELEMENT_BYTES, len - 2, inFile);
+        fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
         handleFileError(inFile);
 
-//        if (i >= len-1) {
-            depth = processMatrix(buf, len, &lowPassed, args->squelch);
-            buf[0] = buf[len-2];
-            buf[1] = buf[len-1];
+        depth = processMatrix(buf, DEFAULT_BUF_SIZE, &lowPassed, args->squelch);
+        buf[0] = buf[len-2];
+        buf[1] = buf[len-1];
 
-            depth = downSample(lowPassed, depth, args->downsample);
-            depth = demodulateFmData(lowPassed, depth, &result);
-            free(lowPassed);
+        depth = downSample(lowPassed, depth, args->downsample);
+        depth = demodulateFmData(lowPassed, depth, &result);
+        free(lowPassed);
 
-            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-            free(result);
-//            i = 0;
-//        }
+        fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
+        free(result);
     }
     free(buf);
     fclose(inFile);
