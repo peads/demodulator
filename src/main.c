@@ -101,25 +101,27 @@ static __m128 apply4x4_4x1Transform(const struct rotationMatrix T, const __m128 
 
     __m128 temp, temp1;
 
-    temp = _mm_mul_ps(T.a1.v, u);           // u1*a11, u2*a12, u3*a13, ...
-    temp1 = _mm_mul_ps(T.a2.v, u);          // u1*a21, u2*a22, ...
-    return _mm_blend_ps(_mm_add_ps(temp,       // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
-                                   _mm_permute_ps(temp, _MM_SHUFFLE(2,3,0,1))),
-                        _mm_add_ps(temp1,              // u1*a21 + u2*a22, ... , u3*a23 + u4*a24
-                                   _mm_permute_ps(temp1, _MM_SHUFFLE(2,3,0,1))),
-                        0xA);                                     // u1*a11 + u2*a12, u1*a21 + u2*a22,
+    temp = _mm_mul_ps(T.a1.v, u);
+    temp1 = _mm_mul_ps(T.a2.v, u);
+    // u1*a11, u2*a12, u3*a13, ...
+    // u1*a21, u2*a22, ...
+    // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
+    // u1*a21 + u2*a22, ... , u3*a23 + u4*a24
+    // u1*a11 + u2*a12, u1*a21 + u2*a22,
     // u3*a13 + u4*a14, u3*a23 + u4*a24
-    // A = 0000 1010 = 00 22 => _MM_SHUFFLE(0,0,2,2)
+    return _mm_blend_ps(_mm_add_ps(temp, _mm_permute_ps(temp, _MM_SHUFFLE(2, 3, 0, 1))),
+            _mm_add_ps(temp1, _mm_permute_ps(temp1, _MM_SHUFFLE(2, 3, 0, 1))),
+            0xA); // A = 0000 1010 = 00 22 => _MM_SHUFFLE(0,0,2,2)
 }
 
 static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
 
     const float cosT = cosf(theta);
-    const float sinT = sinf(phi);
+    const float sinP = sinf(phi);
 
     struct rotationMatrix result = {
-            .a1 = {cosT, -sinT, cosT, -sinT},
-            .a2 = {sinT, cosT, sinT, cosT}
+            .a1 = {cosT, -sinP, cosT, -sinP},
+            .a2 = {sinP, cosT, sinP, cosT}
     };
 
     return result;
@@ -127,12 +129,12 @@ static inline struct rotationMatrix generateRotationMatrix(const float theta, co
 
 static uint64_t downSample(__m128 *buf, uint32_t len, const uint8_t downsample) {
 
-    uint64_t i,j;
+    uint64_t i, j;
 
     for (j = 0; j < downsample; ++j) {
         for (i = 0; i < len; ++i) {
-            buf[i >> 1] = _mm_add_ps(buf[i],_mm_permute_ps(buf[i],
-                                                           _MM_SHUFFLE(1, 0, 3, 2)));
+            buf[i >> 1] = _mm_add_ps(buf[i], _mm_permute_ps(buf[i],
+                    _MM_SHUFFLE(1, 0, 3, 2)));
         }
     }
 
@@ -141,8 +143,8 @@ static uint64_t downSample(__m128 *buf, uint32_t len, const uint8_t downsample) 
 
 static void removeDCSpike(__m128 *buf, const uint32_t len) {
 
-    static const __m128 ratio = {1e-05f,1e-05f,1e-05f,1e-05f};
-    static __m128 dcAvgIq = {0,0,0,0};
+    static const __m128 ratio = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
+    static __m128 dcAvgIq = {0, 0, 0, 0};
 
     uint64_t i;
 
@@ -156,7 +158,7 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
 
     uint64_t i;
 
-    for(i = 0; i < len; ++i) {
+    for (i = 0; i < len; ++i) {
         buf[i] = apply4x4_4x1Transform(CONJ_TRANSFORM, buf[i]);
     }
 }
@@ -167,8 +169,8 @@ static uint64_t demodulateFmData(__m128 *buf, const uint32_t len, float **result
 
     *result = calloc(len << 1, OUTPUT_ELEMENT_BYTES);
     for (i = 0, j = 0; i < len; ++i, j += 2) {
-        (*result)[j] = arg(_mm_mul_ps( buf[i], NEGATE_B_IM));
-        (*result)[j+1] = arg(_mm_mul_ps(_mm_blend_ps(buf[i], buf[i+1], 0b0011), NEGATE_B_IM));
+        (*result)[j] = arg(_mm_mul_ps(buf[i], NEGATE_B_IM));
+        (*result)[j + 1] = arg(_mm_mul_ps(_mm_blend_ps(buf[i], buf[i + 1], 0b0011), NEGATE_B_IM));
     }
 
     return j;
@@ -235,11 +237,11 @@ static inline int readFileData(struct readArgs *args) {
         args->buf[j++] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
 
         if (args->squelch) {
-            rms = _mm_mul_ps( args->buf[j],  args->buf[j]);
+            rms = _mm_mul_ps(args->buf[j], args->buf[j]);
             rms = _mm_mul_ps(HUNDREDTH,
-                             _mm_add_ps(rms, _mm_permute_ps(rms, _MM_SHUFFLE(2, 3, 0, 1))));
+                    _mm_add_ps(rms, _mm_permute_ps(rms, _MM_SHUFFLE(2, 3, 0, 1))));
             mask = _mm_cmp_ps(rms, *args->squelch, _CMP_GE_OQ);
-            args->buf[j] = _mm_and_ps( args->buf[j], mask);
+            args->buf[j] = _mm_and_ps(args->buf[j], mask);
         }
 
         if (!exitFlag && j >= args->len) {
@@ -267,7 +269,6 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-
         while ((opt = getopt(argc, argv, "r:i:o:d:f:s:")) != -1) {
             switch (opt) {
                 case 'r':
