@@ -92,11 +92,11 @@ __asm__(
     "ret\n\t"
 );
 
-static inline __m128 mm256Epi8convertmmPs(__m256i data) {
-
-    __m128i lo_lane = _mm256_castsi256_si128(data);
-    return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_cvtepi8_epi16(lo_lane)));
-}
+//static inline __m128 mm256Epi8convertmmPs(__m256i data) {
+//
+//    __m128i lo_lane = _mm256_castsi256_si128(data);
+//    return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_cvtepi8_epi16(lo_lane)));
+//}
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
@@ -183,89 +183,23 @@ static uint64_t demodulateFmData(__m128 *buf, const uint32_t len, float **result
     return j;
 }
 
-static uint64_t splitIntoRows(const uint8_t *buf, const uint64_t len, __m128 *result, __m128 *squelch) {
+static void checkFileStatus(FILE *file) {
 
-    uint64_t j = 0;
-    uint64_t i;
-    int64_t leftToProcess = len;
-    __m128 rms, mask;
-
-    union {
-        uint8_t buf[MATRIX_WIDTH];
-        __m256i v;
-    } z;
-
-    for (i = 0; leftToProcess > 0; i += MATRIX_WIDTH) {
-
-        memcpy(z.buf, buf + i, MATRIX_WIDTH);
-        result[j] = mm256Epi8convertmmPs(_mm256_sub_epi8(z.v, Z));
-
-        if (squelch) {
-            rms = _mm_mul_ps(result[j], result[j]);
-            rms = _mm_mul_ps(HUNDREDTH,
-                             _mm_add_ps(rms, _mm_permute_ps(rms, _MM_SHUFFLE(2, 3, 0, 1))));
-            mask = _mm_cmp_ps(rms, *squelch, _CMP_GE_OQ);
-            result[j] = _mm_and_ps(result[j], mask);
-        }
-        j++;
-        leftToProcess -= MATRIX_WIDTH;
+    if (ferror(file)) {
+        char errorMsg[256];
+        sprintf(errorMsg, "I/O error when reading file");
+        perror(errorMsg);
+        exitFlag = 1;
+    } else if (feof(file)) {
+        fprintf(stderr, "Exiting\n");
+        exitFlag = EOF;
     }
-
-    return j;
 }
 
-//static uint64_t processMatrix(__m128 *buf, const uint64_t len) {
-//
-////    uint64_t depth;
-////    uint64_t count = len & 3UL // len/MATRIX_WIDTH + (len % MATRIX_WIDTH != 0 ? 1 : 0))
-////                     ? (len >> LOG2_VECTOR_WIDTH) + 1UL
-////                     : (len >> LOG2_VECTOR_WIDTH);
-//
-////    *buff = calloc(count << 2, MATRIX_ELEMENT_BYTES);
-//
-////    depth = splitIntoRows(buf, len, *buff, squelch);
-//
-//
-//
-//    return len;
-//}
-
-static void handleFileError(FILE *file) {
-
-    char errorMsg[256];
-    int fileStatus = ferror(file) | feof(file);
-
-    switch (fileStatus) {
-        case 0:
-            break;
-        case 1:
-        default:
-            sprintf(errorMsg, "I/O error when reading file");
-            perror(errorMsg);
-        case EOF:
-            exitFlag = 1;
-            break;
-    }
-
-    exitFlag = fileStatus;
-}
-struct readArgs {
-    char *inFile;
-    char *outFileName;
-    uint8_t downsample;
-    uint8_t isRdc;
-    uint8_t isOt;
-    __m128 *squelch;
-    __m128 *buf;
-    uint64_t len;
-    FILE *outFile;
-};
-
-static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
+static void *runReadStreamData(void *ctx) {
 
     struct readArgs *args = ctx;
     uint64_t depth;
-//    __m128 *lowPassed;
     float *result;
 
     if (args->isRdc) {
@@ -279,7 +213,6 @@ static void *runReadStreamData(void *ctx) { // TODO pass struct of cmd line args
     depth = downSample(args->buf, args->len, args->downsample);
     depth = demodulateFmData(args->buf, depth, &result);
 
-    fprintf(stderr, "writing out!");
 
     fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
     free(result);
@@ -291,7 +224,7 @@ static inline int readFileData(struct readArgs *args) {
 
     union {
         uint8_t buf[MATRIX_WIDTH];
-        __m256i v;
+        __m64 v;
     } z;
 
     uint64_t j = 0;
@@ -299,25 +232,25 @@ static inline int readFileData(struct readArgs *args) {
 
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
-    args->len = DEFAULT_BUF_SIZE >> 2;
+    args->len = DEFAULT_BUF_SIZE;
     args->buf = calloc(args->len, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
-
 
     while (!exitFlag) {
 
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
-        handleFileError(inFile);
+        checkFileStatus(inFile);
 
-        args->buf[j++] = mm256Epi8convertmmPs(_mm256_sub_epi8(z.v, Z));
+        args->buf[j++] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
 
-        if (j >= args->len) {
+        if (!exitFlag && j >= args->len) {
+            args->len = j;
             pthread_create(&pid, NULL, runReadStreamData, args);
+            pthread_join(pid, NULL);
             j = 0;
         }
     }
 
-    pthread_join(pid, NULL);
     fclose(inFile);
     fclose(args->outFile);
     free(args->buf);
@@ -350,26 +283,24 @@ int main(int argc, char **argv) {
                     args.squelch = malloc(MATRIX_ELEMENT_BYTES);
                     *args.squelch = _mm_set1_ps(powf(10.f, atof(optarg) / 10.f));
                     break;
-#ifndef DEBUG
                 case 'i':
                     if (NULL == strstr(optarg, "-")) {
                         args.inFile = optarg;
                     } else {
-//                        freopen(NULL, "rb", stdin);
+                        freopen(NULL, "rb", stdin);
                     }
                     break;
                 case 'o':
                     if (NULL == strstr(optarg, "-")) {
                         args.outFileName = optarg;
                     } else {
-//                        freopen(NULL, "wb", stdout);
+                        freopen(NULL, "wb", stdout);
                     }
                     break;
-#endif
                 default:
                     break;
             }
         }
     }
-    return readFileData(&args);
+    return readFileData(&args) != EOF ? 1 : 0;
 }
