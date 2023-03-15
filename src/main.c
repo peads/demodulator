@@ -219,7 +219,8 @@ static inline int readFileData(struct readArgs *args) {
     } z;
 
     uint64_t j = 0;
-
+    __m128 mask;
+    __m128 rms;
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
     args->len = DEFAULT_BUF_SIZE;
@@ -232,6 +233,14 @@ static inline int readFileData(struct readArgs *args) {
         checkFileStatus(inFile);
 
         args->buf[j++] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
+
+        if (args->squelch) {
+            rms = _mm_mul_ps( args->buf[j],  args->buf[j]);
+            rms = _mm_mul_ps(HUNDREDTH,
+                             _mm_add_ps(rms, _mm_permute_ps(rms, _MM_SHUFFLE(2, 3, 0, 1))));
+            mask = _mm_cmp_ps(rms, *args->squelch, _CMP_GE_OQ);
+            args->buf[j] = _mm_and_ps( args->buf[j], mask);
+        }
 
         if (!exitFlag && j >= args->len) {
             args->len = j;

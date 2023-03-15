@@ -37,7 +37,7 @@
 // sizeof(__m128)
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
-#define DEFAULT_BUF_SIZE 4096
+#define DEFAULT_BUF_SIZE 1024
 
 union m128_f {
     float buf[4];
@@ -61,6 +61,7 @@ struct readArgs {
     FILE *outFile;
 };
 
+static const __m128 HUNDREDTH = {0.01f, 0.01f, 0.01f, 0.01f};
 static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
 static const __m64 Z = {0x7f7f7f7f7f7f7f7f}; // all 127s
 static const struct rotationMatrix CONJ_TRANSFORM = {
