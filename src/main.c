@@ -187,7 +187,7 @@ static void checkFileStatus(FILE *file) {
     }
 }
 
-static void *runReadStreamData(void *ctx) {
+static void *runProcessMatrix(void *ctx) {
 
     struct readArgs *args = ctx;
     uint64_t depth;
@@ -219,7 +219,7 @@ static inline int readFileData(struct readArgs *args) {
     } z;
 
     uint64_t j = 0;
-    pthread_t pid;
+//    pthread_t pid;
 
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
@@ -236,15 +236,19 @@ static inline int readFileData(struct readArgs *args) {
 
         if (!exitFlag && j >= args->len) {
             args->len = j;
-            pthread_create(&pid, NULL, runReadStreamData, args);
-            pthread_join(pid, NULL);
+            runProcessMatrix(args);
+//            pthread_create(&pid, NULL, runProcessMatrix, args);
             j = 0;
         }
     }
 
+//    pthread_join(pid, NULL);
     fclose(inFile);
     fclose(args->outFile);
     free(args->buf);
+    if (args->squelch) {
+        free(args->squelch);
+    }
 
     return exitFlag;
 }
