@@ -1,7 +1,7 @@
 /*
  * This file is part of the demodulator distribution
  * (https://github.com/peads/demodulator).
- * and code originally part of the misc_snippets distribution
+ * with code originally part of the misc_snippets distribution
  * (https://github.com/peads/misc_snippets).
  * Copyright (c) 2023 Patrick Eads.
  *
@@ -19,9 +19,6 @@
  */
 
 #include "demodulator.h"
-
-static uint8_t isRdc;
-static uint8_t isOffsetTuning;
 
 /**
  * Takes packed float representing the complex numbers
@@ -91,12 +88,6 @@ __asm__(
     "vpermilps $0x01, %xmm0, %xmm0\n\t"
     "ret\n\t"
 );
-
-//static inline __m128 mm256Epi8convertmmPs(__m256i data) {
-//
-//    __m128i lo_lane = _mm256_castsi256_si128(data);
-//    return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(_mm_cvtepi8_epi16(lo_lane)));
-//}
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.

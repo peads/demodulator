@@ -1,6 +1,22 @@
-//
-// Created by Patrick Eads on 3/14/23.
-//
+/*
+ * This file is part of the demodulator distribution
+ * (https://github.com/peads/demodulator).
+ * and code originally part of the misc_snippets distribution
+ * (https://github.com/peads/misc_snippets).
+ * Copyright (c) 2023 Patrick Eads.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef DEMODULATOR_DEMODULATOR_H
 #define DEMODULATOR_DEMODULATOR_H
@@ -22,11 +38,7 @@
 // sizeof(__m128)
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
-#define LOG2_VECTOR_WIDTH 2
-#define MAXIMUM_BUF_SIZE 8589934592
 #define DEFAULT_BUF_SIZE 1024
-//(MATRIX_WIDTH << 20)
-//1048576
 
 union m128_f {
     float buf[4];
@@ -50,21 +62,8 @@ struct readArgs {
     FILE *outFile;
 };
 
-//static const __m128 HUNDREDTH = {0.01f, 0.01f, 0.01f, 0.01f};
 static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
 static const __m64 Z = {0x7f7f7f7f7f7f7f7f}; // all 127s
-        //= {-127.f, -127.f, -127.f, -127.f};//{0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f};
-//static const __m128i FLOAT_ABS // all 0x7FFFFFFFUs
-//        = {9223372034707292159, 9223372034707292159};
-//static const struct rotationMatrix PI_OVER_TWO_ROTATION = {
-//        {0,-1,0,-1},
-//        {1,0,1,0}
-//};
-//
-//static const struct rotationMatrix THREE_PI_OVER_TWO_ROTATION = {
-//        {0,1, 0,1},
-//        {-1,0, -1,0}
-//};
 static const struct rotationMatrix CONJ_TRANSFORM = {
         {1, 0, 1, 0},
         {0, -1, 0, -1}
