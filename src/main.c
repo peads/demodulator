@@ -38,6 +38,8 @@ __asm__(
     ".quad 4765934306774482944\n\t"
 "LC3: "
     ".quad 0x40490fdb\n\t"
+"LC4: "
+    ".quad 4333543705419175690\n\t"
 ".text\n\t"
 
 #ifdef __clang__
@@ -87,6 +89,24 @@ __asm__(
 
     "vpermilps $0x01, %xmm0, %xmm0\n\t"
     "ret\n\t"
+);
+
+extern __m128 applySquelch(__m128 z, __m128 squelch);
+__asm__(
+#ifdef __clang__
+"_applySquelch: "
+#else
+"applySquelch: "
+#endif
+
+    "vmulps %xmm0, %xmm0, %xmm2\n\t"
+    "vpermilps $0xB1, %xmm2, %xmm3\n\t"
+    "vaddps %xmm2, %xmm3, %xmm2\n\t"
+    "vmovddup LC4(%rip), %xmm3\n\t"
+    "vmulps %xmm3, %xmm2, %xmm2\n\t"
+    "vcmpps $0x1D, %xmm1, %xmm2, %xmm2\n\t"
+    "vandps %xmm2, %xmm0, %xmm0\n\t"
+    "ret"
 );
 
 /**
@@ -213,7 +233,7 @@ static void *processMatrix(void *ctx) {
     return NULL;
 }
 
-static inline int readFileData(struct readArgs *args) {
+static int readFileData(struct readArgs *args) {
 
     union {
         uint8_t buf[MATRIX_WIDTH];
@@ -221,8 +241,6 @@ static inline int readFileData(struct readArgs *args) {
     } z;
 
     uint64_t j = 0;
-    __m128 mask;
-    __m128 rms;
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
     args->len = DEFAULT_BUF_SIZE;
@@ -234,15 +252,12 @@ static inline int readFileData(struct readArgs *args) {
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
 
-        args->buf[j++] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
+        args->buf[j] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
 
         if (args->squelch) {
-            rms = _mm_mul_ps(args->buf[j], args->buf[j]);
-            rms = _mm_mul_ps(HUNDREDTH,
-                    _mm_add_ps(rms, _mm_permute_ps(rms, _MM_SHUFFLE(2, 3, 0, 1))));
-            mask = _mm_cmp_ps(rms, *args->squelch, _CMP_GE_OQ);
-            args->buf[j] = _mm_and_ps(args->buf[j], mask);
+            args->buf[j] = applySquelch(args->buf[j], *args->squelch);
         }
+        j++;
 
         if (!exitFlag && j >= args->len) {
             args->len = j;
