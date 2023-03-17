@@ -136,32 +136,6 @@ __asm__(
     "ret"                                    // u3*a13 + u4*a14, u3*a23 + u4*a24
 );
 
-/**
- * Takes a 4x4 matrix and applies it to a 4x1 vector.
- * Here, it is used to apply the same rotation matrix to
- * two complex numbers. i.e., for the the matrix
- * T = {{a,b}, {c,d}} and two vectors {u1,u2} and {v1,v2}
- * concatenated, s.t. u = {u1,u2,v1,v2}, Tu =
- * {a*u1 + c*u1, b*u2 + d*u2, ... , b*v2 + d*v2}
- */
-//static __m128 apply4x4_4x1Transform(const struct rotationMatrix T, const __m128 u) {
-//
-//    __m128 temp, temp1;
-//
-//    temp = applyMat(T, u);
-//    temp = _mm_mul_ps(T.a1.v, u);
-//    temp1 = _mm_mul_ps(T.a2.v, u);
-//    // u1*a11, u2*a12, u3*a13, ...
-//    // u1*a21, u2*a22, ...
-//    // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
-//    // u1*a21 + u2*a22, ... , u3*a23 + u4*a24
-//    // u1*a11 + u2*a12, u1*a21 + u2*a22,
-//    // u3*a13 + u4*a14, u3*a23 + u4*a24
-//    return _mm_blend_ps(_mm_add_ps(temp, _mm_permute_ps(temp, _MM_SHUFFLE(2, 3, 0, 1))),
-//            _mm_add_ps(temp1, _mm_permute_ps(temp1, _MM_SHUFFLE(2, 3, 0, 1))),
-//            0xA); // A = 0000 1010 = 00 22 => _MM_SHUFFLE(0,0,2,2)
-//}
-
 static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
 
     const float cosT = cosf(theta);
