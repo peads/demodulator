@@ -108,7 +108,6 @@ __asm__(
     "ret"
 );
 
-
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to
@@ -126,8 +125,6 @@ __asm__(
 #endif
     "vmulps 16(%rdi), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
     "vmulps (%rdi), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
-//    "vmulps 24(%rsp), %xmm0, %xmm2\n\t"    // better than relying on whimsy of the
-//    "vmulps 8(%rsp), %xmm0, %xmm1\n\t"     // compiler on where the value is stored
     "vpermilps $0xB1, %xmm2, %xmm0\n\t"
     "vaddps %xmm2, %xmm0, %xmm2\n\t"         // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
     "vpermilps $0xB1, %xmm1, %xmm0\n\t"
