@@ -61,7 +61,7 @@ struct readArgs {
     FILE *outFile;
 };
 
-static const __m128 HUNDREDTH = {0.01f, 0.01f, 0.01f, 0.01f};
+static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
 static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
 static const __m64 Z = {0x7f7f7f7f7f7f7f7f}; // all 127s
 static const struct rotationMatrix CONJ_TRANSFORM = {

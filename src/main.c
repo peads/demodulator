@@ -117,17 +117,17 @@ __asm__(
  * concatenated, s.t. u = {u1,u2,v1,v2}, Tu =
  * {a*u1 + c*u1, b*u2 + d*u2, ... , b*v2 + d*v2}
  */
-extern __m128 apply4x4_4x1Transform(struct rotationMatrix T, __m128 u);
+extern __m128 apply4x4_4x1Transform(const struct rotationMatrix *T, __m128 u);
 __asm__(
 #ifdef __clang__
 "_apply4x4_4x1Transform: "
 #else
 "apply4x4_4x1Transform: "
 #endif
-//    "vmulps 16(%rax), %xmm0, %xmm2\n\t"
-//    "vmulps (%rax), %xmm0, %xmm1\n\t"
-    "vmulps 24(%rsp), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
-    "vmulps 8(%rsp), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
+    "vmulps 16(%rdi), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
+    "vmulps (%rdi), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
+//    "vmulps 24(%rsp), %xmm0, %xmm2\n\t"    // better than relying on whimsy of the
+//    "vmulps 8(%rsp), %xmm0, %xmm1\n\t"     // compiler on where the value is stored
     "vpermilps $0xB1, %xmm2, %xmm0\n\t"
     "vaddps %xmm2, %xmm0, %xmm2\n\t"         // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
     "vpermilps $0xB1, %xmm1, %xmm0\n\t"
@@ -142,8 +142,8 @@ static inline struct rotationMatrix generateRotationMatrix(const float theta, co
     const float sinP = sinf(phi);
 
     struct rotationMatrix result = {
-            .a1 = {cosT, -sinP, cosT, -sinP},
-            .a2 = {sinP, cosT, sinP, cosT}
+        .a1 = {cosT, -sinP, cosT, -sinP},
+        .a2 = {sinP, cosT, sinP, cosT}
     };
 
     return result;
@@ -165,13 +165,11 @@ static uint64_t downSample(__m128 *buf, uint32_t len, const uint8_t downsample) 
 
 static void removeDCSpike(__m128 *buf, const uint32_t len) {
 
-    static const __m128 ratio = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
     static __m128 dcAvgIq = {0, 0, 0, 0};
-
     uint64_t i;
 
     for (i = 0; i < len; ++i) {
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(ratio, _mm_sub_ps(buf[i], dcAvgIq)));
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i], dcAvgIq)));
         buf[i] = _mm_sub_ps(buf[i], dcAvgIq);
     }
 }
@@ -181,7 +179,7 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
     uint64_t i;
 
     for (i = 0; i < len; ++i) {
-        buf[i] = apply4x4_4x1Transform(CONJ_TRANSFORM, buf[i]);
+        buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
     }
 }
 
