@@ -124,10 +124,10 @@ __asm__(
 #else
 "apply4x4_4x1Transform: "
 #endif
-//    "vmulps 16(%rax), %xmm0, %xmm2\n\t"
-//    "vmulps (%rax), %xmm0, %xmm1\n\t"
-    "vmulps 24(%rsp), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
-    "vmulps 8(%rsp), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
+//    "vmulps 24(%rsp), %xmm0, %xmm2\n\t"
+//    "vmulps 8(%rsp), %xmm0, %xmm1\n\t"
+    "vmulps 16(%rdi), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
+    "vmulps (%rdi), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
     "vpermilps $0xB1, %xmm2, %xmm0\n\t"
     "vaddps %xmm2, %xmm0, %xmm2\n\t"         // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
     "vpermilps $0xB1, %xmm1, %xmm0\n\t"
