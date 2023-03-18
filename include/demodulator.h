@@ -39,14 +39,9 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-union m128_f {
-    float buf[4];
-    __m128 v;
-};
-
 struct rotationMatrix {
-    const union m128_f a1;
-    const union m128_f a2;
+    const __m128 a1;
+    const __m128 a2;
 };
 
 struct readArgs {
