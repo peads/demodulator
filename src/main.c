@@ -234,7 +234,7 @@ static int readFileData(struct readArgs *args) {
 
     union {
         uint8_t buf[MATRIX_WIDTH];
-        __m64 v;
+        __m128i v;
     } z;
 
     uint64_t j = 0;
@@ -249,7 +249,28 @@ static int readFileData(struct readArgs *args) {
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
 
-        args->buf[j] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));
+        //1000039be: 0f 6f 04 24                 	movq	(%rsp), %mm0
+        //1000039c2: 0f f8 44 24 08              	psubb	8(%rsp), %mm0
+        //1000039c7: 0f ef c9                    	pxor	%mm1, %mm1
+        //1000039ca: 0f 64 c8                    	pcmpgtb	%mm0, %mm1
+        //1000039cd: 0f 60 c1                    	punpcklbw	%mm1, %mm0
+        //1000039d0: 0f ef c9                    	pxor	%mm1, %mm1
+        //1000039d3: 0f 65 c8                    	pcmpgtw	%mm0, %mm1
+        //1000039d6: 0f 6f d0                    	movq	%mm0, %mm2
+        //1000039d9: 0f 69 d1                    	punpckhwd	%mm1, %mm2
+        //1000039dc: c5 f8 57 c0                 	vxorps	%xmm0, %xmm0, %xmm0
+        //1000039e0: 0f 2a c2                    	cvtpi2ps	%mm2, %xmm0
+        //1000039e3: c5 fb 12 c0                 	vmovddup	%xmm0, %xmm0
+        //1000039e7: 0f 61 c1                    	punpcklwd	%mm1, %mm0
+        //1000039ea: 0f 2a c0                    	cvtpi2ps	%mm0, %xmm0
+        /* all THAT for ` args->buf[j] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));`? good God clang, wtf? */
+
+        __asm__ (
+            "vpaddb _Z(%%rip), %1, %0\n\t"
+            "vpmovsxbw %0, %0\n\t"
+            "vpmovsxwd %0, %0\n\t"
+            "vcvtdq2ps %0, %0\n\t"
+        :"=x"(args->buf[j]):"x"(z.v));
 
         if (args->squelch) {
             args->buf[j] = applySquelch(args->buf[j], *args->squelch);
