@@ -29,17 +29,17 @@ extern float arg(__m128 z);
 __asm__(
 
 ".section:\n\t"
-    ".p2align 4\n\t"
-"LC0: "
-    ".quad 4791830004637892608\n\t"
-"LC1: "
-    ".quad 4735535009282654208\n\t"
-"LC2: "
-    ".quad 4765934306774482944\n\t"
-"LC3: "
+".p2align 4\n\t"
+//"LC0: " // 64
+//    ".quad 4791830004637892608\n\t"
+//"LC1: " // 23
+//    ".quad 4735535009282654208\n\t"
+//"LC2: " // 41
+//    ".quad 4765934306774482944\n\t"
+"PI: "
     ".quad 0x40490fdb\n\t"
-"LC4: "
-    ".quad 4333543705419175690\n\t"
+//"LC4: " // 0.1
+//    ".quad 4333543705419175690\n\t"
 ".text\n\t"
 
 #ifdef __clang__
@@ -65,7 +65,7 @@ __asm__(
     "vcomiss %xmm3, %xmm2\n\t"
     "jz zero\n\t"
     "ja showtime\n\t"
-    "vmovq LC3(%rip), %xmm0\n\t"
+    "vmovq PI(%rip), %xmm0\n\t"
     "ret \n\t"
 
 "zero: "
@@ -76,13 +76,10 @@ __asm__(
                                             //   = z/(1 + (9/32) z^2) for z = (64 y)/(23 x + 41 Sqrt[x^2 + y^2])
     "vrsqrtps %xmm1, %xmm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     "vmulps %xmm1, %xmm0, %xmm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
-    "movddup LC0(%rip), %xmm2\n\t"          // 64
-    "movddup LC1(%rip), %xmm3\n\t"          // 23
 
-    "vmulps %xmm2, %xmm0, %xmm2\n\t"        // 64*zj
-    "vmulps %xmm3, %xmm0, %xmm3\n\t"        // 23*zr
-    "movddup LC2(%rip), %xmm0\n\t"          // 41
-    "vaddps %xmm3, %xmm0, %xmm3\n\t"        // 23*zr + 41
+    "vmulps _ALL_64S(%rip), %xmm0, %xmm2\n\t"        // 64*zj
+    "vmulps _ALL_23S(%rip), %xmm0, %xmm3\n\t"        // 23*zr
+    "vaddps _ALL_41S(%rip), %xmm3, %xmm3\n\t"        // 23*zr + 41
     "vpermilps $0x1B, %xmm3, %xmm3\n\t"
     "vrcpps %xmm3, %xmm3\n\t"
     "vmulps %xmm3, %xmm2, %xmm0\n\t"
@@ -101,8 +98,7 @@ __asm__(
     "vmulps %xmm0, %xmm0, %xmm2\n\t"
     "vpermilps $0xB1, %xmm2, %xmm3\n\t"
     "vaddps %xmm2, %xmm3, %xmm2\n\t"
-    "vmovddup LC4(%rip), %xmm3\n\t"
-    "vmulps %xmm3, %xmm2, %xmm2\n\t"
+    "vmulps _ALL_HUNDREDTHS(%rip), %xmm2, %xmm2\n\t"
     "vcmpps $0x1D, %xmm1, %xmm2, %xmm2\n\t"
     "vandps %xmm2, %xmm0, %xmm0\n\t"
     "ret"
@@ -249,22 +245,6 @@ static int readFileData(struct readArgs *args) {
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
 
-        //1000039be: 0f 6f 04 24                 	movq	(%rsp), %mm0
-        //1000039c2: 0f f8 44 24 08              	psubb	8(%rsp), %mm0
-        //1000039c7: 0f ef c9                    	pxor	%mm1, %mm1
-        //1000039ca: 0f 64 c8                    	pcmpgtb	%mm0, %mm1
-        //1000039cd: 0f 60 c1                    	punpcklbw	%mm1, %mm0
-        //1000039d0: 0f ef c9                    	pxor	%mm1, %mm1
-        //1000039d3: 0f 65 c8                    	pcmpgtw	%mm0, %mm1
-        //1000039d6: 0f 6f d0                    	movq	%mm0, %mm2
-        //1000039d9: 0f 69 d1                    	punpckhwd	%mm1, %mm2
-        //1000039dc: c5 f8 57 c0                 	vxorps	%xmm0, %xmm0, %xmm0
-        //1000039e0: 0f 2a c2                    	cvtpi2ps	%mm2, %xmm0
-        //1000039e3: c5 fb 12 c0                 	vmovddup	%xmm0, %xmm0
-        //1000039e7: 0f 61 c1                    	punpcklwd	%mm1, %mm0
-        //1000039ea: 0f 2a c0                    	cvtpi2ps	%mm0, %xmm0
-        /* all THAT for ` args->buf[j] = _mm_cvtpi8_ps(_mm_sub_pi8(z.v, Z));`? good God clang, wtf? */
-
         __asm__ (
             "vpaddb _Z(%%rip), %1, %0\n\t"
             "vpmovsxbw %0, %0\n\t"
@@ -298,6 +278,7 @@ int main(int argc, char **argv) {
 
     static struct readArgs args;
     int opt;
+    int exitCode;
 
     if (argc < 3) {
         return -1;
@@ -319,14 +300,14 @@ int main(int argc, char **argv) {
                     *args.squelch = _mm_set1_ps(powf(10.f, atof(optarg) / 10.f));
                     break;
                 case 'i':
-                    if (NULL == strstr(optarg, "-")) {
+                    if (!strstr(optarg, "-")) {
                         args.inFile = optarg;
                     } else {
                         freopen(NULL, "rb", stdin);
                     }
                     break;
                 case 'o':
-                    if (NULL == strstr(optarg, "-")) {
+                    if (!strstr(optarg, "-")) {
                         args.outFileName = optarg;
                     } else {
                         freopen(NULL, "wb", stdout);
@@ -337,5 +318,8 @@ int main(int argc, char **argv) {
             }
         }
     }
-    return readFileData(&args) != EOF ? 1 : 0;
+
+    exitCode = readFileData(&args) != EOF ? 1 : 0;
+    fprintf(stderr, "%s\n", exitCode ? "Exiting with error" : "Exiting");
+    return exitCode;
 }

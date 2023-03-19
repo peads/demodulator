@@ -58,6 +58,15 @@ struct readArgs {
 
 static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
 static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
+
+//__attribute__((used)) static const uint64_t ALL_64S = 4791830004637892608;
+//__attribute__((used)) static const uint64_t ALL_41S = 4765934306774482944;
+//__attribute__((used)) static const uint64_t ALL_23S = 4735535009282654208;
+//__attribute__((used)) static const uint64_t ALL_HUNDREDTHS = 4333543705419175690;
+__attribute__((used)) static const __m128 ALL_64S = {64.f, 64.f, 64.f, 64.f};
+__attribute__((used)) static const __m128 ALL_41S = {41.f, 41.f, 41.f, 41.f};
+__attribute__((used)) static const __m128 ALL_23S = {23.f, 23.f, 23.f, 23.f};
+__attribute__((used)) static const __m128 ALL_HUNDREDTHS = {0.01f, 0.01f, 0.01f, 0.01f};
 __attribute__((used)) static const __m128i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f}; // all -127s
 static const struct rotationMatrix CONJ_TRANSFORM = {
         {1, 0, 1, 0},
