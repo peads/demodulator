@@ -57,8 +57,7 @@ struct readArgs {
 };
 
 static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
-static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
-
+__attribute__((used)) static const __m128 NEGATE_B_IM = {1.f,1.f,1.f,-1.f};
 __attribute__((used)) static const __m128 ALL_64S = {64.f, 64.f, 64.f, 64.f};
 __attribute__((used)) static const __m128 ALL_41S = {41.f, 41.f, 41.f, 41.f};
 __attribute__((used)) static const __m128 ALL_23S = {23.f, 23.f, 23.f, 23.f};

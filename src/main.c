@@ -40,6 +40,7 @@ __asm__(
 "arg: "
 #endif
     "vpxor %xmm3, %xmm3, %xmm3\n\t"         // store zero
+    "vmulps _NEGATE_B_IM(%rip), %xmm0, %xmm0\n\t" // (ar, aj, br, -bj)
     "vpermilps $0xEB, %xmm0, %xmm1\n\t"     // (ar, aj, br, bj) => (aj, aj, ar, ar)
     "vpermilps $0x5, %xmm0, %xmm0\n\t"      // and                 (bj, br, br, bj)
 
@@ -174,8 +175,8 @@ static uint64_t demodulateFmData(__m128 *buf, const uint32_t len, float **result
 
     *result = calloc(len << 1, OUTPUT_ELEMENT_BYTES);
     for (i = 0, j = 0; i < len; ++i, j += 2) {
-        (*result)[j] = arg(_mm_mul_ps(buf[i], NEGATE_B_IM));
-        (*result)[j + 1] = arg(_mm_mul_ps(_mm_blend_ps(buf[i], buf[i + 1], 0b0011), NEGATE_B_IM));
+        (*result)[j] = arg(buf[i]);
+        (*result)[j + 1] = arg(_mm_blend_ps(buf[i], buf[i + 1], 0b0011));
     }
 
     return j;
