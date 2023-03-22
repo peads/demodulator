@@ -134,12 +134,12 @@ static inline struct rotationMatrix generateRotationMatrix(const float theta, co
 
     return result;
 }
-extern uint64_t add(__m128 *buf, uint64_t len, uint8_t downsample);
+extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 __asm__(
 #ifdef __clang__
-"_add: "
+"_filter: "
 #else
-"add: "
+"filter: "
 #endif
     "movq %rdx, %r8\n\t"
     "negq %r8\n\t"
@@ -148,14 +148,11 @@ __asm__(
 "L2: "
     "movq %rax, %rcx\n\t"
     "shlq $4, %rcx\n\t"
-    "addq %rdi, %rcx\n\t"
-    "vpermilps $0x4E, (%rcx), %xmm0\n\t"
-    "vaddps (%rcx), %xmm0, %xmm0\n\t"
-    "movq %rax, %rcx\n\t"               // TODO do this math on paper to simplify
-    "shrq $1, %rcx\n\t"
+    "vpermilps $0x4E, (%rdi, %rcx), %xmm0\n\t"
+    "vaddps (%rdi, %rcx), %xmm0, %xmm0\n\t"
+    "shrq $5, %rcx\n\t"
     "shlq $4, %rcx\n\t"
-    "addq %rdi, %rcx\n\t"
-    "vmovaps %xmm0, (%rcx)\n\t"
+    "vmovaps %xmm0, (%rdi, %rcx)\n\t"
     "addq $1, %rax\n\t"
     "cmp %rsi, %rax\n\t"
     "jl L2\n\t"
@@ -167,19 +164,6 @@ __asm__(
     "shr %cl, %rax\n\t"
     "ret"
 );
-static uint64_t downSample(__m128 *buf, uint32_t len, const uint8_t downsample) {
-
-    uint64_t i, j;
-
-    for (j = 0; j < downsample; ++j) {
-        for (i = 0; i < len; ++i) {
-            buf[i >> 1] = _mm_add_ps(buf[i], _mm_permute_ps(buf[i],
-                    _MM_SHUFFLE(1, 0, 3, 2)));
-        }
-    }
-
-    return len >> downsample;
-}
 
 static void removeDCSpike(__m128 *buf, const uint32_t len) {
 
@@ -241,7 +225,7 @@ static void *processMatrix(void *ctx) {
         rotateForNonOffsetTuning(args->buf, args->len);
     }
 
-    depth = add(args->buf, args->len, args->downsample);
+    depth = filter(args->buf, args->len, args->downsample);
     depth = demodulateFmData(args->buf, depth, &result);
 
 
