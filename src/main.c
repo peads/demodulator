@@ -170,9 +170,30 @@ static void removeDCSpike(__m128 *buf, const uint32_t len) {
     static __m128 dcAvgIq = {0, 0, 0, 0};
     uint64_t i;
 
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < len; i += 8) {
         dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i], dcAvgIq)));
         buf[i] = _mm_sub_ps(buf[i], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 1], dcAvgIq)));
+        buf[i + 1] = _mm_sub_ps(buf[i + 1], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 2], dcAvgIq)));
+        buf[i + 2] = _mm_sub_ps(buf[i + 2], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 3], dcAvgIq)));
+        buf[i + 3] = _mm_sub_ps(buf[i + 3], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 4], dcAvgIq)));
+        buf[i + 4] = _mm_sub_ps(buf[i + 4], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 5], dcAvgIq)));
+        buf[i + 5] = _mm_sub_ps(buf[i + 5], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 6], dcAvgIq)));
+        buf[i + 6] = _mm_sub_ps(buf[i + 6], dcAvgIq);
+
+        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 7], dcAvgIq)));
+        buf[i + 7] = _mm_sub_ps(buf[i + 7], dcAvgIq);
     }
 }
 
@@ -180,19 +201,78 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
 
     uint64_t i;
 
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < len; i += 16) {
         buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
+        buf[i + 1] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 1]);
+        buf[i + 2] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 2]);
+        buf[i + 3] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 3]);
+        buf[i + 4] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 4]);
+        buf[i + 5] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 5]);
+        buf[i + 6] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 6]);
+        buf[i + 7] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 7]);
+        buf[i + 8] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 8]);
+        buf[i + 9] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 9]);
+        buf[i + 10] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 10]);
+        buf[i + 11] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 11]);
+        buf[i + 12] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 12]);
+        buf[i + 13] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 13]);
+        buf[i + 14] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 14]);
+        buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
 }
 
-static uint64_t demodulateFmData(__m128 *buf, const uint32_t len, float **result) {
+static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, float *result) {
 
     uint64_t i, j;
 
-    *result = calloc(len << 1, OUTPUT_ELEMENT_BYTES);
-    for (i = 0, j = 0; i < len; ++i, j += 2) {
-        (*result)[j] = arg(buf[i]);
-        (*result)[j + 1] = arg(_mm_blend_ps(buf[i], buf[i + 1], 0b0011));
+    for (i = 0, j = 0; i < len; i += 16, j += 32) {
+        result[j] = arg(buf[i]);
+        result[j + 1] = arg(_mm_blend_ps(buf[i], buf[i + 1], 0b0011));
+
+        result[j + 2] = arg(buf[i+1]);
+        result[j + 3] = arg(_mm_blend_ps(buf[i + 1], buf[i + 2], 0b0011));
+
+        result[j + 4] = arg(buf[i+2]);
+        result[j + 5] = arg(_mm_blend_ps(buf[i + 2], buf[i + 3], 0b0011));
+
+        result[j + 6] = arg(buf[i+3]);
+        result[j + 7] = arg(_mm_blend_ps(buf[i + 3], buf[i + 4], 0b0011));
+
+        result[j + 8] = arg(buf[i+4]);
+        result[j + 9] = arg(_mm_blend_ps(buf[i + 4], buf[i + 5], 0b0011));
+
+        result[j + 10] = arg(buf[i+5]);
+        result[j + 11] = arg(_mm_blend_ps(buf[i + 5], buf[i + 6], 0b0011));
+
+        result[j + 12] = arg(buf[i+6]);
+        result[j + 13] = arg(_mm_blend_ps(buf[i + 6], buf[i + 7], 0b0011));
+
+        result[j + 14] = arg(buf[i+7]);
+        result[j + 15] = arg(_mm_blend_ps(buf[i + 7], buf[i + 8], 0b0011));
+
+        result[j + 16] = arg(buf[i+8]);
+        result[j + 17] = arg(_mm_blend_ps(buf[i + 8], buf[i + 9], 0b0011));
+
+        result[j + 18] = arg(buf[i+9]);
+        result[j + 19] = arg(_mm_blend_ps(buf[i + 9], buf[i + 10], 0b0011));
+
+        result[j + 20] = arg(buf[i+10]);
+        result[j + 21] = arg(_mm_blend_ps(buf[i + 10], buf[i + 11], 0b0011));
+
+        result[j + 22] = arg(buf[i+11]);
+        result[j + 23] = arg(_mm_blend_ps(buf[i + 11], buf[i + 12], 0b0011));
+
+        result[j + 24] = arg(buf[i+12]);
+        result[j + 25] = arg(_mm_blend_ps(buf[i + 12], buf[i + 13], 0b0011));
+
+        result[j + 26] = arg(buf[i+13]);
+        result[j + 27] = arg(_mm_blend_ps(buf[i + 13], buf[i + 14], 0b0011));
+
+        result[j + 28] = arg(buf[i+14]);
+        result[j + 29] = arg(_mm_blend_ps(buf[i + 14], buf[i + 15], 0b0011));
+
+        result[j + 30] = arg(buf[i+15]);
+        result[j + 31] = arg(_mm_blend_ps(buf[i + 15], buf[i + 16], 0b0011));
     }
 
     return j;
@@ -226,7 +306,8 @@ static void *processMatrix(void *ctx) {
     }
 
     depth = filter(args->buf, args->len, args->downsample);
-    depth = demodulateFmData(args->buf, depth, &result);
+    result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES);
+    depth = demodulateFmData(args->buf, depth, result);
 
 
     fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
