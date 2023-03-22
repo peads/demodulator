@@ -141,9 +141,12 @@ __asm__(
 #else
 "add: "
 #endif
+    "movq %rdx, %r8\n\t"
+    "negq %r8\n\t"
+"L1: "
     "xorq %rax, %rax\n\t"
 "L2: "
-    "movq %rax, %rcx\n\t"               // TODO implement outer, downsampling loop
+    "movq %rax, %rcx\n\t"
     "shlq $4, %rcx\n\t"
     "addq %rdi, %rcx\n\t"
     "vpermilps $0x4E, (%rcx), %xmm0\n\t"
@@ -156,6 +159,8 @@ __asm__(
     "addq $1, %rax\n\t"
     "cmp %rsi, %rax\n\t"
     "jl L2\n\t"
+    "addq $1, %r8\n\t"
+    "jl L1\n\t"
 
     "movq %rdx, %rcx\n\t"
     "movq %rsi, %rax\n\t"
