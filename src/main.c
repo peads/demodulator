@@ -410,6 +410,6 @@ int main(int argc, char **argv) {
     }
 
     exitCode = readFileData(&args) != EOF ? 1 : 0;
-    fprintf(stderr, "%s\n", exitCode ? "Exiting with error" : "Exiting");
+    fprintf(stderr, "%s\n", exitCode ? "Exited with error" : "Exited");
     return exitCode;
 }
