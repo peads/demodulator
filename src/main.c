@@ -325,13 +325,13 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "r:i:o:d:f:s:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:d:s:rf")) != -1) {
             switch (opt) {
                 case 'r':
-                    args.isRdc = atoi(optarg);
+                    args.isRdc = 1;
                     break;
                 case 'f':
-                    args.isOt = atoi(optarg);
+                    args.isOt = 1;
                     break;
                 case 'd':
                     args.downsample = atoi(optarg);
