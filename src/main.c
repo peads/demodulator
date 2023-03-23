@@ -20,9 +20,27 @@
 
 #include "demodulator.h"
 
-extern uint64_t foo(__m128 a, __m128 b);
+/**
+ * Takes packed floats representing two sets of complex numbers
+ * of the form (ar + iaj), (br + ibj), s.t. z = {ar, aj, br, bj}
+ * and returns the arguments of the phasors (i.e. Arg[(ar + iaj).(br + ibj)])
+ * as a--effectively--a packed float. TODO doesn't account for special cases,
+ * but also doesn't seem to negatively affect demodulation, strangely. Should
+ * probably start handling those two cases again, eventually.
+ **/
+extern uint64_t arg(__m128 a, __m128 b);
 __asm__(
-"_foo: "
+".section:\n\t"
+".p2align 4\n\t"
+"PI: "
+    ".quad 0x40490fdb\n\t"
+".text\n\t"
+
+#ifdef __clang__
+"_arg: "
+#else
+"arg: "
+#endif
 //    "vpxor %ymm3, %ymm3, %ymm3\n\t"         // store zero
 
     "vblendps $0b0011, %xmm1, %xmm0, %xmm1\n\t"
@@ -58,67 +76,6 @@ __asm__(
     "vpermilps $1, %ymm0, %ymm0\n\t"
     "vblendps $1, %xmm0, %xmm1, %xmm0\n\t"
     "vmovq %xmm0, %rax\n\t"
-    "ret\n\t"
-);
-
-/**
- * Takes packed float representing the complex numbers
- * (ar + iaj), (br + ibj), s.t. z = {ar, aj, br, bj}
- * and returns their argument as a float
- **/
-extern float arg(__m128 z);
-__asm__(
-
-".section:\n\t"
-".p2align 4\n\t"
-"PI: "
-    ".quad 0x40490fdb\n\t"
-".text\n\t"
-
-#ifdef __clang__
-"_arg: "
-#else
-"arg: "
-#endif
-    "vpxor %xmm3, %xmm3, %xmm3\n\t"         // store zero
-    "vmulps _NEGATE_B_IM(%rip), %xmm0, %xmm0\n\t" // (ar, aj, br, -bj)
-    "vpermilps $0xEB, %xmm0, %xmm1\n\t"     // (ar, aj, br, bj) => (aj, aj, ar, ar)
-    "vpermilps $0x5, %xmm0, %xmm0\n\t"      // and                 (bj, br, br, bj)
-
-    "vmulps %xmm1, %xmm0, %xmm0\n\t"        // aj*bj, aj*br, ar*br, ar*bj
-    "vpermilps $0x8D, %xmm0, %xmm2\n\t"     // aj*br, aj*bj, ar*bj, ar*br
-    "vaddsubps %xmm2, %xmm0, %xmm0\n\t"     //  ... [don't care], ar*bj + aj*br, ar*br - aj*bj, [don't care] ...
-    "vmulps %xmm0, %xmm0, %xmm1\n\t"        // ... , (ar*bj + aj*br)^2, (ar*br - aj*bj)^2, ...
-    "vpermilps $0x1B, %xmm1, %xmm2\n\t"
-    "vaddps %xmm2, %xmm1, %xmm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
-
-    "vpermilps $0x01, %xmm0, %xmm2\n\t"
-    "vcomiss %xmm2, %xmm3\n\t"
-    "jnz showtime\n\t"
-    "vpermilps $0x02, %xmm0, %xmm2\n\t"
-    "vcomiss %xmm3, %xmm2\n\t"
-    "jz zero\n\t"
-    "ja showtime\n\t"
-    "vmovq PI(%rip), %xmm0\n\t"
-    "ret \n\t"
-
-"zero: "
-    "vmovq %xmm3,%xmm0\n\t"
-    "ret\n\t"
-
-"showtime: "                                // approximating atan2 with atan(z)
-                                            //   = z/(1 + (9/32) z^2) for z = (64 y)/(23 x + 41 Sqrt[x^2 + y^2])
-    "vrsqrtps %xmm1, %xmm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
-    "vmulps %xmm1, %xmm0, %xmm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
-
-    "vmulps _ALL_64S(%rip), %xmm0, %xmm2\n\t"        // 64*zj
-    "vmulps _ALL_23S(%rip), %xmm0, %xmm3\n\t"        // 23*zr
-    "vaddps _ALL_41S(%rip), %xmm3, %xmm3\n\t"        // 23*zr + 41
-    "vpermilps $0x1B, %xmm3, %xmm3\n\t"
-    "vrcpps %xmm3, %xmm3\n\t"
-    "vmulps %xmm3, %xmm2, %xmm0\n\t"
-
-    "vpermilps $0x01, %xmm0, %xmm0\n\t"
     "ret\n\t"
 );
 
@@ -246,7 +203,7 @@ static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, float *result)
 
     for (i = 0, j = 0; i < len; ++i, j += 2) {
 
-        ret = foo(buf[i], buf[i+1]);
+        ret = arg(buf[i], buf[i+1]);
         memcpy(result + j, &ret, OUTPUT_ELEMENT_BYTES << 1);
     }
 
