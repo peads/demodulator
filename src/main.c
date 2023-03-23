@@ -81,22 +81,6 @@ __asm__(
     "ret\n\t"
 );
 
-extern __m128 applySquelch(__m128 z, __m128 squelch);
-__asm__(
-#ifdef __clang__
-"_applySquelch: "
-#else
-"applySquelch: "
-#endif
-    "vmulps %xmm0, %xmm0, %xmm2\n\t"
-    "vpermilps $0xB1, %xmm2, %xmm3\n\t"
-    "vaddps %xmm2, %xmm3, %xmm2\n\t"
-    "vmulps _ALL_HUNDREDTHS(%rip), %xmm2, %xmm2\n\t"
-    "vcmpps $0x1D, %xmm1, %xmm2, %xmm2\n\t"
-    "vandps %xmm2, %xmm0, %xmm0\n\t"
-    "ret"
-);
-
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to
@@ -134,6 +118,7 @@ static inline struct rotationMatrix generateRotationMatrix(const float theta, co
 
     return result;
 }
+
 extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 __asm__(
 #ifdef __clang__
@@ -170,30 +155,24 @@ static void removeDCSpike(__m128 *buf, const uint32_t len) {
     static __m128 dcAvgIq = {0, 0, 0, 0};
     uint64_t i;
 
-    for (i = 0; i < len; i += 8) {
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i], dcAvgIq)));
-        buf[i] = _mm_sub_ps(buf[i], dcAvgIq);
+    for (i = 0; i < len; i += 16) {
 
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 1], dcAvgIq)));
-        buf[i + 1] = _mm_sub_ps(buf[i + 1], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 2], dcAvgIq)));
-        buf[i + 2] = _mm_sub_ps(buf[i + 2], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 3], dcAvgIq)));
-        buf[i + 3] = _mm_sub_ps(buf[i + 3], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 4], dcAvgIq)));
-        buf[i + 4] = _mm_sub_ps(buf[i + 4], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 5], dcAvgIq)));
-        buf[i + 5] = _mm_sub_ps(buf[i + 5], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 6], dcAvgIq)));
-        buf[i + 6] = _mm_sub_ps(buf[i + 6], dcAvgIq);
-
-        dcAvgIq = _mm_add_ps(dcAvgIq, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(buf[i + 7], dcAvgIq)));
-        buf[i + 7] = _mm_sub_ps(buf[i + 7], dcAvgIq);
+        PERFORM_DESPIKE(dcAvgIq, buf, i)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 1)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 2)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 3)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 4)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 5)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 6)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 7)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 8)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 9)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 10)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 11)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 12)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 13)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 14)
+        PERFORM_DESPIKE(dcAvgIq, buf, i + 15)
     }
 }
 
@@ -226,53 +205,23 @@ static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, float *result)
     uint64_t i, j;
 
     for (i = 0, j = 0; i < len; i += 16, j += 32) {
-        result[j] = arg(buf[i]);
-        result[j + 1] = arg(_mm_blend_ps(buf[i], buf[i + 1], 0b0011));
 
-        result[j + 2] = arg(buf[i+1]);
-        result[j + 3] = arg(_mm_blend_ps(buf[i + 1], buf[i + 2], 0b0011));
-
-        result[j + 4] = arg(buf[i+2]);
-        result[j + 5] = arg(_mm_blend_ps(buf[i + 2], buf[i + 3], 0b0011));
-
-        result[j + 6] = arg(buf[i+3]);
-        result[j + 7] = arg(_mm_blend_ps(buf[i + 3], buf[i + 4], 0b0011));
-
-        result[j + 8] = arg(buf[i+4]);
-        result[j + 9] = arg(_mm_blend_ps(buf[i + 4], buf[i + 5], 0b0011));
-
-        result[j + 10] = arg(buf[i+5]);
-        result[j + 11] = arg(_mm_blend_ps(buf[i + 5], buf[i + 6], 0b0011));
-
-        result[j + 12] = arg(buf[i+6]);
-        result[j + 13] = arg(_mm_blend_ps(buf[i + 6], buf[i + 7], 0b0011));
-
-        result[j + 14] = arg(buf[i+7]);
-        result[j + 15] = arg(_mm_blend_ps(buf[i + 7], buf[i + 8], 0b0011));
-
-        result[j + 16] = arg(buf[i+8]);
-        result[j + 17] = arg(_mm_blend_ps(buf[i + 8], buf[i + 9], 0b0011));
-
-        result[j + 18] = arg(buf[i+9]);
-        result[j + 19] = arg(_mm_blend_ps(buf[i + 9], buf[i + 10], 0b0011));
-
-        result[j + 20] = arg(buf[i+10]);
-        result[j + 21] = arg(_mm_blend_ps(buf[i + 10], buf[i + 11], 0b0011));
-
-        result[j + 22] = arg(buf[i+11]);
-        result[j + 23] = arg(_mm_blend_ps(buf[i + 11], buf[i + 12], 0b0011));
-
-        result[j + 24] = arg(buf[i+12]);
-        result[j + 25] = arg(_mm_blend_ps(buf[i + 12], buf[i + 13], 0b0011));
-
-        result[j + 26] = arg(buf[i+13]);
-        result[j + 27] = arg(_mm_blend_ps(buf[i + 13], buf[i + 14], 0b0011));
-
-        result[j + 28] = arg(buf[i+14]);
-        result[j + 29] = arg(_mm_blend_ps(buf[i + 14], buf[i + 15], 0b0011));
-
-        result[j + 30] = arg(buf[i+15]);
-        result[j + 31] = arg(_mm_blend_ps(buf[i + 15], buf[i + 16], 0b0011));
+        PERFORM_DEMOD(result, buf, i, j)
+        PERFORM_DEMOD(result, buf, i + 1, j + 2)
+        PERFORM_DEMOD(result, buf, i + 2, j + 4)
+        PERFORM_DEMOD(result, buf, i + 3, j + 6)
+        PERFORM_DEMOD(result, buf, i + 4, j + 8)
+        PERFORM_DEMOD(result, buf, i + 5, j + 10)
+        PERFORM_DEMOD(result, buf, i + 6, j + 12)
+        PERFORM_DEMOD(result, buf, i + 7, j + 14)
+        PERFORM_DEMOD(result, buf, i + 8, j + 16)
+        PERFORM_DEMOD(result, buf, i + 9, j + 18)
+        PERFORM_DEMOD(result, buf, i + 10, j + 20)
+        PERFORM_DEMOD(result, buf, i + 11, j + 22)
+        PERFORM_DEMOD(result, buf, i + 12, j + 24)
+        PERFORM_DEMOD(result, buf, i + 13, j + 26)
+        PERFORM_DEMOD(result, buf, i + 14, j + 28)
+        PERFORM_DEMOD(result, buf, i + 15, j + 30)
     }
 
     return j;
@@ -282,18 +231,17 @@ static void checkFileStatus(FILE *file) {
 
     if (ferror(file)) {
         char errorMsg[256];
-        sprintf(errorMsg, "I/O error when reading file");
+        sprintf(errorMsg, "\nI/O error when reading file");
         perror(errorMsg);
         exitFlag = 1;
     } else if (feof(file)) {
-        fprintf(stderr, "Exiting\n");
+        fprintf(stderr, "\nExiting\n");
         exitFlag = EOF;
     }
 }
 
-static void *processMatrix(void *ctx) {
-
-    struct readArgs *args = ctx;
+static void *processMatrix(struct readArgs *args) {
+    
     uint64_t depth;
     float *result;
 
@@ -340,12 +288,16 @@ static int readFileData(struct readArgs *args) {
             "vpmovsxbw %0, %0\n\t"
             "vpmovsxwd %0, %0\n\t"
             "vcvtdq2ps %0, %0\n\t"
-        :"=x"(args->buf[j]):"x"(z.v));
-
-        if (args->squelch) {
-            args->buf[j] = applySquelch(args->buf[j], *args->squelch);
-        }
-        j++;
+            "orq %2, %2\n\t"
+            "jz nosquelch\n\t"
+            "vmulps %0, %0, %%xmm2\n\t"
+            "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
+            "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
+            "vmulps _ALL_HUNDREDTHS(%%rip), %%xmm2, %%xmm2\n\t"
+            "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
+            "vandps %%xmm2, %0, %0\n\t"
+        "nosquelch: "
+        :"=x"(args->buf[j++]):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
 
         if (!exitFlag && j >= args->len) {
             args->len = j;

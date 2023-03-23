@@ -39,6 +39,14 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
+#define PERFORM_DESPIKE(AVG, RESULT, IDX) \
+    AVG = _mm_add_ps(AVG, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(RESULT[IDX], AVG))); \
+    RESULT[IDX] = _mm_sub_ps(RESULT[IDX], AVG);
+
+#define PERFORM_DEMOD(RESULT, BUF, IDX, JDX) \
+    RESULT[JDX] = arg(BUF[IDX]); \
+    RESULT[JDX + 1] = arg(_mm_blend_ps(BUF[IDX], BUF[IDX + 1], 0b0011));
+
 struct rotationMatrix {
     const __m128 a1;
     const __m128 a2;
