@@ -20,6 +20,46 @@
 
 #include "demodulator.h"
 
+extern __m256 foo(__m128 a, __m128 b);
+__asm__(
+"_foo: "
+    "vpxor %ymm3, %ymm3, %ymm3\n\t"         // store zero
+
+    "vblendps $0b0011, %xmm0, %xmm1, %xmm1\n\t"
+    "vinsertf128 $1, %xmm1, %ymm0, %ymm0\n\t"
+    "vmulps _NEGATE_B_IM(%rip), %ymm0, %ymm0\n\t" // (ar, aj, br, -bj)
+
+    "vpermilps $0xEB, %ymm0, %ymm1\n\t"     // (ar, aj, br, bj) => (aj, aj, ar, ar)
+    "vpermilps $0x5, %ymm0, %ymm0\n\t"      // and                 (bj, br, br, bj)
+
+    "vmulps %ymm1, %ymm0, %ymm0\n\t"        // aj*bj, aj*br, ar*br, ar*bj
+    "vpermilps $0x8D, %ymm0, %ymm2\n\t"     // aj*br, aj*bj, ar*bj, ar*br
+    "vaddsubps %ymm2, %ymm0, %ymm0\n\t"     //  ... [don't care], ar*bj + aj*br, ar*br - aj*bj, [don't care] ...
+    "vmulps %ymm0, %ymm0, %ymm1\n\t"        // ... , (ar*bj + aj*br)^2, (ar*br - aj*bj)^2, ...
+    "vpermilps $0x1B, %ymm1, %ymm2\n\t"
+    "vaddps %ymm2, %ymm1, %ymm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
+
+    // "vcmpps $0xC, %ymm3, %ymm0, %ymm5\n\t" // TODO store mask more permanently
+                                              // broadcast the salient value and
+                                              // "and" it with the result later?
+
+"gotime: "
+    "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
+    "vmulps %ymm1, %ymm0, %ymm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
+
+    "vmulps _ALL_64S(%rip), %ymm0, %ymm2\n\t"        // 64*zj
+    "vmulps _ALL_23S(%rip), %ymm0, %ymm3\n\t"        // 23*zr
+    "vaddps _ALL_41S(%rip), %ymm3, %ymm3\n\t"        // 23*zr + 41
+    "vpermilps $0x1B, %ymm3, %ymm3\n\t"
+    "vrcpps %ymm3, %ymm3\n\t"
+    "vmulps %ymm3, %ymm2, %ymm0\n\t"
+
+    "vextractf128 $1, %ymm0, %xmm1\n\t"
+    "vpermilps $1, %ymm0, %ymm0\n\t"
+    "vblendps $1, %xmm0, %xmm1, %xmm0\n\t"
+    "ret\n\t"
+);
+
 /**
  * Takes packed float representing the complex numbers
  * (ar + iaj), (br + ibj), s.t. z = {ar, aj, br, bj}
