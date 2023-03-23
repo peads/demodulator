@@ -197,17 +197,15 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
         buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
 }
-static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, float *result) {
+static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, uint64_t *result) {
 
-    uint64_t i, j, ret;
+    uint64_t i;
 
-    for (i = 0, j = 0; i < len; ++i, j += 2) {
-
-        ret = arg(buf[i], buf[i+1]);
-        memcpy(result + j, &ret, OUTPUT_ELEMENT_BYTES << 1);
+    for (i = 0; i < len; ++i) {
+        result[i] = arg(buf[i], buf[i+1]);
     }
 
-    return j;
+    return len << 1;
 }
 
 static void checkFileStatus(FILE *file) {
@@ -226,7 +224,7 @@ static void checkFileStatus(FILE *file) {
 static void *processMatrix(struct readArgs *args) {
     
     uint64_t depth;
-    float *result;
+    uint64_t *result;
 
     if (args->isRdc) {
         removeDCSpike(args->buf, args->len);
