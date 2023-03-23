@@ -20,12 +20,12 @@
 
 #include "demodulator.h"
 
-extern __m256 foo(__m128 a, __m128 b);
+extern uint64_t foo(__m128 a, __m128 b);
 __asm__(
 "_foo: "
-    "vpxor %ymm3, %ymm3, %ymm3\n\t"         // store zero
+//    "vpxor %ymm3, %ymm3, %ymm3\n\t"         // store zero
 
-    "vblendps $0b0011, %xmm0, %xmm1, %xmm1\n\t"
+    "vblendps $0b0011, %xmm1, %xmm0, %xmm1\n\t"
     "vinsertf128 $1, %xmm1, %ymm0, %ymm0\n\t"
     "vmulps _NEGATE_B_IM(%rip), %ymm0, %ymm0\n\t" // (ar, aj, br, -bj)
 
@@ -57,6 +57,7 @@ __asm__(
     "vextractf128 $1, %ymm0, %xmm1\n\t"
     "vpermilps $1, %ymm0, %ymm0\n\t"
     "vblendps $1, %xmm0, %xmm1, %xmm0\n\t"
+    "vmovq %xmm0, %rax\n\t"
     "ret\n\t"
 );
 
@@ -239,29 +240,14 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
         buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
 }
-
 static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, float *result) {
 
-    uint64_t i, j;
+    uint64_t i, j, ret;
 
-    for (i = 0, j = 0; i < len; i += 16, j += 32) {
+    for (i = 0, j = 0; i < len; ++i, j += 2) {
 
-        PERFORM_DEMOD(result, buf, i, j)
-        PERFORM_DEMOD(result, buf, i + 1, j + 2)
-        PERFORM_DEMOD(result, buf, i + 2, j + 4)
-        PERFORM_DEMOD(result, buf, i + 3, j + 6)
-        PERFORM_DEMOD(result, buf, i + 4, j + 8)
-        PERFORM_DEMOD(result, buf, i + 5, j + 10)
-        PERFORM_DEMOD(result, buf, i + 6, j + 12)
-        PERFORM_DEMOD(result, buf, i + 7, j + 14)
-        PERFORM_DEMOD(result, buf, i + 8, j + 16)
-        PERFORM_DEMOD(result, buf, i + 9, j + 18)
-        PERFORM_DEMOD(result, buf, i + 10, j + 20)
-        PERFORM_DEMOD(result, buf, i + 11, j + 22)
-        PERFORM_DEMOD(result, buf, i + 12, j + 24)
-        PERFORM_DEMOD(result, buf, i + 13, j + 26)
-        PERFORM_DEMOD(result, buf, i + 14, j + 28)
-        PERFORM_DEMOD(result, buf, i + 15, j + 30)
+        ret = foo(buf[i], buf[i+1]);
+        memcpy(result + j, &ret, OUTPUT_ELEMENT_BYTES << 1);
     }
 
     return j;
