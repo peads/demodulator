@@ -219,12 +219,12 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint64_t len) {
         buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
 }
-extern uint64_t bar(__m128 *buf, uint64_t len, uint64_t *result);
+extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
 __asm__(
 #ifdef __clang__
-"_bar: "
+"_demodulateFmData: "
 #else
-"bar: "
+"demodulateFmData: "
 #endif
     "movq %rdi, %rcx\n\t"   // store array address
     "movq %rsi, %r8\n\t"    // store n
@@ -250,35 +250,6 @@ __asm__(
     "movq %rsi, %rax\n\t"
     "ret"
 );
-
-static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, uint64_t *result) {
-
-    uint64_t i;
-
-    for (i = 0; i < len; ++i) { // TODO TO THE ASM CAVE, ROBIN
-        result[i] = arg(buf[i], buf[i+1]);
-    }
-//    for (i = 0; i < len; i+=16) {
-//        result[i] = arg(buf[i], buf[i+1]);
-//        result[i+1] = arg(buf[i+1], buf[i+2]);
-//        result[i+2] = arg(buf[i+2], buf[i+3]);
-//        result[i+3] = arg(buf[i+3], buf[i+4]);
-//        result[i+4] = arg(buf[i+4], buf[i+5]);
-//        result[i+5] = arg(buf[i+5], buf[i+6]);
-//        result[i+6] = arg(buf[i+6], buf[i+7]);
-//        result[i+7] = arg(buf[i+7], buf[i+8]);
-//        result[i+8] = arg(buf[i+8], buf[i+9]);
-//        result[i+9] = arg(buf[i+9], buf[i+10]);
-//        result[i+10] = arg(buf[i+10], buf[i+11]);
-//        result[i+11] = arg(buf[i+11], buf[i+12]);
-//        result[i+12] = arg(buf[i+12], buf[i+13]);
-//        result[i+13] = arg(buf[i+13], buf[i+14]);
-//        result[i+14] = arg(buf[i+14], buf[i+15]);
-//        result[i+15] = arg(buf[i+15], buf[i+16]);
-//    }
-
-    return len << 1;
-}
 
 static void checkFileStatus(FILE *file) {
 
@@ -308,7 +279,7 @@ static void *processMatrix(struct readArgs *args) {
 
     depth = filter(args->buf, args->len, args->downsample);
     result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES);
-    depth = bar(args->buf, depth, result);
+    depth = demodulateFmData(args->buf, depth, result);
 
 
     fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
