@@ -57,15 +57,8 @@ __asm__(
     "vpermilps $0x1B, %ymm1, %ymm2\n\t"
     "vaddps %ymm2, %ymm1, %ymm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
 
-//    "vcmpps $0x0, %ymm3, %ymm0, %ymm4\n\t"  // _,y1==0,x1==0,_,_,y2==0,x2==0,_
-//    "vcmpps $0x0, %ymm3, %ymm0, %ymm5\n\t"  // _,_,x1==0,_,_,_,x2==0,_
-//    "vpermilps $0xAA, %ymm4, %ymm4\n\t"     // y1==0,..,y2==0,...
-//    "vpermilps $0x55, %ymm5, %ymm5\n\t"     // x1==0,...,x2==0,...
-//    "vandps %ymm4, %ymm0, %ymm4\n\t"        // x == 0 && y == 0
-//    "vorps %ymm5, %ymm4, %ymm5\n\t"        // x == 0 && y == 0
-//    "vorps %ymm5, %ymm0, %ymm0\n\t"
+    // TODO Add handling for the negative, Real half-plane (i.e., x<0, y==0 case)
 
-"gotime: "
     "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     "vmulps %ymm1, %ymm0, %ymm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
@@ -154,33 +147,34 @@ __asm__(
     "ret"
 );
 
-static void removeDCSpike(__m128 *buf, const uint32_t len) {
+__attribute__((used)) __m128 dc_avg_iq = {0,0,0,0};
+extern void removeDCSpike(__m128 *buf, uint64_t len);
+__asm__(
+#ifdef __clang__
+"_removeDCSpike: "
+#else
+"removeDCSpike: "
+#endif
+    "movq %rdi, %rcx\n\t"   // store array address
+    "movq %rsi, %rax\n\t"   // store n
+    "shlq $4, %rax\n\t"
+    "addq %rax, %rcx\n\t"   // store address of end of array
+    "negq %rax\n\t"
+    "vmovaps _dc_avg_iq(%rip), %xmm1\n\t"
+"L3: "
+    "vmovaps (%rcx,%rax), %xmm0\n\t"
+    "vsubps %xmm1, %xmm0, %xmm1\n\t"
+    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vaddps %xmm1, %xmm1, %xmm1\n\t"
+    "vsubps %xmm1, %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, (%rcx,%rax)\n\t"
+    "addq $16, %rax\n\t"
+    "jl L3\n\t"
+    "vmovaps %xmm1, _dc_avg_iq(%rip)\n\t"
+    "ret"
+);
 
-    static __m128 dcAvgIq = {0, 0, 0, 0};
-    uint64_t i;
-
-    for (i = 0; i < len; i += 16) {
-
-        PERFORM_DESPIKE(dcAvgIq, buf, i)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 1)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 2)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 3)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 4)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 5)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 6)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 7)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 8)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 9)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 10)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 11)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 12)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 13)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 14)
-        PERFORM_DESPIKE(dcAvgIq, buf, i + 15)
-    }
-}
-
-static void rotateForNonOffsetTuning(__m128 *buf, const uint32_t len) {
+static void rotateForNonOffsetTuning(__m128 *buf, const uint64_t len) {
 
     uint64_t i;
 
@@ -207,9 +201,27 @@ static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, uint64_t *resu
 
     uint64_t i;
 
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < len; ++i) { // TODO TO THE ASM CAVE, ROBIN
         result[i] = arg(buf[i], buf[i+1]);
     }
+//    for (i = 0; i < len; i+=16) {
+//        result[i] = arg(buf[i], buf[i+1]);
+//        result[i+1] = arg(buf[i+1], buf[i+2]);
+//        result[i+2] = arg(buf[i+2], buf[i+3]);
+//        result[i+3] = arg(buf[i+3], buf[i+4]);
+//        result[i+4] = arg(buf[i+4], buf[i+5]);
+//        result[i+5] = arg(buf[i+5], buf[i+6]);
+//        result[i+6] = arg(buf[i+6], buf[i+7]);
+//        result[i+7] = arg(buf[i+7], buf[i+8]);
+//        result[i+8] = arg(buf[i+8], buf[i+9]);
+//        result[i+9] = arg(buf[i+9], buf[i+10]);
+//        result[i+10] = arg(buf[i+10], buf[i+11]);
+//        result[i+11] = arg(buf[i+11], buf[i+12]);
+//        result[i+12] = arg(buf[i+12], buf[i+13]);
+//        result[i+13] = arg(buf[i+13], buf[i+14]);
+//        result[i+14] = arg(buf[i+14], buf[i+15]);
+//        result[i+15] = arg(buf[i+15], buf[i+16]);
+//    }
 
     return len << 1;
 }
@@ -296,9 +308,6 @@ static int readFileData(struct readArgs *args) {
     fclose(inFile);
     fclose(args->outFile);
     free(args->buf);
-    if (args->squelch) {
-        free(args->squelch);
-    }
 
     return exitFlag;
 }
@@ -308,6 +317,7 @@ int main(int argc, char **argv) {
     static struct readArgs args;
     int opt;
     int exitCode;
+    __m128 squelch;
 
     if (argc < 3) {
         return -1;
@@ -325,8 +335,8 @@ int main(int argc, char **argv) {
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                     // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    args.squelch = malloc(MATRIX_ELEMENT_BYTES);
-                    *args.squelch = _mm_set1_ps(powf(10.f, atof(optarg) / 10.f));
+                    squelch = _mm_set1_ps(powf(10.f, (float) atof(optarg) / 10.f));
+                    args.squelch = &squelch;
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {

@@ -39,14 +39,6 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-#define PERFORM_DESPIKE(AVG, RESULT, IDX) \
-    AVG = _mm_add_ps(AVG, _mm_mul_ps(DC_RAW_CONST, _mm_sub_ps(RESULT[IDX], AVG))); \
-    RESULT[IDX] = _mm_sub_ps(RESULT[IDX], AVG);
-
-#define PERFORM_DEMOD(RESULT, BUF, IDX, JDX) \
-    RESULT[JDX] = arg(BUF[IDX]); \
-    RESULT[JDX + 1] = arg(_mm_blend_ps(BUF[IDX], BUF[IDX + 1], 0b0011));
-
 struct rotationMatrix {
     const __m128 a1;
     const __m128 a2;
@@ -64,7 +56,7 @@ struct readArgs {
     FILE *outFile;
 };
 
-static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
+__attribute__((used)) static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
 __attribute__((used)) static const __m256 NEGATE_B_IM = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
 __attribute__((used)) static const __m256 ALL_64S = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
 __attribute__((used)) static const __m256 ALL_41S = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
