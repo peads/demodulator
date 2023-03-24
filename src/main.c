@@ -219,6 +219,38 @@ static void rotateForNonOffsetTuning(__m128 *buf, const uint64_t len) {
         buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
 }
+extern uint64_t bar(__m128 *buf, uint64_t len, uint64_t *result);
+__asm__(
+#ifdef __clang__
+"_bar: "
+#else
+"bar: "
+#endif
+    "movq %rdi, %rcx\n\t"   // store array address
+    "movq %rsi, %r8\n\t"    // store n
+    "shlq $4, %r8\n\t"
+    "addq %r8, %rcx\n\t"    // store address of end of array
+
+    "movq %rdx, %r9\n\t"    // store result address
+    "shrq %r8\n\t"
+    "addq %r8, %r9\n\t"     // store address of end of result
+    "shlq %r8\n\t"
+
+    "negq %r8\n\t"
+"L4: "
+    "vmovaps (%rcx,%r8), %xmm1\n\t"
+    "vmovaps -16(%rcx,%r8), %xmm0\n\t"
+    "call _arg\n\t"
+    "sarq %r8\n\t"
+    "movq %rax, (%r9,%r8)\n\t"
+    "shlq %r8\n\t"
+    "addq $16, %r8\n\t"
+    "jl L4\n\t"
+    "shlq $1, %rsi\n\t"
+    "movq %rsi, %rax\n\t"
+    "ret"
+);
+
 static uint64_t demodulateFmData(__m128 *buf, const uint64_t len, uint64_t *result) {
 
     uint64_t i;
@@ -276,7 +308,7 @@ static void *processMatrix(struct readArgs *args) {
 
     depth = filter(args->buf, args->len, args->downsample);
     result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES);
-    depth = demodulateFmData(args->buf, depth, result);
+    depth = bar(args->buf, depth, result);
 
 
     fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
