@@ -78,30 +78,7 @@ __asm__(
     "ret\n\t"
 );
 
-/**
- * Takes a 4x4 matrix and applies it to a 4x1 vector.
- * Here, it is used to apply the same rotation matrix to
- * two complex numbers. i.e., for the the matrix
- * T = {{a,b}, {c,d}} and two vectors {u1,u2} and {v1,v2}
- * concatenated, s.t. u = {u1,u2,v1,v2}, Tu =
- * {a*u1 + c*u1, b*u2 + d*u2, ... , b*v2 + d*v2}
- */
 extern __m128 apply4x4_4x1Transform(const struct rotationMatrix *T, __m128 u);
-__asm__(
-#ifdef __clang__
-"_apply4x4_4x1Transform: "
-#else
-"apply4x4_4x1Transform: "
-#endif
-    "vmulps 16(%rdi), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
-    "vmulps (%rdi), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
-    "vpermilps $0xB1, %xmm2, %xmm0\n\t"
-    "vaddps %xmm2, %xmm0, %xmm2\n\t"         // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
-    "vpermilps $0xB1, %xmm1, %xmm0\n\t"
-    "vaddps %xmm1, %xmm0, %xmm1\n\t"         // u1*a21 + u2*a22, ... , u3*a23 + u4*a24
-    "vblendps $0xA, %xmm2, %xmm1, %xmm0\n\t" // u1*a11 + u2*a12, u1*a21 + u2*a22,
-    "ret"                                    // u3*a13 + u4*a14, u3*a23 + u4*a24
-);
 
 static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
 
@@ -147,7 +124,6 @@ __asm__(
     "ret"
 );
 
-__attribute__((used)) __m128 dc_avg_iq = {0,0,0,0};
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 __asm__(
 #ifdef __clang__
@@ -196,28 +172,51 @@ __asm__(
     "ret"
 );
 
+extern void bar(__m128 *buf, uint64_t len);
+__asm__(
+#ifdef __clang__
+"_bar: "
+#else
+"bar: "
+#endif
+    "movq %rdi, %rcx\n\t"   // store array address
+    "movq %rsi, %rax\n\t"    // store n
+    "shlq $4, %rax\n\t"
+    "addq %rax, %rcx\n\t"    // store address of end of array
+    "negq %rax\n\t"
+"L5: "
+    "vmovaps (%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, (%rcx,%rax)\n\t"
+    "addq $16, %rax\n\t"
+    "jl L5\n\t"
+    "ret"
+);
+
 static void rotateForNonOffsetTuning(__m128 *buf, const uint64_t len) {
 
     uint64_t i;
-
-    for (i = 0; i < len; i += 16) {
+    for (i = 0; i < len; ++i) {
         buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
-        buf[i + 1] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 1]);
-        buf[i + 2] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 2]);
-        buf[i + 3] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 3]);
-        buf[i + 4] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 4]);
-        buf[i + 5] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 5]);
-        buf[i + 6] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 6]);
-        buf[i + 7] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 7]);
-        buf[i + 8] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 8]);
-        buf[i + 9] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 9]);
-        buf[i + 10] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 10]);
-        buf[i + 11] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 11]);
-        buf[i + 12] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 12]);
-        buf[i + 13] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 13]);
-        buf[i + 14] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 14]);
-        buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
     }
+//    for (i = 0; i < len; i += 16) {
+//        buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
+//        buf[i + 1] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 1]);
+//        buf[i + 2] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 2]);
+//        buf[i + 3] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 3]);
+//        buf[i + 4] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 4]);
+//        buf[i + 5] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 5]);
+//        buf[i + 6] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 6]);
+//        buf[i + 7] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 7]);
+//        buf[i + 8] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 8]);
+//        buf[i + 9] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 9]);
+//        buf[i + 10] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 10]);
+//        buf[i + 11] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 11]);
+//        buf[i + 12] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 12]);
+//        buf[i + 13] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 13]);
+//        buf[i + 14] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 14]);
+//        buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
+//    }
 }
 extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
 __asm__(
@@ -274,7 +273,7 @@ static void *processMatrix(struct readArgs *args) {
     }
 
     if (!args->isOt) {
-        rotateForNonOffsetTuning(args->buf, args->len);
+        bar(args->buf, args->len);
     }
 
     depth = filter(args->buf, args->len, args->downsample);

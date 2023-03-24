@@ -56,6 +56,7 @@ struct readArgs {
     FILE *outFile;
 };
 
+__attribute__((used)) static const __m128 CNJ_TRANSFORM = {1.f, -1.f, 1.f, -1.f};
 __attribute__((used)) static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
 __attribute__((used)) static const __m256 NEGATE_B_IM = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
 __attribute__((used)) static const __m256 ALL_64S = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -68,5 +69,30 @@ static const struct rotationMatrix CONJ_TRANSFORM = {
         {0, -1, 0, -1}
 };
 
+__attribute__((used)) static __m128 dc_avg_iq = {0,0,0,0};
 static int exitFlag = 0;
+
+/**
+ * Takes a 4x4 matrix and applies it to a 4x1 vector.
+ * Here, it is used to apply the same rotation matrix to
+ * two complex numbers. i.e., for the the matrix
+ * T = {{a,b}, {c,d}} and two vectors {u1,u2} and {v1,v2}
+ * concatenated, s.t. u = {u1,u2,v1,v2}, Tu =
+ * {a*u1 + c*u1, b*u2 + d*u2, ... , b*v2 + d*v2}
+ */
+__asm__(
+#ifdef __clang__
+"_apply4x4_4x1Transform: "
+#else
+"apply4x4_4x1Transform: "
+#endif
+    "vmulps 16(%rdi), %xmm0, %xmm2\n\t"      // u1*a11, u2*a12, u3*a13, ...
+    "vmulps (%rdi), %xmm0, %xmm1\n\t"        // u1*a21, u2*a22, ...
+    "vpermilps $0xB1, %xmm2, %xmm0\n\t"
+    "vaddps %xmm2, %xmm0, %xmm2\n\t"         // u1*a11 + u2*a12, ... , u3*a13 + u4*a14
+    "vpermilps $0xB1, %xmm1, %xmm0\n\t"
+    "vaddps %xmm1, %xmm0, %xmm1\n\t"         // u1*a21 + u2*a22, ... , u3*a23 + u4*a24
+    "vblendps $0xA, %xmm2, %xmm1, %xmm0\n\t" // u1*a11 + u2*a12, u1*a21 + u2*a22,
+    "ret"                                    // u3*a13 + u4*a14, u3*a23 + u4*a24
+);
 #endif //DEMODULATOR_DEMODULATOR_H
