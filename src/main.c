@@ -57,13 +57,13 @@ __asm__(
     "vpermilps $0x1B, %ymm1, %ymm2\n\t"
     "vaddps %ymm2, %ymm1, %ymm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
 
-//    "vcmpps $0xC, %ymm3, %ymm0, %ymm4\n\t"   // _,y1!=0,x1!=0,_,_,y2!=0,x2!=0,_
-//    "vcmpps $0xE, %ymm3, %ymm0, %ymm5\n\t"   // _,_,x1>0,_,_,_,x2>0,_
-//    "vpermilps $0xAA, %ymm4, %ymm4\n\t"      // y1!=0,..,y2!=0,...
-//    "vpermilps $0x55, %ymm5, %ymm6\n\t"      // x1>0,...,x2>0,...
-//    "vandps %ymm4, %ymm0, %ymm4\n\t"
-//    "vandps %ymm6, %ymm0, %ymm6\n\t"
-//    "vorps %ymm6, %ymm4, %ymm0\n\t"       // TODO possibly use ptest?
+//    "vcmpps $0x0, %ymm3, %ymm0, %ymm4\n\t"  // _,y1==0,x1==0,_,_,y2==0,x2==0,_
+//    "vcmpps $0x0, %ymm3, %ymm0, %ymm5\n\t"  // _,_,x1==0,_,_,_,x2==0,_
+//    "vpermilps $0xAA, %ymm4, %ymm4\n\t"     // y1==0,..,y2==0,...
+//    "vpermilps $0x55, %ymm5, %ymm5\n\t"     // x1==0,...,x2==0,...
+//    "vandps %ymm4, %ymm0, %ymm4\n\t"        // x == 0 && y == 0
+//    "vorps %ymm5, %ymm4, %ymm5\n\t"        // x == 0 && y == 0
+//    "vorps %ymm5, %ymm0, %ymm0\n\t"
 
 "gotime: "
     "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
@@ -81,7 +81,6 @@ __asm__(
     "vblendps $1, %xmm0, %xmm1, %xmm0\n\t"
     "vcmpps $0x0, %xmm0, %xmm0, %xmm1\n\t"  // NAN check
     "vandps %xmm1, %xmm0, %xmm0\n\t"
-    "vmovq %xmm0, %rax\n\t"
     "vmovq %xmm0, %rax\n\t"
     "ret\n\t"
 );
