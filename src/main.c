@@ -57,9 +57,6 @@ __asm__(
     "vpermilps $0x1B, %ymm1, %ymm2\n\t"
     "vaddps %ymm2, %ymm1, %ymm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
 
-    // TODO Add handling for the negative, Real half-plane (i.e., x<0, y==0 case)
-    // or is the overhead worth the "improvement"?
-
     "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     "vmulps %ymm1, %ymm0, %ymm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
@@ -187,7 +184,36 @@ __asm__(
     "vmovaps (%rcx,%rax), %xmm0\n\t"
     "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, (%rcx,%rax)\n\t"
-    "addq $16, %rax\n\t"
+    // loop unroll one
+    "vmovaps 16(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 16(%rcx,%rax)\n\t"
+    // loop unroll two
+    "vmovaps 32(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 32(%rcx,%rax)\n\t"
+    // loop unroll three
+    "vmovaps 48(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 48(%rcx,%rax)\n\t"
+    // loop unroll four
+    "vmovaps 64(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 64(%rcx,%rax)\n\t"
+    // loop unroll five
+    "vmovaps 80(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 80(%rcx,%rax)\n\t"
+    // loop unroll six
+    "vmovaps 96(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 96(%rcx,%rax)\n\t"
+    // loop unroll seven
+    "vmovaps 112(%rcx,%rax), %xmm0\n\t"
+    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 112(%rcx,%rax)\n\t"
+
+    "addq $128, %rax\n\t"
     "jl L5\n\t"
     "ret"
 );
