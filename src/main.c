@@ -243,7 +243,9 @@ static void checkFileStatus(FILE *file) {
         perror(errorMsg);
         exitFlag = 1;
     } else if (feof(file)) {
+#ifdef DEBUG
         fprintf(stderr, "\nExiting\n");
+#endif
         exitFlag = EOF;
     }
 }
@@ -262,7 +264,7 @@ static void *processMatrix(struct readArgs *args) {
     }
 
     depth = filter(args->buf, args->len, args->downsample);
-    result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES);
+    result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES); // TODO we know the maximal size of this beforehand, there's no need to allocate and free in each iteration
     depth = demodulateFmData(args->buf, depth, result);
 
 
@@ -283,7 +285,7 @@ static int readFileData(struct readArgs *args) {
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
 
     args->len = DEFAULT_BUF_SIZE;
-    args->buf = calloc(args->len, MATRIX_ELEMENT_BYTES);
+    args->buf = calloc(DEFAULT_BUF_SIZE, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
 
     while (!exitFlag) {
@@ -307,8 +309,7 @@ static int readFileData(struct readArgs *args) {
         "nosquelch: "
         :"=x"(args->buf[j++]):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
 
-        if (!exitFlag && j >= args->len) {
-            args->len = j;
+        if (!exitFlag && j >= DEFAULT_BUF_SIZE) {
             processMatrix(args);
             j = 0;
         }
@@ -325,7 +326,6 @@ int main(int argc, char **argv) {
 
     static struct readArgs args;
     int opt;
-    int exitCode;
     __m128 squelch;
 
     if (argc < 3) {
@@ -366,8 +366,11 @@ int main(int argc, char **argv) {
             }
         }
     }
-
-    exitCode = readFileData(&args) != EOF ? 1 : 0;
+#ifdef DEBUG
+    int exitCode = readFileData(&args) != EOF ? 1 : 0;
     fprintf(stderr, "%s\n", exitCode ? "Exited with error" : "Exited");
     return exitCode;
+#else
+    return readFileData(&args) != EOF ? 1 : 0;
+#endif
 }
