@@ -17,7 +17,7 @@ include_directories("${CMAKE_HOME_DIRECTORY}/include")
 
 add_executable(${PROJECT_NAME} ${SRCS})
 
-if(CMAKE_C_COMPILER_ID STREQUAL "GCC")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx256-split-unaligned-load")
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -mno-avx256-split-unaligned-load")
     target_link_libraries(${PROJECT_NAME} PUBLIC m)
 endif()

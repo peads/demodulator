@@ -364,7 +364,7 @@ static int readFileData(struct readArgs *args) {
 
     uint64_t j = 0;
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
-
+    __m128 *temp;
     args->len = DEFAULT_BUF_SIZE;
     args->buf = calloc(DEFAULT_BUF_SIZE, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
@@ -374,6 +374,7 @@ static int readFileData(struct readArgs *args) {
 
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
+        temp = &args->buf[j++];
         __asm__ (
             ".data\n\t"
             ".align 4\n\t"
@@ -392,8 +393,9 @@ static int readFileData(struct readArgs *args) {
             "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
             "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
             "vandps %%xmm2, %0, %0\n\t"
+            "vmovq %0, %0\n\t"
         "nosquelch: "
-        :"=x"(args->buf[j++]):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
+        :"=x"(*temp):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
 
         if (!exitFlag && j >= DEFAULT_BUF_SIZE) {
             processMatrix(args);
