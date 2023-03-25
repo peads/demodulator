@@ -28,14 +28,17 @@
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  **/
 __asm__(
-#ifdef __clang__
+".data\n\t"
+".align 4\n\t"
+"all_64s: .rept 8\n\t.single 64.0\n\t.endr\n\t"
+"all_23s: .rept 8\n\t.single 23.0\n\t.endr\n\t"
+"all_41s: .rept 8\n\t.single 41.0\n\t.endr\n\t"
+"negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0\n\t"
+".text\n\t"
 "_arg: "
-#else
-"arg: "
-#endif
     "vblendps $0b0011, %xmm1, %xmm0, %xmm1\n\t"
     "vinsertf128 $1, %xmm1, %ymm0, %ymm0\n\t"
-    "vmulps _NEGATE_B_IM(%rip), %ymm0, %ymm0\n\t" // (ar, aj, br, -bj)
+    "vmulps negate_b_im(%rip), %ymm0, %ymm0\n\t" // (ar, aj, br, -bj)
 
     "vpermilps $0xEB, %ymm0, %ymm1\n\t"     // (ar, aj, br, bj) => (aj, aj, ar, ar)
     "vpermilps $0x5, %ymm0, %ymm0\n\t"      // and                 (bj, br, br, bj)
@@ -50,9 +53,9 @@ __asm__(
     "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     "vmulps %ymm1, %ymm0, %ymm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
-    "vmulps _ALL_64S(%rip), %ymm0, %ymm2\n\t"        // 64*zj
-    "vmulps _ALL_23S(%rip), %ymm0, %ymm3\n\t"        // 23*zr
-    "vaddps _ALL_41S(%rip), %ymm3, %ymm3\n\t"        // 23*zr + 41
+    "vmulps all_64s(%rip), %ymm0, %ymm2\n\t"        // 64*zj
+    "vmulps all_23s(%rip), %ymm0, %ymm3\n\t"        // 23*zr
+    "vaddps all_41s(%rip), %ymm3, %ymm3\n\t"        // 23*zr + 41
     "vpermilps $0x1B, %ymm3, %ymm3\n\t"
     "vrcpps %ymm3, %ymm3\n\t"
     "vmulps %ymm3, %ymm2, %ymm0\n\t"
@@ -80,7 +83,6 @@ __asm__(
     "xorq %rax, %rax\n\t"
 "L2: "
     "movq %rax, %rcx\n\t"
-//    "shlq $4, %rcx\n\t"
     "vpermilps $0x4E, (%rdi, %rcx), %xmm0\n\t"
     "vaddps (%rdi, %rcx), %xmm0, %xmm0\n\t"
     "shrq $5, %rcx\n\t"
@@ -102,8 +104,9 @@ __asm__(
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 __asm__(
 ".data\n\t"
-//".align 4\n\t"
+".align 4\n\t"
 "dc_avg_iq: .zero 16\n\t"
+"dc_raw_const: .rept 4\n\t.single 1e-05\n\t.endr\n\t"
 ".text\n\t"
 #ifdef __clang__
 "_removeDCSpike: "
@@ -119,56 +122,56 @@ __asm__(
 "L3: "
     "vmovaps (%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, (%rcx,%rax)\n\t"
     // loop unroll one
     "vmovaps 16(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 16(%rcx,%rax)\n\t"
     // loop unroll two
     "vmovaps 32(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 32(%rcx,%rax)\n\t"
     // loop unroll three
     "vmovaps 48(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 48(%rcx,%rax)\n\t"
     // loop unroll four
     "vmovaps 64(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 64(%rcx,%rax)\n\t"
     // loop unroll five
     "vmovaps 80(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 80(%rcx,%rax)\n\t"
     // loop unroll six
     "vmovaps 96(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 96(%rcx,%rax)\n\t"
     // loop unroll seven
     "vmovaps 112(%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
-    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vmulps dc_raw_const(%rip), %xmm1, %xmm1\n\t"
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 112(%rcx,%rax)\n\t"
@@ -181,6 +184,10 @@ __asm__(
 
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 __asm__(
+".data\n\t"
+".align 4\n\t"
+"cnj_transform: .single 1.0, -1.0, 1.0, -1.0\n\t"
+".text\n\t"
 #ifdef __clang__
 "_applyComplexConjugate: "
 #else
@@ -193,35 +200,35 @@ __asm__(
     "negq %rax\n\t"
 "L5: "
     "vmovaps (%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, (%rcx,%rax)\n\t"
     // loop unroll one
     "vmovaps 16(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 16(%rcx,%rax)\n\t"
     // loop unroll two
     "vmovaps 32(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 32(%rcx,%rax)\n\t"
     // loop unroll three
     "vmovaps 48(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 48(%rcx,%rax)\n\t"
     // loop unroll four
     "vmovaps 64(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 64(%rcx,%rax)\n\t"
     // loop unroll five
     "vmovaps 80(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 80(%rcx,%rax)\n\t"
     // loop unroll six
     "vmovaps 96(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 96(%rcx,%rax)\n\t"
     // loop unroll seven
     "vmovaps 112(%rcx,%rax), %xmm0\n\t"
-    "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
+    "vmulps cnj_transform(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 112(%rcx,%rax)\n\t"
     // i += 8
     "addq $128, %rax\n\t"
@@ -367,9 +374,13 @@ static int readFileData(struct readArgs *args) {
 
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
-
         __asm__ (
-            "vpaddb _Z(%%rip), %1, %0\n\t"
+            ".data\n\t"
+            ".align 4\n\t"
+            "all_hundredths: .rept 4\n\t.single 0.01\n\t.endr\n\t"
+            "all_nonetwentysevens: .rept 2\n\t.quad -0x7f7f7f7f7f7f7f7f\n\t.endr\n\t"
+            ".text\n\t"
+            "vpaddb all_nonetwentysevens(%%rip), %1, %0\n\t"
             "vpmovsxbw %0, %0\n\t"
             "vpmovsxwd %0, %0\n\t"
             "vcvtdq2ps %0, %0\n\t"
@@ -378,7 +389,7 @@ static int readFileData(struct readArgs *args) {
             "vmulps %0, %0, %%xmm2\n\t"
             "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
             "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
-            "vmulps _ALL_HUNDREDTHS(%%rip), %%xmm2, %%xmm2\n\t"
+            "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
             "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
             "vandps %%xmm2, %0, %0\n\t"
         "nosquelch: "
