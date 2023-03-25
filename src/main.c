@@ -250,10 +250,9 @@ static void checkFileStatus(FILE *file) {
     }
 }
 
-static void *processMatrix(struct readArgs *args) {
+static void processMatrix(struct readArgs *args) {
     
     uint64_t depth;
-    uint64_t *result;
 
     if (args->isRdc) {
         removeDCSpike(args->buf, args->len);
@@ -264,14 +263,10 @@ static void *processMatrix(struct readArgs *args) {
     }
 
     depth = filter(args->buf, args->len, args->downsample);
-    result = calloc(depth << 1, OUTPUT_ELEMENT_BYTES); // TODO we know the maximal size of this beforehand, there's no need to allocate and free in each iteration
-    depth = demodulateFmData(args->buf, depth, result);
+    depth = demodulateFmData(args->buf, depth, args->result);
 
 
-    fwrite(result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
-    free(result);
-
-    return NULL;
+    fwrite(args->result, OUTPUT_ELEMENT_BYTES, depth, args->outFile);
 }
 
 static int readFileData(struct readArgs *args) {
@@ -287,6 +282,7 @@ static int readFileData(struct readArgs *args) {
     args->len = DEFAULT_BUF_SIZE;
     args->buf = calloc(DEFAULT_BUF_SIZE, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
+    args->result = calloc(DEFAULT_BUF_SIZE >> (args->downsample - 1), OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
 
@@ -298,8 +294,8 @@ static int readFileData(struct readArgs *args) {
             "vpmovsxbw %0, %0\n\t"
             "vpmovsxwd %0, %0\n\t"
             "vcvtdq2ps %0, %0\n\t"
-            "orq %2, %2\n\t"
-            "jz nosquelch\n\t"
+            "orq %2, %2\n\t"                        // if squelch
+            "jz nosquelch\n\t"                      // apply squelch
             "vmulps %0, %0, %%xmm2\n\t"
             "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
             "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
@@ -318,6 +314,7 @@ static int readFileData(struct readArgs *args) {
     fclose(inFile);
     fclose(args->outFile);
     free(args->buf);
+    free(args->result);
 
     return exitFlag;
 }
@@ -343,7 +340,7 @@ int main(int argc, char **argv) {
                     args.downsample = atoi(optarg);
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
-                    // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
+                            // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
                     squelch = _mm_set1_ps(powf(10.f, (float) atof(optarg) / 10.f));
                     args.squelch = &squelch;
                     break;

@@ -49,6 +49,7 @@ struct readArgs {
     __m128 *buf;
     uint64_t len;
     FILE *outFile;
+    uint64_t *result;
 };
 
 __attribute__((used)) static const __m128 CNJ_TRANSFORM = {1.f, -1.f, 1.f, -1.f};
