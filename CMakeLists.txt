@@ -18,6 +18,6 @@ include_directories("${CMAKE_HOME_DIRECTORY}/include")
 add_executable(${PROJECT_NAME} ${SRCS})
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-result -mno-avx256-split-unaligned-load")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-result")
     target_link_libraries(${PROJECT_NAME} PUBLIC m)
 endif()
