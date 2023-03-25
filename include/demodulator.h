@@ -61,7 +61,6 @@ __attribute__((used)) static const __m256 ALL_23S = {23.f, 23.f, 23.f, 23.f, 23.
 __attribute__((used)) static const __m128 ALL_HUNDREDTHS = {0.01f, 0.01f, 0.01f, 0.01f};
 __attribute__((used)) static const __m128i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f}; // all -127s
 
-__attribute__((used)) static __m128 dc_avg_iq = {0,0,0,0};
 static int exitFlag = 0;
 
 /**

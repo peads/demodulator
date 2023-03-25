@@ -99,6 +99,10 @@ __asm__(
 
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 __asm__(
+".data\n\t"
+//".align 4\n\t"
+"dc_avg_iq: .zero 16\n\t"
+".text\n\t"
 #ifdef __clang__
 "_removeDCSpike: "
 #else
@@ -109,7 +113,7 @@ __asm__(
     "shlq $4, %rax\n\t"
     "addq %rax, %rcx\n\t"   // store address of end of array
     "negq %rax\n\t"
-    "vmovaps _dc_avg_iq(%rip), %xmm1\n\t"
+    "vmovaps dc_avg_iq(%rip), %xmm1\n\t"
 "L3: "
     "vmovaps (%rcx,%rax), %xmm0\n\t"
     "vsubps %xmm1, %xmm0, %xmm1\n\t"
@@ -169,16 +173,16 @@ __asm__(
     // i += 8
     "addq $128, %rax\n\t"
     "jl L3\n\t"
-    "vmovaps %xmm1, _dc_avg_iq(%rip)\n\t"
+    "vmovaps %xmm1, dc_avg_iq(%rip)\n\t"
     "ret"
 );
 
-extern void rotateForNonOffsetTuning(__m128 *buf, uint64_t len);
+extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 __asm__(
 #ifdef __clang__
-"_rotateForNonOffsetTuning: "
+"_applyComplexConjugate: "
 #else
-"rotateForNonOffsetTuning: "
+"applyComplexConjugate: "
 #endif
     "movq %rdi, %rcx\n\t"   // store array address
     "movq %rsi, %rax\n\t"    // store n
@@ -332,7 +336,7 @@ static void processMatrix(struct readArgs *args) {
     }
 
     if (!args->isOt) {
-        rotateForNonOffsetTuning(args->buf, args->len);
+        applyComplexConjugate(args->buf, args->len);
     }
 
     depth = filter(args->buf, args->len, args->downsample);
@@ -437,10 +441,10 @@ int main(int argc, char **argv) {
         }
     }
 #ifdef DEBUG
-    int exitCode = readFileData(&args) != EOF ? 1 : 0;
+    int exitCode = readFileData(&args) != EOF;
     fprintf(stderr, "%s\n", exitCode ? "Exited with error" : "Exited");
     return exitCode;
 #else
-    return readFileData(&args) != EOF ? 1 : 0;
+    return readFileData(&args) != EOF;
 #endif
 }
