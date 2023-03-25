@@ -109,6 +109,11 @@ __asm__(
 
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 __asm__(
+".data\n\t"
+".align 4\n\t"
+"dc_avg_iq: .zero 16\n\t"
+"dc_raw_const: .rept 4\n\t.single 1e-05\n\t.endr\n\t"
+".text\n\t"
 #ifdef __clang__
 "_removeDCSpike: "
 #else
@@ -185,6 +190,10 @@ __asm__(
 
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 __asm__(
+".data\n\t"
+".align 4\n\t"
+"cnj_transform: .single 1.0, -1.0, 1.0, -1.0\n\t"
+".text\n\t"
 #ifdef __clang__
 "_applyComplexConjugate: "
 #else
