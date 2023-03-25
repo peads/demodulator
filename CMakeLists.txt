@@ -8,7 +8,7 @@ add_compile_options(-O3)
 
 if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mavx2 -fomit-frame-pointer -fno-math-errno -fno-trapping-math -diag-disable=10441")
-else ()
+else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=intel -mavx2 -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 endif()
 
@@ -17,7 +17,7 @@ include_directories("${CMAKE_HOME_DIRECTORY}/include")
 
 add_executable(${PROJECT_NAME} ${SRCS})
 
-if(UNIX AND NOT APPLE)
+if(CMAKE_C_COMPILER_ID STREQUAL "GCC")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx256-split-unaligned-load")
     target_link_libraries(${PROJECT_NAME} PUBLIC m)
 endif()
