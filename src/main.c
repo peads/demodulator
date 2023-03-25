@@ -24,18 +24,10 @@
  * Takes packed floats representing two sets of complex numbers
  * of the form (ar + iaj), (br + ibj), s.t. z = {ar, aj, br, bj}
  * and returns the arguments of the phasors (i.e. Arg[(ar + iaj).(br + ibj)])
- * as a--effectively--a packed float. TODO doesn't account for special cases,
- * but also doesn't seem to negatively affect demodulation, strangely. Should
- * probably start handling those two cases again, eventually.
+ * as a--effectively--a packed float. Doesn't account for special
+ * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  **/
-//extern uint64_t arg(__m128 a, __m128 b);
 __asm__(
-//".section:\n\t"
-//".p2align 4\n\t"
-//"PI: "
-//    ".quad 0x40490fdb\n\t"
-//".text\n\t"
-
 #ifdef __clang__
 "_arg: "
 #else
@@ -68,7 +60,7 @@ __asm__(
     "vextractf128 $1, %ymm0, %xmm1\n\t"
     "vpermilps $1, %ymm0, %ymm0\n\t"
     "vblendps $1, %xmm0, %xmm1, %xmm0\n\t"
-    "vcmpps $0x0, %xmm0, %xmm0, %xmm1\n\t"  // NAN check
+    "vcmpps $0x0, %xmm0, %xmm0, %xmm1\n\t"  // effectively the NAN check
     "vandps %xmm1, %xmm0, %xmm0\n\t"
     "vmovq %xmm0, %rax\n\t"
     "jmpq *%rdx\n\t"
