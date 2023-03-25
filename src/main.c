@@ -58,6 +58,7 @@ __asm__(
     "vaddps %ymm2, %ymm1, %ymm1\n\t"        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
 
     // TODO Add handling for the negative, Real half-plane (i.e., x<0, y==0 case)
+    // or is the overhead worth the "improvement"?
 
     "vrsqrtps %ymm1, %ymm1\n\t"             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     "vmulps %ymm1, %ymm0, %ymm0\n\t"        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
@@ -78,20 +79,18 @@ __asm__(
     "ret\n\t"
 );
 
-extern __m128 apply4x4_4x1Transform(const struct rotationMatrix *T, __m128 u);
-
-static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
-
-    const float cosT = cosf(theta);
-    const float sinP = sinf(phi);
-
-    struct rotationMatrix result = {
-        .a1 = {cosT, -sinP, cosT, -sinP},
-        .a2 = {sinP, cosT, sinP, cosT}
-    };
-
-    return result;
-}
+//static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
+//
+//    const float cosT = cosf(theta);
+//    const float sinP = sinf(phi);
+//
+//    struct rotationMatrix result = {
+//        .a1 = {cosT, -sinP, cosT, -sinP},
+//        .a2 = {sinP, cosT, sinP, cosT}
+//    };
+//
+//    return result;
+//}
 
 extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 __asm__(
