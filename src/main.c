@@ -146,8 +146,36 @@ __asm__(
     "vaddps %xmm1, %xmm1, %xmm1\n\t"
     "vsubps %xmm1, %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 48(%rcx,%rax)\n\t"
-    // i += 4
-    "addq $64, %rax\n\t"
+    // loop unroll four
+    "vmovaps 64(%rcx,%rax), %xmm0\n\t"
+    "vsubps %xmm1, %xmm0, %xmm1\n\t"
+    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vaddps %xmm1, %xmm1, %xmm1\n\t"
+    "vsubps %xmm1, %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 64(%rcx,%rax)\n\t"
+    // loop unroll five
+    "vmovaps 80(%rcx,%rax), %xmm0\n\t"
+    "vsubps %xmm1, %xmm0, %xmm1\n\t"
+    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vaddps %xmm1, %xmm1, %xmm1\n\t"
+    "vsubps %xmm1, %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 80(%rcx,%rax)\n\t"
+    // loop unroll six
+    "vmovaps 96(%rcx,%rax), %xmm0\n\t"
+    "vsubps %xmm1, %xmm0, %xmm1\n\t"
+    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vaddps %xmm1, %xmm1, %xmm1\n\t"
+    "vsubps %xmm1, %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 96(%rcx,%rax)\n\t"
+    // loop unroll seven
+    "vmovaps 112(%rcx,%rax), %xmm0\n\t"
+    "vsubps %xmm1, %xmm0, %xmm1\n\t"
+    "vmulps _DC_RAW_CONST(%rip), %xmm1, %xmm1\n\t"
+    "vaddps %xmm1, %xmm1, %xmm1\n\t"
+    "vsubps %xmm1, %xmm0, %xmm0\n\t"
+    "vmovaps %xmm0, 112(%rcx,%rax)\n\t"
+    // i += 8
+    "addq $128, %rax\n\t"
     "jl L3\n\t"
     "vmovaps %xmm1, _dc_avg_iq(%rip)\n\t"
     "ret"
@@ -197,7 +225,7 @@ __asm__(
     "vmovaps 112(%rcx,%rax), %xmm0\n\t"
     "vmulps _CNJ_TRANSFORM(%rip), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, 112(%rcx,%rax)\n\t"
-
+    // i += 8
     "addq $128, %rax\n\t"
     "jl L5\n\t"
     "ret"
@@ -294,7 +322,7 @@ static int readFileData(struct readArgs *args) {
             "vpmovsxbw %0, %0\n\t"
             "vpmovsxwd %0, %0\n\t"
             "vcvtdq2ps %0, %0\n\t"
-            "orq %2, %2\n\t"                        // if squelch
+            "orq %2, %2\n\t"                        // if squelch != NULL
             "jz nosquelch\n\t"                      // apply squelch
             "vmulps %0, %0, %%xmm2\n\t"
             "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
