@@ -41,8 +41,6 @@ __asm__(
 #else
 "arg: "
 #endif
-//    "vpxor %ymm3, %ymm3, %ymm3\n\t"         // store zero
-
     "vblendps $0b0011, %xmm1, %xmm0, %xmm1\n\t"
     "vinsertf128 $1, %xmm1, %ymm0, %ymm0\n\t"
     "vmulps _NEGATE_B_IM(%rip), %ymm0, %ymm0\n\t" // (ar, aj, br, -bj)
@@ -75,19 +73,6 @@ __asm__(
     "vmovq %xmm0, %rax\n\t"
     "ret\n\t"
 );
-
-//static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
-//
-//    const float cosT = cosf(theta);
-//    const float sinP = sinf(phi);
-//
-//    struct rotationMatrix result = {
-//        .a1 = {cosT, -sinP, cosT, -sinP},
-//        .a2 = {sinP, cosT, sinP, cosT}
-//    };
-//
-//    return result;
-//}
 
 extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 __asm__(

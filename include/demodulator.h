@@ -95,4 +95,16 @@ __asm__(
 //        {1, 0, 1, 0},
 //        {0, -1, 0, -1}
 //};
+//static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
+//
+//    const float cosT = cosf(theta);
+//    const float sinP = sinf(phi);
+//
+//    struct rotationMatrix result = {
+//        .a1 = {cosT, -sinP, cosT, -sinP},
+//        .a2 = {sinP, cosT, sinP, cosT}
+//    };
+//
+//    return result;
+//}
 #endif //DEMODULATOR_DEMODULATOR_H
