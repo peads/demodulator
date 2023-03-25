@@ -93,7 +93,7 @@ __asm__(
     "jl L1\n\t"
 
     "movq %rdx, %rcx\n\t"
-    "shrq $4, %rsi\n\t"
+    "addq $4, %rcx\n\t" // n >> 4; n >> downsample; == n >> (4 + downsample);
     "movq %rsi, %rax\n\t"
     "shr %cl, %rax\n\t"
     "ret"
