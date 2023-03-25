@@ -248,7 +248,7 @@ __asm__(
     "vmovaps -16(%rcx,%r8), %xmm0\n\t"
     "leaq (%rip), %rdx\n\t"
     "addq $9, %rdx\n\t"
-    "jmp _arg\n\t"
+    "jmp _arg\n\t"              // TODO consider inlining arg?
     "movq %rax, (%r9,%r10)\n\t"
     // loop unroll one
     "vmovaps 16(%rcx,%r8), %xmm1\n\t"
@@ -257,9 +257,23 @@ __asm__(
     "addq $9, %rdx\n\t"
     "jmp _arg\n\t"
     "movq %rax, 8(%r9,%r10)\n\t"
+    // loop unroll two
+    "vmovaps 32(%rcx,%r8), %xmm1\n\t"
+    "vmovaps 16(%rcx,%r8), %xmm0\n\t"
+    "leaq (%rip), %rdx\n\t"
+    "addq $9, %rdx\n\t"
+    "jmp _arg\n\t"
+    "movq %rax, 16(%r9,%r10)\n\t"
+    // loop unroll three
+    "vmovaps 48(%rcx,%r8), %xmm1\n\t"
+    "vmovaps 32(%rcx,%r8), %xmm0\n\t"
+    "leaq (%rip), %rdx\n\t"
+    "addq $9, %rdx\n\t"
+    "jmp _arg\n\t"
+    "movq %rax, 24(%r9,%r10)\n\t"
     // ++i, j += 2
-    "addq $16, %r10\n\t"
-    "addq $32, %r8\n\t"
+    "addq $32, %r10\n\t"
+    "addq $64, %r8\n\t"
     "jl L4\n\t"
     "shlq $1, %rsi\n\t"
     "movq %rsi, %rax\n\t"
