@@ -172,12 +172,12 @@ __asm__(
     "ret"
 );
 
-extern void bar(__m128 *buf, uint64_t len);
+extern void rotateForNonOffsetTuning(__m128 *buf, uint64_t len);
 __asm__(
 #ifdef __clang__
-"_bar: "
+"_rotateForNonOffsetTuning: "
 #else
-"bar: "
+"rotateForNonOffsetTuning: "
 #endif
     "movq %rdi, %rcx\n\t"   // store array address
     "movq %rsi, %rax\n\t"    // store n
@@ -193,31 +193,6 @@ __asm__(
     "ret"
 );
 
-static void rotateForNonOffsetTuning(__m128 *buf, const uint64_t len) {
-
-    uint64_t i;
-    for (i = 0; i < len; ++i) {
-        buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
-    }
-//    for (i = 0; i < len; i += 16) {
-//        buf[i] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i]);
-//        buf[i + 1] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 1]);
-//        buf[i + 2] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 2]);
-//        buf[i + 3] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 3]);
-//        buf[i + 4] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 4]);
-//        buf[i + 5] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 5]);
-//        buf[i + 6] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 6]);
-//        buf[i + 7] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 7]);
-//        buf[i + 8] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 8]);
-//        buf[i + 9] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 9]);
-//        buf[i + 10] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 10]);
-//        buf[i + 11] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 11]);
-//        buf[i + 12] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 12]);
-//        buf[i + 13] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 13]);
-//        buf[i + 14] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 14]);
-//        buf[i + 15] = apply4x4_4x1Transform(&CONJ_TRANSFORM, buf[i + 15]);
-//    }
-}
 extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
 __asm__(
 #ifdef __clang__
@@ -273,7 +248,7 @@ static void *processMatrix(struct readArgs *args) {
     }
 
     if (!args->isOt) {
-        bar(args->buf, args->len);
+        rotateForNonOffsetTuning(args->buf, args->len);
     }
 
     depth = filter(args->buf, args->len, args->downsample);
