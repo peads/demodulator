@@ -250,9 +250,16 @@ __asm__(
     "addq $9, %rdx\n\t"
     "jmp _arg\n\t"
     "movq %rax, (%r9,%r10)\n\t"
+    // loop unroll one
+    "vmovaps 16(%rcx,%r8), %xmm1\n\t"
+    "vmovaps (%rcx,%r8), %xmm0\n\t"
+    "leaq (%rip), %rdx\n\t"
+    "addq $9, %rdx\n\t"
+    "jmp _arg\n\t"
+    "movq %rax, 8(%r9,%r10)\n\t"
     // ++i, j += 2
-    "addq $8, %r10\n\t"
-    "addq $16, %r8\n\t"
+    "addq $16, %r10\n\t"
+    "addq $32, %r8\n\t"
     "jl L4\n\t"
     "shlq $1, %rsi\n\t"
     "movq %rsi, %rax\n\t"
