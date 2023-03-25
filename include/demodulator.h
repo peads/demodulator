@@ -39,11 +39,6 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-struct rotationMatrix {
-    const __m128 a1;
-    const __m128 a2;
-};
-
 struct readArgs {
     char *inFile;
     char *outFileName;
@@ -54,22 +49,9 @@ struct readArgs {
     __m128 *buf;
     uint64_t len;
     FILE *outFile;
+    uint64_t *result;
 };
 
-__attribute__((used)) static const __m128 CNJ_TRANSFORM = {1.f, -1.f, 1.f, -1.f};
-__attribute__((used)) static const __m128 DC_RAW_CONST = {1e-05f, 1e-05f, 1e-05f, 1e-05f};
-__attribute__((used)) static const __m256 NEGATE_B_IM = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
-__attribute__((used)) static const __m256 ALL_64S = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
-__attribute__((used)) static const __m256 ALL_41S = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-__attribute__((used)) static const __m256 ALL_23S = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
-__attribute__((used)) static const __m128 ALL_HUNDREDTHS = {0.01f, 0.01f, 0.01f, 0.01f};
-__attribute__((used)) static const __m128i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f}; // all -127s
-static const struct rotationMatrix CONJ_TRANSFORM = {
-        {1, 0, 1, 0},
-        {0, -1, 0, -1}
-};
-
-__attribute__((used)) static __m128 dc_avg_iq = {0,0,0,0};
 static int exitFlag = 0;
 
 /**
@@ -79,7 +61,7 @@ static int exitFlag = 0;
  * T = {{a,b}, {c,d}} and two vectors {u1,u2} and {v1,v2}
  * concatenated, s.t. u = {u1,u2,v1,v2}, Tu =
  * {a*u1 + c*u1, b*u2 + d*u2, ... , b*v2 + d*v2}
- */
+ *
 __asm__(
 #ifdef __clang__
 "_apply4x4_4x1Transform: "
@@ -95,4 +77,25 @@ __asm__(
     "vblendps $0xA, %xmm2, %xmm1, %xmm0\n\t" // u1*a11 + u2*a12, u1*a21 + u2*a22,
     "ret"                                    // u3*a13 + u4*a14, u3*a23 + u4*a24
 );
+*/
+//struct rotationMatrix {
+//    const __m128 a1;
+//    const __m128 a2;
+//};
+//static const struct rotationMatrix CONJ_TRANSFORM = {
+//        {1, 0, 1, 0},
+//        {0, -1, 0, -1}
+//};
+//static inline struct rotationMatrix generateRotationMatrix(const float theta, const float phi) {
+//
+//    const float cosT = cosf(theta);
+//    const float sinP = sinf(phi);
+//
+//    struct rotationMatrix result = {
+//        .a1 = {cosT, -sinP, cosT, -sinP},
+//        .a2 = {sinP, cosT, sinP, cosT}
+//    };
+//
+//    return result;
+//}
 #endif //DEMODULATOR_DEMODULATOR_H
