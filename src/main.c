@@ -24,6 +24,13 @@ __asm__(
     ".align 4\n\t"
     "all_hundredths: .rept 4\n\t.single 0.01\n\t.endr\n\t"
     "all_nonetwentysevens: .rept 2\n\t.quad -0x7f7f7f7f7f7f7f7f\n\t.endr\n\t"
+    "all_64s: .rept 8\n\t.single 64.0\n\t.endr\n\t"
+    "all_23s: .rept 8\n\t.single 23.0\n\t.endr\n\t"
+    "all_41s: .rept 8\n\t.single 41.0\n\t.endr\n\t"
+    "cnj_transform: .single 1.0, -1.0, 1.0, -1.0\n\t"
+    "dc_avg_iq: .zero 16\n\t"
+    "dc_raw_const: .rept 4\n\t.single 1e-05\n\t.endr\n\t"
+    "negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0\n\t"
     ".text\n\t"
 );
 /**
@@ -34,13 +41,6 @@ __asm__(
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  **/
 __asm__(
-".data\n\t"
-".align 4\n\t"
-"all_64s: .rept 8\n\t.single 64.0\n\t.endr\n\t"
-"all_23s: .rept 8\n\t.single 23.0\n\t.endr\n\t"
-"all_41s: .rept 8\n\t.single 41.0\n\t.endr\n\t"
-"negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0\n\t"
-".text\n\t"
 "_arg: "
     "vblendps $0b0011, %xmm1, %xmm0, %xmm1\n\t"
     "vinsertf128 $1, %xmm1, %ymm0, %ymm0\n\t"
@@ -109,11 +109,6 @@ __asm__(
 
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 __asm__(
-".data\n\t"
-".align 4\n\t"
-"dc_avg_iq: .zero 16\n\t"
-"dc_raw_const: .rept 4\n\t.single 1e-05\n\t.endr\n\t"
-".text\n\t"
 #ifdef __clang__
 "_removeDCSpike: "
 #else
@@ -190,10 +185,6 @@ __asm__(
 
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 __asm__(
-".data\n\t"
-".align 4\n\t"
-"cnj_transform: .single 1.0, -1.0, 1.0, -1.0\n\t"
-".text\n\t"
 #ifdef __clang__
 "_applyComplexConjugate: "
 #else
