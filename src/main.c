@@ -28,13 +28,13 @@
  * but also doesn't seem to negatively affect demodulation, strangely. Should
  * probably start handling those two cases again, eventually.
  **/
-extern uint64_t arg(__m128 a, __m128 b);
+//extern uint64_t arg(__m128 a, __m128 b);
 __asm__(
-".section:\n\t"
-".p2align 4\n\t"
-"PI: "
-    ".quad 0x40490fdb\n\t"
-".text\n\t"
+//".section:\n\t"
+//".p2align 4\n\t"
+//"PI: "
+//    ".quad 0x40490fdb\n\t"
+//".text\n\t"
 
 #ifdef __clang__
 "_arg: "
@@ -71,7 +71,7 @@ __asm__(
     "vcmpps $0x0, %xmm0, %xmm0, %xmm1\n\t"  // NAN check
     "vandps %xmm1, %xmm0, %xmm0\n\t"
     "vmovq %xmm0, %rax\n\t"
-    "ret\n\t"
+    "jmpq *%rdx\n\t"
 );
 
 extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
@@ -254,7 +254,9 @@ __asm__(
 "L4: "
     "vmovaps (%rcx,%r8), %xmm1\n\t"
     "vmovaps -16(%rcx,%r8), %xmm0\n\t"
-    "call _arg\n\t"
+    "leaq (%rip), %rdx\n\t"
+    "addq $9, %rdx\n\t"
+    "jmp _arg\n\t"
     "movq %rax, (%r9,%r10)\n\t"
     // ++i, j += 2
     "addq $8, %r10\n\t"
