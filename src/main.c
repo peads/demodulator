@@ -19,7 +19,13 @@
  */
 
 #include "demodulator.h"
-
+__asm__(
+    ".data\n\t"
+    ".align 4\n\t"
+    "all_hundredths: .rept 4\n\t.single 0.01\n\t.endr\n\t"
+    "all_nonetwentysevens: .rept 2\n\t.quad -0x7f7f7f7f7f7f7f7f\n\t.endr\n\t"
+    ".text\n\t"
+);
 /**
  * Takes packed floats representing two sets of complex numbers
  * of the form (ar + iaj), (br + ibj), s.t. z = {ar, aj, br, bj}
@@ -364,7 +370,7 @@ static int readFileData(struct readArgs *args) {
 
     uint64_t j = 0;
     FILE *inFile = args->inFile ? fopen(args->inFile, "rb") : stdin;
-    __m128 *temp;
+
     args->len = DEFAULT_BUF_SIZE;
     args->buf = calloc(DEFAULT_BUF_SIZE, MATRIX_ELEMENT_BYTES);
     args->outFile = args->outFileName ? fopen(args->outFileName, "wb") : stdout;
@@ -374,13 +380,7 @@ static int readFileData(struct readArgs *args) {
 
         fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
         checkFileStatus(inFile);
-        temp = &args->buf[j++];
         __asm__ (
-            ".data\n\t"
-            ".align 4\n\t"
-            "all_hundredths: .rept 4\n\t.single 0.01\n\t.endr\n\t"
-            "all_nonetwentysevens: .rept 2\n\t.quad -0x7f7f7f7f7f7f7f7f\n\t.endr\n\t"
-            ".text\n\t"
             "vpaddb all_nonetwentysevens(%%rip), %1, %0\n\t"
             "vpmovsxbw %0, %0\n\t"
             "vpmovsxwd %0, %0\n\t"
@@ -393,9 +393,8 @@ static int readFileData(struct readArgs *args) {
             "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
             "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
             "vandps %%xmm2, %0, %0\n\t"
-            "vmovq %0, %0\n\t"
         "nosquelch: "
-        :"=x"(*temp):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
+        :"=x"(args->buf[j++]):"x"(z.v),"r"(args->squelch):"xmm2","xmm3");
 
         if (!exitFlag && j >= DEFAULT_BUF_SIZE) {
             processMatrix(args);
