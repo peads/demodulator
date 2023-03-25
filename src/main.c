@@ -238,24 +238,26 @@ __asm__(
 #else
 "demodulateFmData: "
 #endif
-    "movq %rdi, %rcx\n\t"   // store array address
+    "movq %rdi, %rcx\n\t"   // store buf address
     "movq %rsi, %r8\n\t"    // store n
     "shlq $4, %r8\n\t"
-    "addq %r8, %rcx\n\t"    // store address of end of array
+    "addq %r8, %rcx\n\t"    // store address of end of buf
 
     "movq %rdx, %r9\n\t"    // store result address
     "shrq %r8\n\t"
-    "addq %r8, %r9\n\t"     // store address of end of result
+    "movq %r8, %r10\n\t"
     "shlq %r8\n\t"
+    "addq %r10, %r9\n\t"     // store address of end of result
 
     "negq %r8\n\t"
+    "negq %r10\n\t"
 "L4: "
     "vmovaps (%rcx,%r8), %xmm1\n\t"
     "vmovaps -16(%rcx,%r8), %xmm0\n\t"
     "call _arg\n\t"
-    "sarq %r8\n\t"
-    "movq %rax, (%r9,%r8)\n\t"
-    "shlq %r8\n\t"
+    "movq %rax, (%r9,%r10)\n\t"
+    // ++i, j += 2
+    "addq $8, %r10\n\t"
     "addq $16, %r8\n\t"
     "jl L4\n\t"
     "shlq $1, %rsi\n\t"
