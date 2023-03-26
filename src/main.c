@@ -109,7 +109,6 @@ __asm__(
     "vaddps 16(%rdi, %rax), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, (%rdi, %rax)\n\t"
     // i += 3
-//    "addq $16, %rax\n\t"
     "cmp %rsi, %rax\n\t"
     "jl L2\n\t"
     "addq $1, %r8\n\t"
