@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 SET(PROJECT_NAME demodulator)
-project(${PROJECT_NAME} LANGUAGES C)
+project(${PROJECT_NAME} LANGUAGES C ASM)
 set(CMAKE_C_STANDARD 99)
 
 #add_compile_options(-g)
@@ -12,7 +12,7 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=intel -mavx2 -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 endif()
 
-FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/asm/*.S")
 include_directories("${CMAKE_HOME_DIRECTORY}/include")
 
 add_executable(${PROJECT_NAME} ${SRCS})
