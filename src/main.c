@@ -98,8 +98,13 @@ __asm__(
     "vpermilps $0x4E, 16(%rdi, %rax), %xmm0\n\t"
     "vaddps 16(%rdi, %rax), %xmm0, %xmm0\n\t"
     "vmovaps %xmm0, (%rdi, %rax)\n\t"
+    // loop unroll two
+    "vpermilps $0x4E, 32(%rdi, %rax), %xmm0\n\t"
+    "vaddps 32(%rdi, %rax), %xmm0, %xmm0\n\t"
+    "shlq %rcx\n\t"
+    "vmovaps %xmm0, (%rdi, %rcx)\n\t"
     // i += 2
-    "addq $16, %rax\n\t"
+    "addq $32, %rax\n\t"
     "cmp %rsi, %rax\n\t"
     "jl L2\n\t"
     "addq $1, %r8\n\t"
