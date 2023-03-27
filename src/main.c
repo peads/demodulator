@@ -54,7 +54,7 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     uint64_t result[DEFAULT_BUF_SIZE];
 
     while (!exitFlag) {
-        for(j = 0, len = 0; !exitFlag && j < DEFAULT_BUF_SIZE; ++j) {
+        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
 //            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
 //            checkFileStatus(inFile);
             __asm__ (
@@ -94,7 +94,7 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
                     :"+r"(len), "=x"(buf[j]) : "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf) : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3");
         }
 
-        if (len) {
+        if (!exitFlag && len) {
             if (isRdc) {
                 removeDCSpike(buf, DEFAULT_BUF_SIZE);
             }
