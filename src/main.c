@@ -48,7 +48,7 @@ __asm__(
 "foo: "
 #endif
     "pushq %rbp\n\t"
-    "movq %rbp, %rsp\n\t"
+    "movq %rsp, %rbp\n\t"
 
     "xorq %r11, %r11\n\t"
     "shlq $4, %rsi\n\t"
@@ -65,9 +65,9 @@ __asm__(
     "movq $1, %rsi\n\t" // set the fread arguments (rdi is implicit)
     "movq $4, %rdx\n\t"
     "leaq (%r9), %rcx\n\t"
-    "addq $-8, %rsp\n\t"
+//    "addq $-8, %rsp\n\t"
     "call _fread\n\t"
-    "addq $8, %rsp\n\t"
+//    "addq $8, %rsp\n\t"
     "popq %r9\n\t"
     "popq %r8\n\t"
     "popq %rdi\n\t"
@@ -77,16 +77,22 @@ __asm__(
     "addq %rax, %r11\n\t"
 
 
-//    "pushq %rdi\n\t"
-//    "pushq %rdx\n\t"
-//    "pushq %rcx\n\t"
-//    "leaq (%r9), %rdi\n\t"
-////    "addq $-8, %rsp\n\t"
-//    "callq _checkFileStatus\n\t"
-////    "addq $8, %rsp\n\t"
-//    "popq %rcx\n\t"
-//    "popq %rdx\n\t"
-//    "popq %rdi\n\t"
+    "pushq %rsi\n\t"    // preserve our registers
+    "pushq %rdx\n\t"
+    "pushq %rcx\n\t"
+    "pushq %rdi\n\t"
+    "pushq %r8\n\t"
+    "pushq %r9\n\t"
+    "leaq (%r9), %rdi\n\t"
+//    "addq $-8, %rsp\n\t"
+    "callq _checkFileStatus\n\t"
+//    "addq $8, %rsp\n\t"
+    "popq %r9\n\t"
+    "popq %r8\n\t"
+    "popq %rdi\n\t"
+    "popq %rcx\n\t"
+    "popq %rdx\n\t"
+    "popq %rsi\n\t"
 
     "vmovaps (%rdx), %xmm1\n\t"
     "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
@@ -106,8 +112,8 @@ __asm__(
     "add $16, %rsi\n\t"
     "jl L6\n\t"
 
-    "movq %r11, %rax\n\t"
     "popq %rbp\n\t"
+    "movq %r11, %rax\n\t"
     "ret"
 );
 
