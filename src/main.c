@@ -39,8 +39,9 @@ __attribute__((used)) static void checkFileStatus(FILE *file) {
         exitFlag = EOF;
     }
 }
-                    //rdi           rsi         rdx         rcx             r8              r9
+                        //rdi           rsi         rdx         rcx             r8              r9
 extern uint64_t readFile(uint8_t *buf, uint64_t len, __m128 *u, __m128 *squelch, __m128 *result, FILE *file);
+// TODO reimplement the struct and see if we can obviate all the stack ops with one push and pop of rbx
 __asm__(
 #ifdef __clang__
 "_readFile: "
@@ -55,7 +56,6 @@ __asm__(
     "addq %rsi, %r8\n\t"
     "negq %rsi\n\t"
 "L6: "
-//    "leaq (%rdi), %rdi\n\t"
     "pushq %rsi\n\t"    // preserve our registers
     "pushq %rdx\n\t"
     "pushq %rcx\n\t"
@@ -74,7 +74,6 @@ __asm__(
     "popq %rsi\n\t"
     "addq %rax, %r11\n\t"
 
-
     "pushq %rsi\n\t"    // preserve our registers
     "pushq %rdx\n\t"
     "pushq %rcx\n\t"
@@ -82,7 +81,7 @@ __asm__(
     "pushq %r8\n\t"
     "pushq %r9\n\t"
     "leaq (%r9), %rdi\n\t"
-    "callq _checkFileStatus\n\t"
+    "callq _checkFileStatus\n\t"    // TODO consider inlining file err/eof check
     "popq %r9\n\t"
     "popq %r8\n\t"
     "popq %rdi\n\t"
@@ -90,7 +89,7 @@ __asm__(
     "popq %rdx\n\t"
     "popq %rsi\n\t"
 
-    "vmovaps (%rdx), %xmm1\n\t"
+    "vmovaps (%rdi), %xmm1\n\t"
     "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
     "vpmovsxbw %xmm1, %xmm1\n\t"
     "vpmovsxwd %xmm1, %xmm1\n\t"
@@ -115,11 +114,7 @@ __asm__(
 
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 *squelch) {
 
-    static union {
-        uint8_t buf[MATRIX_WIDTH];  // TODO see if I can get this to just be byte-aligned array to
-                                    // get rid of the union altogether
-        __m128 u;
-    } z;
+    uint8_t buf8[MATRIX_WIDTH] __attribute__((aligned (16)));
     uint64_t depth;
     uint64_t len;
     uint64_t result[DEFAULT_BUF_SIZE];
@@ -127,7 +122,7 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
 
     while (!exitFlag) {
         len = 0;
-        len += readFile(z.buf, DEFAULT_BUF_SIZE, &z.u, squelch, buf, inFile);
+        len += readFile(buf8, DEFAULT_BUF_SIZE, NULL, squelch, buf, inFile);
 
         if (!exitFlag && len) {
             if (isRdc) {

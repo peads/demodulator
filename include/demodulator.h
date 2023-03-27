@@ -38,8 +38,17 @@
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
-#define QUAUX(X) #X
-#define QU(X) QUAUX(X)
+
+struct readArgs {
+    uint8_t downsample;
+    uint8_t isRdc;
+    uint8_t isOt;
+    __m128 *squelch;
+    __m128 *buf;
+    uint64_t len;
+    FILE *outFile;
+    uint64_t *result;
+};
 
 static int exitFlag = 0;
 
