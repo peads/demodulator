@@ -38,13 +38,14 @@ __attribute__((used)) static void checkFileStatus(FILE *file) {
 #endif
         exitFlag = EOF;
     }
-}                   //rdi           rsi         rdx         rcx             r8              r9
-extern uint64_t foo(uint8_t *buf, uint64_t len, __m128 *u, __m128 *squelch, __m128 *result, FILE *file);
+}
+                    //rdi           rsi         rdx         rcx             r8              r9
+extern uint64_t readFile(uint8_t *buf, uint64_t len, __m128 *u, __m128 *squelch, __m128 *result, FILE *file);
 __asm__(
 #ifdef __clang__
-"_foo: "
+"_readFile: "
 #else
-"foo: "
+"readFile: "
 #endif
     "pushq %rbp\n\t"
     "movq %rsp, %rbp\n\t"
@@ -112,8 +113,6 @@ __asm__(
     "ret"
 );
 
-static __m128 buf[DEFAULT_BUF_SIZE];
-
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 *squelch) {
 
     static union {
@@ -124,10 +123,11 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     uint64_t depth;
     uint64_t len;
     uint64_t result[DEFAULT_BUF_SIZE];
+    __m128 buf[DEFAULT_BUF_SIZE];
 
     while (!exitFlag) {
         len = 0;
-        len += foo(z.buf, DEFAULT_BUF_SIZE, &z.u, squelch, buf, inFile);
+        len += readFile(z.buf, DEFAULT_BUF_SIZE, &z.u, squelch, buf, inFile);
 
         if (!exitFlag && len) {
             if (isRdc) {
