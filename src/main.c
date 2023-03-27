@@ -117,10 +117,11 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
     __m128 buf128[DEFAULT_BUF_SIZE];
 
-    while (!exitFlag) {
+    while (1) {
         ret = readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile);
 
-        if (!exitFlag && ret) {
+        if (exitFlag) break;
+        if (ret) {
             if (isRdc) {
                 removeDCSpike(buf128, DEFAULT_BUF_SIZE);
             }
