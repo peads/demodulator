@@ -40,8 +40,8 @@ __attribute__((used)) static void checkFileStatus(FILE *file) {
         exitFlag = EOF;
     }
 }
-                        //rdi           rsi         rdx         rcx             r8              r9
-extern uint64_t readFile(struct ReadArgs *args, int i, __m128 d);
+                        //rdi           rsi         xmm0         rdx             rcx
+extern uint64_t readFile(uint8_t *buf, int len, __m128 squelch, __m128 *result, FILE *file);
 // TODO reimplement the struct and see if we can obviate all the stack ops with one push and pop of rbx
 __asm__(
 #ifdef __clang__
@@ -51,34 +51,38 @@ __asm__(
 #endif
     "pushq %rbp\n\t"
     "movq %rsp, %rbp\n\t"
-    "addq $-8, %rsp\n\t"
+//    "addq $-8, %rsp\n\t"
     "pushq %rbx\n\t"
     "pushq %r12\n\t"
     "pushq %r13\n\t"
+    "pushq %r14\n\t"
+    "pushq %r15\n\t"
 
-    "movq %rdi, %rbx\n\t"
-    "leaq 16(%rbx), %rcx\n\t"   // store array address
-    "movq %rsi, %r13\n\t"   // store n
-    "shlq $4, %r13\n\t"
-    "addq %r13, %rcx\n\t"   // store address of end of array
-    "movq %rcx, 16(%rbx)\n\t"
-    "negq %r13\n\t"
+    "movq %rdi, %rbx\n\t"   // buf
+    "movq %rdx, %r13\n\t"   // squelch
+    "leaq (%rcx), %r15\n\t"  // file
+
+    "shlq $4, %rsi\n\t"
+    "addq %rsi, %rdx\n\t"   // store address of end of array
+    "negq %rdx\n\t"
+    "movq %rdx, %r14\n\t"   // result
+    "movq %rsi, %r12\n\t"   // len
 
     "xorq %rax, %rax\n\t"       // ret = 0
 "L6: "
-    "movq %rax, %r12\n\t"       // preserve our registers
-    "movq 8(%rbx), %rdi\n\t"     // set the fread arguments, args->file
+    "pushq %rax\n\t"
+    "movq %rbx, %rdi\n\t"    // set the fread arguments, args->file
     "movq $1, %rsi\n\t"
     "movq $4, %rdx\n\t"
-    "movq (%rbx), %rcx\n\t"
-//    "call _fread\n\t"
-    "addq %rax, %r12\n\t"
-    "movq %r12, %rax\n\t"
+    "movq %r15, %rcx\n\t"
+    "call _fread\n\t"
+    "popq %r9\n\t"
+    "addq %r9, %rax\n\t"
 
-    "movq 8(%rbx), %rdi\n\t"    // args->file
-    "movq %rax, %r12\n\t"       // preserve our registers
+    "pushq %rax\n\t"
+    "movq %r15, %rdi\n\t"
     "callq _checkFileStatus\n\t"    // TODO consider inlining file err/eof check
-    "movq %r12, %rax\n\t"
+    "popq %rax\n\t"
 
     "vmovaps (%rbx), %xmm1\n\t" // args->buf
     "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
@@ -96,48 +100,47 @@ __asm__(
     "vandps %xmm0, %xmm1, %xmm1\n\t"
 "nosquelch:\n\t"
 
-    "addq 16(%rbx), %r13\n\t"
-    "vmovaps %xmm1, (%r13)\n\t"
-    "addq $16, %r13\n\t"
+    "vmovaps %xmm1, (%r12, %r14)\n\t"
+    "addq $16, %r12\n\t"
     "jl L6\n\t"
 
+    "popq %r15\n\t"
+    "popq %r14\n\t"
     "popq %r13\n\t"
     "popq %r12\n\t"
     "popq %rbx\n\t"
-    "addq $8, %rsp\n\t"
+//    "addq $8, %rsp\n\t"
     "popq %rbp\n\t"
     "ret"
 );
 
-static __m128 buf128[DEFAULT_BUF_SIZE];
-static uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
-
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 squelch) {
-
-    struct ReadArgs args;
 
     uint64_t depth = 0;
     uint64_t result[DEFAULT_BUF_SIZE];
     uint64_t ret = 0;
 
-    args.buf = buf;
-    args.result = buf128;
-    args.file = inFile;
+//    printf("%lX, %lX, %lX\n",
+//            offsetof(struct ReadArgs, buf),
+//            offsetof(struct ReadArgs, file),
+//            offsetof(struct ReadArgs, result));
+    uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
+    __m128 buf128[DEFAULT_BUF_SIZE];
 
     while (!exitFlag) {
-        ret = readFile(&args, DEFAULT_BUF_SIZE, squelch);
+        ret = readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile);
 
         if (!exitFlag && ret) {
             if (isRdc) {
-                removeDCSpike(args.result, DEFAULT_BUF_SIZE);
+                removeDCSpike(buf128, DEFAULT_BUF_SIZE);
             }
 
             if (!isOt) {
-                applyComplexConjugate(args.result, DEFAULT_BUF_SIZE);
+                applyComplexConjugate(buf128, DEFAULT_BUF_SIZE);
             }
 
-            depth = filter(args.result, DEFAULT_BUF_SIZE, downsample);
-            depth = demodulateFmData(args.result, depth, result);
+            depth = filter(buf128, DEFAULT_BUF_SIZE, downsample);
+            depth = demodulateFmData(buf128, depth, result);
 
             fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
         }

@@ -50,12 +50,6 @@ struct readArgs {
     uint64_t *result;
 };
 
-struct ReadArgs {
-    uint8_t *buf __attribute__((aligned (16)));                                   // x0
-    FILE *file;                                     // x8
-    __m128 *result;                                 // x10
-};
-
 static int exitFlag = 0;
 
 /**
