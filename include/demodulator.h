@@ -39,19 +39,6 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-struct readArgs {
-    char *inFile;
-    char *outFileName;
-    uint8_t downsample;
-    uint8_t isRdc;
-    uint8_t isOt;
-    __m128 *squelch;
-    __m128 *buf;
-    uint64_t len;
-    FILE *outFile;
-    uint64_t *result;
-};
-
 static int exitFlag = 0;
 
 /**
