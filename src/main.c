@@ -94,7 +94,6 @@ __asm__(
     "vcmpps $0x1D, %xmm1, %xmm0, %xmm0\n\t"
     "vandps %xmm0, %xmm1, %xmm1\n\t"
 "nosquelch:\n\t"
-
     "vmovaps %xmm1, (%r12, %r14)\n\t"
     "addq $16, %r12\n\t"
     "jl L6\n\t"
