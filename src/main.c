@@ -24,8 +24,8 @@ extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
-
-__attribute((used)) static void checkFileStatus(FILE *file) {
+//__attribute__((used)) extern size_t	 fread(void * __restrict ptr, size_t size, size_t nitems, FILE * __restrict stream);
+__attribute__((used)) static void checkFileStatus(FILE *file) {
 
     if (ferror(file)) {
         char errorMsg[256];
@@ -38,61 +38,147 @@ __attribute((used)) static void checkFileStatus(FILE *file) {
 #endif
         exitFlag = EOF;
     }
-}
+}                   //rdi           rsi         rdx         rcx             r8              r9
+extern uint64_t foo(uint8_t *buf, uint64_t len, __m128 *u, __m128 *squelch, __m128 *result, FILE *file);
+//    len += fread(buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, file);
+__asm__(
+#ifdef __clang__
+"_foo: "
+#else
+"foo: "
+#endif
+    "pushq %rbp\n\t"
+    "movq %rbp, %rsp\n\t"
+
+    "xorq %r11, %r11\n\t"
+    "orq %rcx, %rcx\n\t"
+    "jz nnosquelch\n\t"                  // apply squelch
+    "vmovq (%rcx), %xmm1\n\t"
+"nnosquelch: "
+//    "movq %rdi, %r10\n\t"
+    "shlq $4, %rsi\n\t"
+    "addq %rsi, %r8\n\t"
+    "negq %rsi\n\t"
+"L6: "
+//    "leaq (%rdi), %rdi\n\t"
+    "pushq %rsi\n\t"
+    "pushq %rdx\n\t"
+    "pushq %rcx\n\t"
+    "pushq %rdi\n\t"
+    "pushq %r8\n\t"
+    "leaq (%r9), %rcx\n\t" // TODO double-check that I can't just push the address directly
+    "pushq %rcx\n\t"
+    "movq $1, %rsi\n\t"
+    "movq $4, %rdx\n\t"
+    "addq $-8, %rsp\n\t"
+    "call _fread\n\t"
+    "addq $8, %rsp\n\t"
+    "popq %rcx\n\t"
+    "leaq (%rcx), %r9\n\t"
+    "popq %r8\n\t"
+    "popq %rdi\n\t"
+    "popq %rcx\n\t"
+    "popq %rdx\n\t"
+    "popq %rsi\n\t"
+    "addq %rax, %r11\n\t"
+
+
+//    "pushq %rdi\n\t"
+//    "pushq %rdx\n\t"
+//    "pushq %rcx\n\t"
+//    "leaq (%r9), %rdi\n\t"
+////    "addq $-8, %rsp\n\t"
+//    "callq _checkFileStatus\n\t"
+////    "addq $8, %rsp\n\t"
+//    "popq %rcx\n\t"
+//    "popq %rdx\n\t"
+//    "popq %rdi\n\t"
+
+    "vmovaps (%rdx), %xmm1\n\t"
+    "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
+    "vpmovsxbw %xmm1, %xmm1\n\t"
+    "vpmovsxwd %xmm1, %xmm1\n\t"
+    "vcvtdq2ps %xmm1, %xmm1\n\t"
+    "orq %rcx, %rcx\n\t"                // if squelch != NULL
+    "jz nosquelch\n\t"                  // apply squelch
+    "vmulps %xmm1, %xmm1, %xmm2\n\t"
+    "vpermilps $0xB1, %xmm2, %xmm3\n\t"
+    "vaddps %xmm2, %xmm3, %xmm2\n\t"
+    "vmulps all_hundredths(%rip), %xmm2, %xmm2\n\t"
+    "vcmpps $0x1D, (%rcx), %xmm2, %xmm2\n\t"
+    "vandps %xmm2, %xmm1, %xmm1\n\t"
+"nosquelch:\n\t"
+    "vmovaps %xmm1, (%rdx)\n\t" // TODO remove this redundant assignement
+    "vmovaps %xmm1, (%rsi, %r8)\n\t"
+    "add $16, %rsi\n\t"
+    "jl L6\n\t"
+
+    "movq %r11, %rax\n\t"
+    "popq %rbp\n\t"
+    "ret"
+);
+
+static union {
+    uint8_t buf[MATRIX_WIDTH];
+    __m128 u;
+} z;
+static __m128 buf[DEFAULT_BUF_SIZE];
+static FILE *inFile = NULL;
 
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 *squelch) {
 
-    union {
-        uint8_t buf[MATRIX_WIDTH];
-        __m128 u;
-    } z;
 
-    uint64_t j;
+
+//    uint64_t j;
     uint64_t depth;
     uint64_t len;
-    __m128 buf[DEFAULT_BUF_SIZE];
     uint64_t result[DEFAULT_BUF_SIZE];
 
     while (!exitFlag) {
-        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
-//            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
-//            checkFileStatus(inFile);
-            __asm__ (
-                    "leaq (%5), %%rdi\n\t"
-                    "movq $1, %%rsi\n\t"
-                    "movq $4, %%rdx\n\t"
-                    "leaq (%4), %%rcx\n\t"
-                    "pushq %%rcx\n\t"
-                    "addq $-8, %%rsp\n\t"
-                    "call _fread\n\t"
-                    "addq %%rax, %0\n\t"
-                    "addq $8, %%rsp\n\t"
-                    "popq %%rdi\n\t"
-                    "callq _checkFileStatus\n\t"
-//                    "xorq %1, %1\n\t"
-//                    "xorq %%rax, %%rax\n\t"
-//                    "movq $1024, %1\n\t"
-//                    "negq %1\n\t"
+        len = 0;
+        len += foo(z.buf, DEFAULT_BUF_SIZE, &z.u, squelch, buf, inFile);
+//        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
+//            __asm__ (
+//                    "xorq %rsi, %rsi\n\t"
+//                    "xorq %%r10, %%r10\n\t"
+//                    "movq $1024, %rsi\n\t"
+//                    "shlq $4, %rsi\n\t"
+//                    "movq %2, %%r8\n\t"
+//                    "addq %rsi, %%r8\n\t"
+//                    "negq %rsi\n\t"
 //                "L6: "
-//                    "addq %%rax, %2\n\t"
-
-                    "vpaddb all_nonetwentysevens(%%rip), %2, %1\n\t"
-                    "vpmovsxbw %1, %1\n\t"
-                    "vpmovsxwd %1, %1\n\t"
-                    "vcvtdq2ps %1, %1\n\t"
-                    "orq %3, %3\n\t"                    // if squelch != NULL
-                    "jz nosquelch\n\t"                  // apply squelch
-                    "vmulps %1, %1, %%xmm2\n\t"
-                    "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
-                    "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
-                    "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
-                    "vcmpps $0x1D, (%3), %%xmm2, %%xmm2\n\t"
-                    "vandps %%xmm2, %1, %1\n\t"
-                "nosquelch:\n\t"
-//                    "add $1, %1\n\t"
+//                    "leaq (%6), %%rdi\n\t"
+//                    "movq $1, %%rsi\n\t"
+//                    "movq $4, %%rdx\n\t"
+//                    "leaq (%5), %%rcx\n\t"
+//                    "pushq %%rcx\n\t"
+//                    "addq $-8, %%rsp\n\t"
+//                    "call _fread\n\t"
+//                    "addq %%rax, %1\n\t"
+//                    "addq $8, %%rsp\n\t"
+//                    "popq %%rdi\n\t"
+//                    "callq _checkFileStatus\n\t"
+//
+//                    "vmovaps (%%r8, %rsi), %%xmm4\n\t"
+//                    "vpaddb all_nonetwentysevens(%%rip), %3, %%xmm4\n\t"
+//                    "vpmovsxbw %%xmm4, %%xmm4\n\t"
+//                    "vpmovsxwd %%xmm4, %%xmm4\n\t"
+//                    "vcvtdq2ps %%xmm4, %%xmm4\n\t"
+//                    "orq %4, %4\n\t"                    // if squelch != NULL
+//                    "jz nosquelch\n\t"                  // apply squelch
+//                    "vmulps %%xmm4, %%xmm4, %%xmm2\n\t"
+//                    "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
+//                    "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
+//                    "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
+//                    "vcmpps $0x1D, (%4), %%xmm2, %%xmm2\n\t"
+//                    "vandps %%xmm2, %%xmm4, %%xmm4\n\t"
+//                "nosquelch:\n\t"
+//                    "add $16, %rsi\n\t"
 //                    "jl L6\n\t"
-                    :"+r"(len), "=x"(buf[j]) : "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf) : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3");
-        }
+//                   "" : "+r"(j), "=r"(len)
+//                    : "r"(buf), "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf)
+//                    : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3", "xmm4", "r8", "r9");
+//        }
 
         if (!exitFlag && len) {
             if (isRdc) {
@@ -118,7 +204,6 @@ int main(int argc, char **argv) {
     uint8_t isRdc = 0;
     uint8_t isOt = 0;
     __m128 *squelch = NULL;
-    FILE *inFile = NULL;
     FILE *outFile = NULL;
 
     if (argc < 3) {
