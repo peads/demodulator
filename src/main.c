@@ -54,7 +54,7 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     uint64_t result[DEFAULT_BUF_SIZE];
 
     while (!exitFlag) {
-        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
+        for(j = 0, len = 0; !exitFlag && j < DEFAULT_BUF_SIZE; ++j) {
 //            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
 //            checkFileStatus(inFile);
             __asm__ (
@@ -62,8 +62,13 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
                     "movq $1, %%rsi\n\t"
                     "movq $4, %%rdx\n\t"
                     "leaq (%4), %%rcx\n\t"
+                    "pushq %%rcx\n\t"
+                    "addq $-8, %%rsp\n\t"
                     "call _fread\n\t"
                     "addq %%rax, %0\n\t"
+                    "addq $8, %%rsp\n\t"
+                    "popq %%rdi\n\t"
+                    "callq _checkFileStatus\n\t"
 //                    "xorq %1, %1\n\t"
 //                    "xorq %%rax, %%rax\n\t"
 //                    "movq $1024, %1\n\t"
@@ -84,14 +89,11 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
                     "vcmpps $0x1D, (%3), %%xmm2, %%xmm2\n\t"
                     "vandps %%xmm2, %1, %1\n\t"
                 "nosquelch:\n\t"
-//                    "leaq (%%rcx), %%rdi\n\t"
-//                    "callq _checkFileStatus\n\t"
 //                    "add $1, %1\n\t"
 //                    "jl L6\n\t"
                     :"+r"(len), "=x"(buf[j]) : "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf) : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3");
         }
 
-        if (!len) break;
         if (len) {
             if (isRdc) {
                 removeDCSpike(buf, DEFAULT_BUF_SIZE);
