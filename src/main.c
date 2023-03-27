@@ -42,7 +42,6 @@ __attribute__((used)) static void checkFileStatus(FILE *file) {
 }
                         //rdi           rsi         xmm0         rdx             rcx
 extern uint64_t readFile(uint8_t *buf, int len, __m128 squelch, __m128 *result, FILE *file);
-// TODO reimplement the struct and see if we can obviate all the stack ops with one push and pop of rbx
 __asm__(
 #ifdef __clang__
 "_readFile: "
@@ -115,10 +114,6 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     uint64_t result[DEFAULT_BUF_SIZE];
     uint64_t ret = 0;
 
-//    printf("%lX, %lX, %lX\n",
-//            offsetof(struct ReadArgs, buf),
-//            offsetof(struct ReadArgs, file),
-//            offsetof(struct ReadArgs, result));
     uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
     __m128 buf128[DEFAULT_BUF_SIZE];
 
@@ -140,9 +135,6 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
             fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
         }
     }
-
-//    free(args.result);
-//    free(args.buf);
 }
 
 int main(int argc, char **argv) {
