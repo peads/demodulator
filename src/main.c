@@ -25,7 +25,7 @@ extern void removeDCSpike(__m128 *buf, uint64_t len);
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
 
-static void checkFileStatus(FILE *file) {
+__attribute((used)) static void checkFileStatus(FILE *file) {
 
     if (ferror(file)) {
         char errorMsg[256];
@@ -55,40 +55,43 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
 
     while (!exitFlag) {
         for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
-            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
-            checkFileStatus(inFile);
+//            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
+//            checkFileStatus(inFile);
             __asm__ (
+                    "leaq (%5), %%rdi\n\t"
+                    "movq $1, %%rsi\n\t"
+                    "movq $4, %%rdx\n\t"
+                    "leaq (%4), %%rcx\n\t"
+                    "call _fread\n\t"
+                    "addq %%rax, %0\n\t"
 //                    "xorq %1, %1\n\t"
 //                    "xorq %%rax, %%rax\n\t"
 //                    "movq $1024, %1\n\t"
-//
-//                    "leaq (%5), %%rdi\n\t"
-//                    "movq $1, %%rsi\n\t"
-//                    "movq $4, %%rdx\n\t"
-//                    "leaq (%6), %%rcx\n\t"
 //                    "negq %1\n\t"
-                "L6: "
-//                    "call _fread\n\t"
+//                "L6: "
 //                    "addq %%rax, %2\n\t"
 
-                    "vpaddb all_nonetwentysevens(%%rip), %1, %0\n\t"
-                    "vpmovsxbw %0, %0\n\t"
-                    "vpmovsxwd %0, %0\n\t"
-                    "vcvtdq2ps %0, %0\n\t"
-                    "orq %2, %2\n\t"                    // if squelch != NULL
+                    "vpaddb all_nonetwentysevens(%%rip), %2, %1\n\t"
+                    "vpmovsxbw %1, %1\n\t"
+                    "vpmovsxwd %1, %1\n\t"
+                    "vcvtdq2ps %1, %1\n\t"
+                    "orq %3, %3\n\t"                    // if squelch != NULL
                     "jz nosquelch\n\t"                  // apply squelch
-                    "vmulps %0, %0, %%xmm2\n\t"
+                    "vmulps %1, %1, %%xmm2\n\t"
                     "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
                     "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
                     "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
-                    "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
-                    "vandps %%xmm2, %0, %0\n\t"
+                    "vcmpps $0x1D, (%3), %%xmm2, %%xmm2\n\t"
+                    "vandps %%xmm2, %1, %1\n\t"
                 "nosquelch:\n\t"
+//                    "leaq (%%rcx), %%rdi\n\t"
+//                    "callq _checkFileStatus\n\t"
 //                    "add $1, %1\n\t"
 //                    "jl L6\n\t"
-                    :"=x"(buf[j]) : "x"(z.u), "r"(squelch) : "xmm2", "xmm3");
+                    :"+r"(len), "=x"(buf[j]) : "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf) : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3");
         }
 
+        if (!len) break;
         if (len) {
             if (isRdc) {
                 removeDCSpike(buf, DEFAULT_BUF_SIZE);
