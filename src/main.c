@@ -51,30 +51,24 @@ __asm__(
     "movq %rbp, %rsp\n\t"
 
     "xorq %r11, %r11\n\t"
-    "orq %rcx, %rcx\n\t"
-    "jz nnosquelch\n\t"                  // apply squelch
-    "vmovq (%rcx), %xmm1\n\t"
-"nnosquelch: "
-//    "movq %rdi, %r10\n\t"
     "shlq $4, %rsi\n\t"
     "addq %rsi, %r8\n\t"
     "negq %rsi\n\t"
 "L6: "
 //    "leaq (%rdi), %rdi\n\t"
-    "pushq %rsi\n\t"
+    "pushq %rsi\n\t"    // preserve our registers
     "pushq %rdx\n\t"
     "pushq %rcx\n\t"
     "pushq %rdi\n\t"
     "pushq %r8\n\t"
-    "leaq (%r9), %rcx\n\t" // TODO double-check that I can't just push the address directly
-    "pushq %rcx\n\t"
-    "movq $1, %rsi\n\t"
+    "pushq %r9\n\t"
+    "movq $1, %rsi\n\t" // set the fread arguments (rdi is implicit)
     "movq $4, %rdx\n\t"
+    "leaq (%r9), %rcx\n\t"
     "addq $-8, %rsp\n\t"
     "call _fread\n\t"
     "addq $8, %rsp\n\t"
-    "popq %rcx\n\t"
-    "leaq (%rcx), %r9\n\t"
+    "popq %r9\n\t"
     "popq %r8\n\t"
     "popq %rdi\n\t"
     "popq %rcx\n\t"
@@ -108,7 +102,6 @@ __asm__(
     "vcmpps $0x1D, (%rcx), %xmm2, %xmm2\n\t"
     "vandps %xmm2, %xmm1, %xmm1\n\t"
 "nosquelch:\n\t"
-    "vmovaps %xmm1, (%rdx)\n\t" // TODO remove this redundant assignement
     "vmovaps %xmm1, (%rsi, %r8)\n\t"
     "add $16, %rsi\n\t"
     "jl L6\n\t"
@@ -118,18 +111,15 @@ __asm__(
     "ret"
 );
 
-static union {
-    uint8_t buf[MATRIX_WIDTH];
-    __m128 u;
-} z;
 static __m128 buf[DEFAULT_BUF_SIZE];
-static FILE *inFile = NULL;
 
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 *squelch) {
 
-
-
-//    uint64_t j;
+    static union {
+        uint8_t buf[MATRIX_WIDTH];  // TODO see if I can get this to just be byte-aligned array to
+                                    // get rid of the union altogether
+        __m128 u;
+    } z;
     uint64_t depth;
     uint64_t len;
     uint64_t result[DEFAULT_BUF_SIZE];
@@ -204,6 +194,7 @@ int main(int argc, char **argv) {
     uint8_t isRdc = 0;
     uint8_t isOt = 0;
     __m128 *squelch = NULL;
+    FILE *inFile = NULL;
     FILE *outFile = NULL;
 
     if (argc < 3) {
