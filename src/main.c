@@ -51,38 +51,39 @@ __asm__(
 #endif
     "pushq %rbp\n\t"
     "movq %rsp, %rbp\n\t"
-//    "addq $-8, %rsp\n\t"
+    "addq $-8, %rsp\n\t"
     "pushq %rbx\n\t"
     "pushq %r12\n\t"
     "pushq %r13\n\t"
     "pushq %r14\n\t"
     "pushq %r15\n\t"
 
-    "movq %rdi, %rbx\n\t"   // buf
-    "movq %rdx, %r13\n\t"   // squelch
-    "leaq (%rcx), %r15\n\t"  // file
 
     "shlq $4, %rsi\n\t"
     "addq %rsi, %rdx\n\t"   // store address of end of array
     "negq %rsi\n\t"
-    "movq %rdx, %r14\n\t"   // result
-    "movq %rsi, %r12\n\t"   // len
 
-    "xorq %rax, %rax\n\t"       // ret = 0
+    "leaq (%rcx), %r15\n\t" // file
+    "movq %rdx, %r14\n\t"   // result
+//    "movq %rdx, %r13\n\t"   // squelch
+    "movq %rsi, %r12\n\t"   // len
+    "movq %rdi, %rbx\n\t"   // buf
+
+    "xorq %r13, %r13\n\t"       // ret = 0
 "L6: "
-    "pushq %rax\n\t"
+//    "pushq %rax\n\t"
     "movq %rbx, %rdi\n\t"    // set the fread arguments, args->file
     "movq $1, %rsi\n\t"
     "movq $4, %rdx\n\t"
     "movq %r15, %rcx\n\t"
     "call _fread\n\t"
-    "popq %r9\n\t"
-    "addq %r9, %rax\n\t"
+//    "popq %r9\n\t"
+    "addq %rax, %r13\n\t"
 
-    "pushq %rax\n\t"
+//    "pushq %rax\n\t"
     "movq %r15, %rdi\n\t"
     "callq _checkFileStatus\n\t"    // TODO consider inlining file err/eof check
-    "popq %rax\n\t"
+//    "popq %rax\n\t"
 
     "vmovaps (%rbx), %xmm1\n\t" // args->buf
     "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
@@ -109,8 +110,9 @@ __asm__(
     "popq %r13\n\t"
     "popq %r12\n\t"
     "popq %rbx\n\t"
-//    "addq $8, %rsp\n\t"
+    "addq $8, %rsp\n\t"
     "popq %rbp\n\t"
+    "movq %r13, %rax\n\t"
     "ret"
 );
 
