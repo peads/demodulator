@@ -40,25 +40,81 @@ static void checkFileStatus(FILE *file) {
     }
 }
 
-int main(int argc, char **argv) {
-
+void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 *squelch) {
 
     union {
         uint8_t buf[MATRIX_WIDTH];
         __m128 u;
     } z;
+
+    uint64_t j;
+    uint64_t depth;
+    uint64_t len;
+    __m128 buf[DEFAULT_BUF_SIZE];
+    uint64_t result[DEFAULT_BUF_SIZE];
+
+    while (!exitFlag) {
+        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
+            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
+            checkFileStatus(inFile);
+            __asm__ (
+//                    "xorq %1, %1\n\t"
+//                    "xorq %%rax, %%rax\n\t"
+//                    "movq $1024, %1\n\t"
+//
+//                    "leaq (%5), %%rdi\n\t"
+//                    "movq $1, %%rsi\n\t"
+//                    "movq $4, %%rdx\n\t"
+//                    "leaq (%6), %%rcx\n\t"
+//                    "negq %1\n\t"
+                "L6: "
+//                    "call _fread\n\t"
+//                    "addq %%rax, %2\n\t"
+
+                    "vpaddb all_nonetwentysevens(%%rip), %1, %0\n\t"
+                    "vpmovsxbw %0, %0\n\t"
+                    "vpmovsxwd %0, %0\n\t"
+                    "vcvtdq2ps %0, %0\n\t"
+                    "orq %2, %2\n\t"                    // if squelch != NULL
+                    "jz nosquelch\n\t"                  // apply squelch
+                    "vmulps %0, %0, %%xmm2\n\t"
+                    "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
+                    "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
+                    "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
+                    "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
+                    "vandps %%xmm2, %0, %0\n\t"
+                "nosquelch:\n\t"
+//                    "add $1, %1\n\t"
+//                    "jl L6\n\t"
+                    :"=x"(buf[j]) : "x"(z.u), "r"(squelch) : "xmm2", "xmm3");
+        }
+
+        if (len) {
+            if (isRdc) {
+                removeDCSpike(buf, DEFAULT_BUF_SIZE);
+            }
+
+            if (!isOt) {
+                applyComplexConjugate(buf, DEFAULT_BUF_SIZE);
+            }
+
+            depth = filter(buf, DEFAULT_BUF_SIZE, downsample);
+            depth = demodulateFmData(buf, depth, result);
+
+            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
+        }
+    }
+}
+
+int main(int argc, char **argv) {
+
     int opt;
     uint8_t downsample;
     uint8_t isRdc = 0;
     uint8_t isOt = 0;
-    uint64_t depth;
-    uint64_t j;
-    uint64_t len;
     __m128 *squelch = NULL;
     FILE *inFile = NULL;
     FILE *outFile = NULL;
-    __m128 buf[DEFAULT_BUF_SIZE];
-    uint64_t result[DEFAULT_BUF_SIZE];
 
     if (argc < 3) {
         return -1;
@@ -101,45 +157,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    while (!exitFlag) {
-        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
-            len += fread(z.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, inFile);
-            checkFileStatus(inFile);
-            __asm__ (
-                "vpaddb all_nonetwentysevens(%%rip), %1, %0\n\t"
-                "vpmovsxbw %0, %0\n\t"
-                "vpmovsxwd %0, %0\n\t"
-                "vcvtdq2ps %0, %0\n\t"
-                "orq %2, %2\n\t"                        // if squelch != NULL
-                "jz nosquelch\n\t"                      // apply squelch
-                "vmulps %0, %0, %%xmm2\n\t"
-                "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
-                "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
-                "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
-                "vcmpps $0x1D, (%2), %%xmm2, %%xmm2\n\t"
-                "vandps %%xmm2, %0, %0\n\t"
-                "nosquelch: nop\n\t"
-                :"=x"(buf[j]):"x"(z.u), "r"(squelch):"xmm2", "xmm3");
-        }
+    processMatrix(inFile, outFile, downsample, isRdc, isOt, squelch);
 
-        if (len) {
-            if (isRdc) {
-                removeDCSpike(buf, DEFAULT_BUF_SIZE);
-            }
-
-            if (!isOt) {
-                applyComplexConjugate(buf, DEFAULT_BUF_SIZE);
-            }
-
-            depth = filter(buf, DEFAULT_BUF_SIZE, downsample);
-            depth = demodulateFmData(buf, depth, result);
-
-            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-        }
-    }
-
-    if (fileno(outFile) > 2) fclose(outFile);
-    if (fileno(inFile) > 2) fclose(inFile);
+    fclose(outFile);
+    fclose(inFile);
     if (squelch) free(squelch);
 
     return exitFlag != EOF;

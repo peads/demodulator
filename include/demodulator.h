@@ -38,6 +38,8 @@
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
+#define QUAUX(X) #X
+#define QU(X) QUAUX(X)
 
 static int exitFlag = 0;
 
