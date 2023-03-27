@@ -24,7 +24,7 @@ extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
 extern void removeDCSpike(__m128 *buf, uint64_t len);
 extern void applyComplexConjugate(__m128 *buf, uint64_t len);
 extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
-//__attribute__((used)) extern size_t	 fread(void * __restrict ptr, size_t size, size_t nitems, FILE * __restrict stream);
+
 __attribute__((used)) static void checkFileStatus(FILE *file) {
 
     if (ferror(file)) {
@@ -40,7 +40,6 @@ __attribute__((used)) static void checkFileStatus(FILE *file) {
     }
 }                   //rdi           rsi         rdx         rcx             r8              r9
 extern uint64_t foo(uint8_t *buf, uint64_t len, __m128 *u, __m128 *squelch, __m128 *result, FILE *file);
-//    len += fread(buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH, file);
 __asm__(
 #ifdef __clang__
 "_foo: "
@@ -65,9 +64,7 @@ __asm__(
     "movq $1, %rsi\n\t" // set the fread arguments (rdi is implicit)
     "movq $4, %rdx\n\t"
     "leaq (%r9), %rcx\n\t"
-//    "addq $-8, %rsp\n\t"
     "call _fread\n\t"
-//    "addq $8, %rsp\n\t"
     "popq %r9\n\t"
     "popq %r8\n\t"
     "popq %rdi\n\t"
@@ -84,9 +81,7 @@ __asm__(
     "pushq %r8\n\t"
     "pushq %r9\n\t"
     "leaq (%r9), %rdi\n\t"
-//    "addq $-8, %rsp\n\t"
     "callq _checkFileStatus\n\t"
-//    "addq $8, %rsp\n\t"
     "popq %r9\n\t"
     "popq %r8\n\t"
     "popq %rdi\n\t"
@@ -133,48 +128,6 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     while (!exitFlag) {
         len = 0;
         len += foo(z.buf, DEFAULT_BUF_SIZE, &z.u, squelch, buf, inFile);
-//        for(j = 0, len = 0; j < DEFAULT_BUF_SIZE; ++j) {
-//            __asm__ (
-//                    "xorq %rsi, %rsi\n\t"
-//                    "xorq %%r10, %%r10\n\t"
-//                    "movq $1024, %rsi\n\t"
-//                    "shlq $4, %rsi\n\t"
-//                    "movq %2, %%r8\n\t"
-//                    "addq %rsi, %%r8\n\t"
-//                    "negq %rsi\n\t"
-//                "L6: "
-//                    "leaq (%6), %%rdi\n\t"
-//                    "movq $1, %%rsi\n\t"
-//                    "movq $4, %%rdx\n\t"
-//                    "leaq (%5), %%rcx\n\t"
-//                    "pushq %%rcx\n\t"
-//                    "addq $-8, %%rsp\n\t"
-//                    "call _fread\n\t"
-//                    "addq %%rax, %1\n\t"
-//                    "addq $8, %%rsp\n\t"
-//                    "popq %%rdi\n\t"
-//                    "callq _checkFileStatus\n\t"
-//
-//                    "vmovaps (%%r8, %rsi), %%xmm4\n\t"
-//                    "vpaddb all_nonetwentysevens(%%rip), %3, %%xmm4\n\t"
-//                    "vpmovsxbw %%xmm4, %%xmm4\n\t"
-//                    "vpmovsxwd %%xmm4, %%xmm4\n\t"
-//                    "vcvtdq2ps %%xmm4, %%xmm4\n\t"
-//                    "orq %4, %4\n\t"                    // if squelch != NULL
-//                    "jz nosquelch\n\t"                  // apply squelch
-//                    "vmulps %%xmm4, %%xmm4, %%xmm2\n\t"
-//                    "vpermilps $0xB1, %%xmm2, %%xmm3\n\t"
-//                    "vaddps %%xmm2, %%xmm3, %%xmm2\n\t"
-//                    "vmulps all_hundredths(%%rip), %%xmm2, %%xmm2\n\t"
-//                    "vcmpps $0x1D, (%4), %%xmm2, %%xmm2\n\t"
-//                    "vandps %%xmm2, %%xmm4, %%xmm4\n\t"
-//                "nosquelch:\n\t"
-//                    "add $16, %rsi\n\t"
-//                    "jl L6\n\t"
-//                   "" : "+r"(j), "=r"(len)
-//                    : "r"(buf), "x"(z.u), "r"(squelch), "r"(inFile), "r"(z.buf)
-//                    : "rdi", "rsi", "rdx", "rcx", "xmm2", "xmm3", "xmm4", "r8", "r9");
-//        }
 
         if (!exitFlag && len) {
             if (isRdc) {
