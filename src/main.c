@@ -64,7 +64,7 @@ __asm__(
 
     "shlq $4, %rsi\n\t"
     "addq %rsi, %rdx\n\t"   // store address of end of array
-    "negq %rdx\n\t"
+    "negq %rsi\n\t"
     "movq %rdx, %r14\n\t"   // result
     "movq %rsi, %r12\n\t"   // len
 
