@@ -40,24 +40,24 @@ L6:
     addq %rax, %r13
 
     movq %r15, %rdi
-    callq _checkFileStatus    // TODO consider inlining file err/eof check
+    callq _checkFileStatus          // TODO consider inlining file err/eof check
                                     // TODO change macro-ifdef-defined label
 
     vmovaps (%rbx), %xmm1 // args->buf
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1
+    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
-    vcvtdq2ps %xmm1, %xmm1
-    vmulps cnj_transform(%rip), %xmm1, %xmm1
-    vmovq %xmm0, %rcx       //args->squelch
-    test %rcx, %rcx         //if squelch != NULL
-    jz nosquelch            //apply squelch
-    vmulps %xmm1, %xmm1, %xmm2
+    vcvtdq2ps %xmm1, %xmm1                  // int16 to float
+    vmulps cnj_transform(%rip), %xmm1, %xmm1// ar, -aj, br, -bj
+    vmovq %xmm0, %rcx                       //args->squelch
+    test %rcx, %rcx
+    jz nosquelch                            //if squelch > 0
+    vmulps %xmm1, %xmm1, %xmm2              //apply squelch
     vpermilps $0xB1, %xmm2, %xmm3
     vaddps %xmm2, %xmm3, %xmm2
     vmulps all_hundredths(%rip), %xmm2, %xmm2
     vcmpps $0x1D, %xmm1, %xmm2, %xmm2
-//    vandps %xmm2, %xmm1, %xmm1
+    vandps %xmm2, %xmm1, %xmm1
 nosquelch:
     // window filter
     movq %r12, %rcx
