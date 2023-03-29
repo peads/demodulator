@@ -49,16 +49,27 @@ L6:
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
     vmulps cnj_transform(%rip), %xmm1, %xmm1// ar, -aj, br, -bj
-    vmovq %xmm0, %rcx                       //args->squelch
+    vmovq %xmm0, %rcx                       // args->squelch
     test %rcx, %rcx
-    jz nosquelch                            //if squelch > 0
-    vmulps %xmm1, %xmm1, %xmm2              //apply squelch
+    jz nosquelch                            // if squelch > 0
+    vmulps %xmm1, %xmm1, %xmm2              // apply squelch
     vpermilps $0xB1, %xmm2, %xmm3
     vaddps %xmm2, %xmm3, %xmm2
     vmulps all_hundredths(%rip), %xmm2, %xmm2
     vcmpps $0x1D, %xmm1, %xmm2, %xmm2
     vandps %xmm2, %xmm1, %xmm1
 nosquelch:
+    movb (%rsp), %cl
+    testb %cl, %cl
+    jz nordc                                // if rdc
+    //vmovaps (%rcx,%rax), %xmm0
+    vsubps dc_avg_iq(%rip), %xmm1, %xmm2    // apply raw dc filter
+    vmulps dc_raw_const(%rip), %xmm2, %xmm2 // TODO consider moving  const to xmm4
+    vaddps %xmm2, %xmm2, %xmm2
+    vsubps %xmm2, %xmm1, %xmm1
+    vmovaps %xmm1, dc_avg_iq(%rip)
+    //vmovaps %xmm0, (%rcx,%rax)
+nordc:
     // window filter
     movq %r12, %rcx
     shrq $5, %rcx
@@ -73,15 +84,6 @@ nosquelch:
     jz L6
     test %r13, %r13
     jz loopEnd
-
-//    movb (%rsp), %cl
-//    testb %cl, %cl
-//    jz isNotRdc           // if isRdc
-//// removeDCSpike(buf128, DEFAULT_BUF_SIZE);
-//    movq %r14, %rdi
-//    movl $1024, %esi
-//    callq _removeDCSpike
-isNotRdc:
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
     movl $1024, %esi
