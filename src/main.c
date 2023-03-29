@@ -20,10 +20,7 @@
 
 #include "demodulator.h"
 
-//extern uint64_t filter(__m128 *buf, uint64_t len, uint8_t downsample);
-//extern void removeDCSpike(__m128 *buf, uint64_t len);
-//extern void applyComplexConjugate(__m128 *buf, uint64_t len);
-//extern uint64_t demodulateFmData(__m128 *buf, uint64_t len, uint64_t *result);
+extern void processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
 
 __attribute__((used)) void checkFileStatus(FILE *file) {
 
@@ -39,45 +36,11 @@ __attribute__((used)) void checkFileStatus(FILE *file) {
         exitFlag = EOF;
     }
 }
-                        //rdi           rsi         xmm0            rdx             rcx            r8                  r9
-extern void readFile(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
-
-void processMatrix(FILE *inFile, FILE *outFile, struct chars *chars, __m128 squelch) {
-
-//    uint64_t depth = 0;
-//    uint64_t ret = 0;
-    uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
-
-    readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, chars, outFile);
-
-//    while (1) {
-//
-//        ret = readFile(buf, DexitFlagAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
-//
-//        if (exitFlag) {
-//            break;
-//        }
-//
-//        if (ret) {
-//            if (isRdc) {
-//                removeDCSpike(buf128, DexitFlagAULT_BUF_SIZE);
-//            }
-//
-//            if (!isOt) {
-//                applyComplexConjugate(buf128, DexitFlagAULT_BUF_SIZE);
-//            }
-//
-//            depth = filter(buf128, DexitFlagAULT_BUF_SIZE, downsample);
-//            depth = demodulateFmData(buf128, depth, result);
-//
-//            fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-//        }
-//    }
-}
 
 int main(int argc, char **argv) {
 
     int opt;
+    uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
@@ -123,7 +86,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    processMatrix(inFile, outFile, &chars, squelch);
+    processMatrix(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
 
 //    fclose(outFile);
 //    fclose(inFile);
