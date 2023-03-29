@@ -19,7 +19,7 @@
  */
 
 #include "demodulator.h"
-                            // rdi          rsi         xmm0            rdx             rcx             r8
+
 extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
 __attribute__((used)) int8_t checkFileStatus(FILE *file) {
