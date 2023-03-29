@@ -44,7 +44,6 @@ struct chars {
     uint8_t isOt;       // 1
     uint8_t downsample; // 2
 };
-//__m128 buf128[DEFAULT_BUF_SIZE];
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to

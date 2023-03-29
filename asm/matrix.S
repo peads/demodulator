@@ -78,11 +78,10 @@ nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
-    vsubps %xmm4, %xmm1, %xmm2              // apply raw dc iir filter
-    vmulps dc_raw_const(%rip), %xmm2, %xmm2 // TODO consider storing in xmm5+
-    vaddps %xmm2, %xmm2, %xmm2
-    vsubps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm2, %xmm4    // can we optimize this out with using xmm4 in place of xmm2 above?
+    vsubps %xmm4, %xmm1, %xmm4              // apply raw dc iir filter
+    vmulps dc_raw_const(%rip), %xmm4, %xmm4 // TODO consider storing in xmm5+
+    vaddps %xmm4, %xmm4, %xmm4
+    vsubps %xmm4, %xmm1, %xmm1
 nordc:
     // window filter
     movq %r12, %rcx
