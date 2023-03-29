@@ -31,7 +31,7 @@ struct chars {
     uint8_t downsample; // 2
 };
 
-extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
+extern int8_t processMatrix(__m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
 __attribute__((used)) int8_t checkFileStatus(FILE *file) {
 
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
                     break;
             }
         }
-    }
-                        //rdi   rsi                 xmm0     rcx         r8         r9
-    return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, inFile, &chars, outFile) != EOF;
+    }                   //xmm0     rdx    r8        r9
+                        //xmm0     rdi    rsi       rdx
+    return processMatrix(squelch, inFile, &chars, outFile) != EOF;
 }
