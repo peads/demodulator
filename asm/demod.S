@@ -40,9 +40,10 @@
     pushq %r14
     pushq %r15
 
-    pushq %rdx
-    movq $DEFAULT_BUF_SIZE, %rbp
+    movw $DEFAULT_BUF_SIZE, %bp
     shlq $4, %rbp
+
+    pushq %rdx
     pushq %rbp
     pushq (%rsi)
 
@@ -113,7 +114,7 @@ nordc:
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
     leaq result(%rip), %rdi
-    movl $OUTPUT_ELEMENT_BYTES, %esi
+    movw $OUTPUT_ELEMENT_BYTES, %si
     movl $DEFAULT_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
     callq FWRITE
