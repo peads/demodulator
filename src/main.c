@@ -48,9 +48,9 @@ __attribute__((used)) int8_t checkFileStatus(FILE *file) {
     return 0;
 }
 
-uint64_t result[1024];
-__m128 buf128[1024];
-uint8_t buf[1024];
+uint64_t result[512];
+__m128 buf128[512];
+uint8_t buf[4];
 
 int main(int argc, char **argv) {
 

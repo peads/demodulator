@@ -53,11 +53,11 @@ result:
     .quad 0
     .endr
 buf:
-    .rept DEFAULT_BUF_SIZE
+    .rept MATRIX_WIDTH
     .byte 0
     .endr
 buf128:
-    .rept DEFAULT_BUF_SIZE
+    .rept HALF_BUF_SIZE
     .quad 0
     .endr
 exit_flag:

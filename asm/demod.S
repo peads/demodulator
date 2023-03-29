@@ -109,7 +109,7 @@ nordc:
     jz loopEnd
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
-    movl $512, %esi //TODO
+    movl $HALF_BUF_SIZE, %esi //TODO
     leaq _result(%rip), %rdx
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
