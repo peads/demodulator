@@ -44,7 +44,6 @@ struct chars {
     uint8_t isOt;       // 1
     uint8_t downsample; // 2
 };
-int8_t exitFlag = 0;
 __m128 buf128[DEFAULT_BUF_SIZE];
 //uint64_t result[DEFAULT_BUF_SIZE];
 /**

@@ -20,21 +20,22 @@
 
 #include "demodulator.h"
 
-extern void processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
+extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
 
-__attribute__((used)) void checkFileStatus(FILE *file) {
+__attribute__((used)) int8_t checkFileStatus(FILE *file) {
 
     if (ferror(file)) {
         char errorMsg[256];
         sprintf(errorMsg, "\nI/O error when reading file");
         perror(errorMsg);
-        exitFlag = 1;
+        return 1;
     } else if (feof(file)) {
 #ifdef DEBUG
         fprintf(stderr, "\nExiting\n");
 #endif
-        exitFlag = EOF;
+        return EOF;
     }
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -86,7 +87,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    processMatrix(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
-
-    return exitFlag != EOF;
+    return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile) != EOF;
 }

@@ -59,6 +59,7 @@ L6:
     movq %r15, %rdi
     callq _checkFileStatus          // TODO consider inlining file err/eof check
                                     // TODO change macro-ifdef-defined label
+    movb %al, exit_flag(%rip)
 
     vmovaps (%rbx), %xmm1 // args->buf
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
@@ -111,10 +112,9 @@ nordc:
     movq 24(%rsp), %rcx
     callq _fwrite // TODO change macro-ifdef-defined label
 loopEnd: 
-    movq _exitFlag(%rip), %rcx
-    test %rcx, %rcx
+    movb exit_flag(%rip), %al
+    testb %al, %al
     jz L7
-
 end: 
     addq $40, %rsp
     popq %r15
