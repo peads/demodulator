@@ -39,18 +39,14 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-struct readArgs {
-    uint8_t downsample;
-    uint8_t isRdc;
-    uint8_t isOt;
-    __m128 *squelch;
-    __m128 *buf;
-    uint64_t len;
-    FILE *outFile;
-    uint64_t *result;
+struct chars {
+    uint8_t isRdc;      // 0
+    uint8_t isOt;       // 1
+    uint8_t downsample; // 2
 };
 
 static int exitFlag = 0;
+__attribute__((used)) static uint64_t result[DEFAULT_BUF_SIZE];
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
