@@ -42,17 +42,13 @@ __attribute__((used)) void checkFileStatus(FILE *file) {
                         //rdi           rsi         xmm0            rdx             rcx            r8                  r9
 extern void readFile(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
 
-void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 squelch) {
+void processMatrix(FILE *inFile, FILE *outFile, struct chars *chars, __m128 squelch) {
 
 //    uint64_t depth = 0;
 //    uint64_t ret = 0;
     uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
-    struct chars chars;
 
-    chars.isRdc = isRdc;
-    chars.isOt = isOt;
-    chars.downsample = downsample;
-    readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
+    readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, chars, outFile);
     printf("lol\n");
 //    while (1) {
 //
@@ -82,12 +78,10 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
 int main(int argc, char **argv) {
 
     int opt;
-    uint8_t downsample;
-    uint8_t isRdc = 0;
-    uint8_t isOt = 0;
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
+    struct chars chars;
 
     if (argc < 3) {
         return -1;
@@ -95,13 +89,13 @@ int main(int argc, char **argv) {
         while ((opt = getopt(argc, argv, "i:o:d:s:rf")) != -1) {
             switch (opt) {
                 case 'r':
-                    isRdc = 1;
+                    chars.isRdc = 1;
                     break;
                 case 'f':
-                    isOt = 1;
+                    chars.isOt = 1;
                     break;
                 case 'd':
-                    downsample = atoi(optarg);
+                    chars.downsample = atoi(optarg);
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                             // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
@@ -129,7 +123,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    processMatrix(inFile, outFile, downsample, isRdc, isOt, squelch);
+    processMatrix(inFile, outFile, &chars, squelch);
 
     fclose(outFile);
     fclose(inFile);
