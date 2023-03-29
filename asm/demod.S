@@ -65,7 +65,7 @@ L6:
     addq %rax, %r13
 
     movq %r15, %rdi
-    callq STATUS                            // TODO change macro-ifdef-defined label
+    callq STATUS
     movb %al, exit_flag(%rip)
 
     vmovaps (%rbx), %xmm1
