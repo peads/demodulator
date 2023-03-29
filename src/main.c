@@ -17,8 +17,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+#include <stdio.h>
+#include <stdint.h>
+#include <immintrin.h>
+#include <string.h>
+#include <math.h>
+#include <unistd.h>
+#include "definitions.h"
 
-#include "demodulator.h"
+struct chars {
+    uint8_t isRdc;      // 0
+    uint8_t isOt;       // 1
+    uint8_t downsample; // 2
+};
 
 extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
