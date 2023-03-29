@@ -1,6 +1,4 @@
 a.out
-*.s
-*.S
 *.swp
 cmake-build-debug/
 .idea/
