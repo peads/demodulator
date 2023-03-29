@@ -48,9 +48,9 @@ __attribute__((used)) int8_t checkFileStatus(FILE *file) {
     return 0;
 }
 
-uint64_t result[512];
-__m128 buf128[512];
-uint8_t buf[4];
+//uint64_t result[512];
+//__m128 buf128[512];
+//uint8_t buf[4];
 
 int main(int argc, char **argv) {
 
@@ -58,6 +58,8 @@ int main(int argc, char **argv) {
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
+
+//    printf("%lu %lu %lu\n", sizeof(result), sizeof(buf), sizeof(buf128));
 
     struct chars chars;
 

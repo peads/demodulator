@@ -47,14 +47,14 @@
     pushq %rbp
     pushq (%rsi)
 
-    leaq _buf(%rip), %rbx   // buf
-    leaq (%rdi), %r15 // *inFile
+    leaq buf(%rip), %rbx        // buf
+    leaq (%rdi), %r15           // *inFile
     vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
     vmovaps dc_raw_const(%rip), %xmm5
     vmovaps all_hundredths(%rip), %xmm6
     vmovaps cnj_transform(%rip), %xmm7
 L7:
-    leaq _buf128(%rip), %r14
+    leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
     xorq %r13, %r13
 L6:
@@ -109,11 +109,11 @@ nordc:
     jz loopEnd
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
-    movl $HALF_BUF_SIZE, %esi //TODO
-    leaq _result(%rip), %rdx
+    movl $HALF_BUF_SIZE, %esi
+    leaq result(%rip), %rdx
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq _result(%rip), %rdi
+    leaq result(%rip), %rdi
     movw $OUTPUT_ELEMENT_BYTES, %si
     movl $DEFAULT_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
