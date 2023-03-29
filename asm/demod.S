@@ -66,7 +66,16 @@ L6:
     addq %rax, %r13
 
     movq %r15, %rdi
-    callq STATUS
+    call _ferror
+    testb %al, %al
+    jnz error
+    movq %r15, %rdi
+    call _feof
+    jmp save_status
+error: 
+    movb $0, %dil
+    call _perror
+save_status:
     movb %al, exit_flag(%rip)
 
     vmovaps (%rbx), %xmm1
@@ -94,12 +103,12 @@ nosquelch:
     vsubps %xmm4, %xmm1, %xmm1
 nordc:
     // window filter
-    movq %r12, %rcx
-    shrq $5, %rcx
-    shlq $4, %rcx
+    movq %r12, %rax
+    shrq $5, %rax
+    shlq $4, %rax
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm1, (%r14, %rcx)
+    vmovaps %xmm1, (%r14, %rax)
 
     xorq %rcx, %rcx // reset bits of rcx, s.t. the upper doesn't interfere with squelch check
     addq $MATRIX_ELEMENT_BYTES, %r12
