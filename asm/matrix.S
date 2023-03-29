@@ -17,8 +17,6 @@
     pushq %r9
 
     shlq $4, %rsi
-    //addq %rsi, %rdx   // store address of end of array
-    //negq %rsi
     pushq %rdx
     pushq %rsi
     pushq (%r8)
@@ -26,9 +24,9 @@
     movq %rdi, %rbx   // buf
     leaq (%rcx), %r15 // *inFile
     movq %rsi, %rbp   // len
+    vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
 L7:
     movq 16(%rsp), %r14   // buf128
-    //movq 8(%rsp), %r12   // len
     xorq %r12, %r12       // i
     xorq %r13, %r13       // ret = 0
 L6: 
@@ -62,13 +60,11 @@ nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
-    //vmovaps (%rcx,%rax), %xmm0
-    vsubps dc_avg_iq(%rip), %xmm1, %xmm2    // apply raw dc filter
-    vmulps dc_raw_const(%rip), %xmm2, %xmm2 // TODO consider moving  const to xmm4
+    vsubps %xmm4, %xmm1, %xmm2              // apply raw dc iir filter
+    vmulps dc_raw_const(%rip), %xmm2, %xmm2
     vaddps %xmm2, %xmm2, %xmm2
     vsubps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm1, dc_avg_iq(%rip)
-    //vmovaps %xmm0, (%rcx,%rax)
+    vmovaps %xmm2, %xmm4
 nordc:
     // window filter
     movq %r12, %rcx
