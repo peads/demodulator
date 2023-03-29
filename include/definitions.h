@@ -30,7 +30,7 @@
 // sizeof(__m128)
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
-#define DEFAULT_BUF_SIZE 1024
+#define DEFAULT_BUF_SIZE 512
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
