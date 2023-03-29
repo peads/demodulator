@@ -32,34 +32,12 @@ struct chars {
 
 extern int8_t processMatrix(__m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
-__attribute__((used)) int8_t checkFileStatus(FILE *file) {
-
-    if (ferror(file)) {
-        char errorMsg[256];
-        sprintf(errorMsg, "\nI/O error when reading file");
-        perror(errorMsg);
-        return 1;
-    } else if (feof(file)) {
-#ifdef DEBUG
-        fprintf(stderr, "\nExiting\n");
-#endif
-        return EOF;
-    }
-    return 0;
-}
-
-//uint64_t result[512];
-//__m128 buf128[512];
-//uint8_t buf[4];
-
 int main(int argc, char **argv) {
 
     int opt;
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
-
-//    printf("%lu %lu %lu\n", sizeof(result), sizeof(buf), sizeof(buf128));
 
     struct chars chars;
 
