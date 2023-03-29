@@ -25,13 +25,6 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
-#ifdef __clang__
-    .globl _demodulateFmData
-#define FUN _demodulateFmData:
-#else
-    .globl demodulateFmData
-#define FUN demodulateFmData:
-#endif
 _arg:
 .text
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
@@ -66,7 +59,9 @@ _arg:
     vmovq %xmm0, %rax
     jmpq *%rdx
 
-FUN
+.globl _demodulateFmData
+_demodulateFmData:
+    .text
     movq %rdi, %rcx   // store buf address
     movq %rsi, %r8    // store n
     shlq $4, %r8
