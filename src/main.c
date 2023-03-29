@@ -163,7 +163,6 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
 //    uint64_t depth = 0;
 //    uint64_t ret = 0;
     uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
-    static __m128 buf128[DEFAULT_BUF_SIZE];
     struct chars chars;
 
     chars.isRdc = isRdc;

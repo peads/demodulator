@@ -28,7 +28,3 @@ dc_raw_const:
     .single 1e-05
     .endr
 negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
-result:
-    .rept 1024
-    .quad 0
-    .endr

@@ -22,7 +22,7 @@
     addq %rsi, %rdx   // store address of end of array
     negq %rsi
 
-    leaq (%rcx), %r15 // file
+    leaq (%rcx), %r15 // *inFile
     movq %rdx, %r14   // buf128
     movq %rsi, %r12   // len
     movq %rdi, %rbx   // buf
@@ -56,7 +56,14 @@ L6:
     vcmpps $0x1D, %xmm1, %xmm0, %xmm0
     vandps %xmm0, %xmm1, %xmm1
 nosquelch:
-    vmovaps %xmm1, (%r12, %r14)
+    // window filter
+    movq %r12, %rcx
+//    vpermilps $0x4E, %xmm1, %xmm0
+//    vaddps %xmm1, %xmm0, %xmm0
+//    shrq $5, %rcx
+//    shlq $4, %rcx
+    vmovaps %xmm0, (%r14, %rcx)
+
     addq $16, %r12
     jl L6
 
@@ -80,20 +87,20 @@ isNotRdc:
 //    callq _applyComplexConjugate // TODO change to actual label name once in own .S filejm
 //isOt: 
 // filter(buf128, DEFAULT_BUF_SIZE, downsample);
-    movq %r14, %rdi
-    movl $1024, %esi
-    movb 2(%rsp), %dl
-    test %dl, %dl
-    jz end
-    callq _filter // TODO change to actual label
-    jmp end
+//    movq %r14, %rdi
+//    movl $1024, %esi
+//    movb 2(%rsp), %dl
+//    test %dl, %dl
+//    jz end
+//    callq _filter // TODO change to actual label
+//    jmp end
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
     movl %eax, %esi
-    leaq result(%rip), %rdx
+    leaq _result(%rip), %rdx
     callq _demodulateFmData // TODO change to actual label
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    movq result(%rip), %rdi // TODO result put in header.S
+    movq _result(%rip), %rdi // TODO result put in header.S
     movl $1024, %esi
     movq %rax, %rdx
     movq (%rsp), %rdi
