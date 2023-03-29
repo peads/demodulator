@@ -88,8 +88,5 @@ int main(int argc, char **argv) {
 
     processMatrix(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
 
-//    fclose(outFile);
-//    fclose(inFile);
-
     return exitFlag != EOF;
 }

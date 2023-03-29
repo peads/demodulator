@@ -46,7 +46,7 @@ struct chars {
 };
 int8_t exitFlag = 0;
 __m128 buf128[DEFAULT_BUF_SIZE];
-uint64_t result[DEFAULT_BUF_SIZE];
+//uint64_t result[DEFAULT_BUF_SIZE];
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to

@@ -93,7 +93,7 @@ nordc:
     vaddps %xmm2, %xmm1, %xmm1
     vmovaps %xmm1, (%r14, %rcx)
 
-    xorq %rcx, %rcx
+    xorq %rcx, %rcx // reset bits of rcx, s.t. the upper doesn't interfere with squelch check
     addq $16, %r12
     test %r12, %rbp
     jz L6
@@ -102,10 +102,10 @@ nordc:
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
     movl $1024, %esi
-    leaq _result(%rip), %rdx
+    leaq result(%rip), %rdx
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq _result(%rip), %rdi
+    leaq result(%rip), %rdi
     movl $4, %esi
     movl $1024, %edx
     movq 24(%rsp), %rcx
