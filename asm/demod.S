@@ -41,13 +41,13 @@
     pushq %r15
     pushq %r8
 
-    shlq $4, %rsi
-    pushq %rsi
+    movq $DEFAULT_BUF_SIZE, %rbp
+    shlq $4, %rbp
+    pushq %rbp
     pushq (%rcx)
 
     leaq buf(%rip), %rbx   // buf
     leaq (%rdx), %r15 // *inFile
-    movq %rsi, %rbp   // len
     vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
     vmovaps dc_raw_const(%rip), %xmm5
     vmovaps all_hundredths(%rip), %xmm6
