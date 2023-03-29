@@ -48,9 +48,9 @@
 L7:
     leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
-    xorq %r13, %r13       // ret = 0
+    xorq %r13, %r13
 L6: 
-    movq %rbx, %rdi    // set the fread arguments, args->file
+    movq %rbx, %rdi
     movq $1, %rsi
     movq $4, %rdx
     movq %r15, %rcx
@@ -62,8 +62,8 @@ L6:
                                     // TODO change macro-ifdef-defined label
     movb %al, exit_flag(%rip)
 
-    vmovaps (%rbx), %xmm1 // args->buf
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16 // TODO consider storing in reg/stack
+    vmovaps (%rbx), %xmm1
+    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
