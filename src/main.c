@@ -23,7 +23,6 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
-#include "definitions.h"
 
 struct chars {
     uint8_t isRdc;      // 0
@@ -31,7 +30,7 @@ struct chars {
     uint8_t downsample; // 2
 };
 
-extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
+extern int8_t processMatrix(__m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
 __attribute__((used)) int8_t checkFileStatus(FILE *file) {
 
@@ -49,13 +48,19 @@ __attribute__((used)) int8_t checkFileStatus(FILE *file) {
     return 0;
 }
 
+//uint64_t result[512];
+//__m128 buf128[512];
+//uint8_t buf[4];
+
 int main(int argc, char **argv) {
 
     int opt;
-    uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
+
+//    printf("%lu %lu %lu\n", sizeof(result), sizeof(buf), sizeof(buf128));
+
     struct chars chars;
 
     if (argc < 3) {
@@ -97,6 +102,5 @@ int main(int argc, char **argv) {
             }
         }
     }
-
-    return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, inFile, &chars, outFile) != EOF;
+    return processMatrix(squelch, inFile, &chars, outFile) != EOF;
 }

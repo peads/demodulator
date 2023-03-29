@@ -17,11 +17,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+#include "definitions.h"
     .data
     .align 4
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, result, exit_flag, buf128
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf
 all_hundredths:
-    .rept 4
+    .rept MATRIX_WIDTH
     .single 0.01
     .endr
 all_nonetwentysevens:
@@ -43,16 +44,20 @@ all_41s:
 cnj_transform: .single 1.0, -1.0, 1.0, -1.0
 dc_avg_iq: .zero 16
 dc_raw_const:
-    .rept 4
+    .rept MATRIX_WIDTH
     .single 1e-05
     .endr
 negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
 result:
-    .rept 1024
+    .rept HALF_BUF_SIZE
+    .quad 0
+    .endr
+buf:
+    .rept MATRIX_WIDTH
     .quad 0
     .endr
 buf128:
-    .rept 1024
+    .rept DEFAULT_BUF_SIZE
     .quad 0
     .endr
 exit_flag:
