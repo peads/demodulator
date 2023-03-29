@@ -48,12 +48,17 @@ __attribute__((used)) int8_t checkFileStatus(FILE *file) {
     return 0;
 }
 
+uint64_t result[1024];
+__m128 buf128[1024];
+uint8_t buf[1024];
+
 int main(int argc, char **argv) {
 
     int opt;
     __m128 squelch = {0,0,0,0};
     FILE *inFile = NULL;
     FILE *outFile = NULL;
+
     struct chars chars;
 
     if (argc < 3) {
