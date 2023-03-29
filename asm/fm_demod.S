@@ -26,10 +26,10 @@
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
 #ifdef __clang__
-    .globl _demodulateFmData, _arg
+    .globl _demodulateFmData
 #define FUN _demodulateFmData:
 #else
-    .globl demodulateFmData, _arg
+    .globl demodulateFmData
 #define FUN demodulateFmData:
 #endif
 _arg:

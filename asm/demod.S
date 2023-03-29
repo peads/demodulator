@@ -17,6 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include "definitions.h"
 #ifdef __clang__
     .globl  _processMatrix
     _processMatrix:
@@ -26,7 +28,6 @@
 #endif
     .text
     pushq %rbp
-    movq %rsp, %rbp
     pushq %rbx
     pushq %r12
     pushq %r13
@@ -102,15 +103,15 @@ nordc:
     jz loopEnd
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
-    movl $1024, %esi
+    movl $DEFAULT_BUF_SIZE, %esi
     leaq result(%rip), %rdx
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
     leaq result(%rip), %rdi
     movl $4, %esi
-    movl $1024, %edx
+    movl $DEFAULT_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
-    callq _fwrite // TODO change macro-ifdef-defined label
+    callq _fwrite           // TODO change macro-ifdef-defined label
 loopEnd: 
     movb exit_flag(%rip), %al
     testb %al, %al

@@ -18,15 +18,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DEMODULATOR_DEMODULATOR_H
-#define DEMODULATOR_DEMODULATOR_H
-
-#include <stdio.h>
-#include <stdint.h>
-#include <immintrin.h>
-#include <string.h>
-#include <math.h>
-#include <unistd.h>
+#ifndef DEMODULATOR_DEFINITIONS_H
+#define DEMODULATOR_DEFINITIONS_H
 
 //#define DEBUG
 
@@ -39,11 +32,6 @@
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
 
-struct chars {
-    uint8_t isRdc;      // 0
-    uint8_t isOt;       // 1
-    uint8_t downsample; // 2
-};
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to
@@ -88,4 +76,4 @@ __asm__(
 //
 //    return result;
 //}
-#endif //DEMODULATOR_DEMODULATOR_H
+#endif //DEMODULATOR_DEFINITIONS_H
