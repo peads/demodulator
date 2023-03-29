@@ -20,9 +20,15 @@
 
 #include "definitions.h"
 #ifdef __clang__
+#define FWRITE _fwrite
+#define FREAD _fread
+#define STATUS _checkFileStatus
     .globl  _processMatrix
     _processMatrix:
 #else
+#define FWRITE fwrite
+#define FREAD fread
+#define STATUS checkFileStatus
     .globl  processMatrix
     processMatrix:
 #endif
@@ -52,15 +58,14 @@ L7:
     xorq %r13, %r13
 L6: 
     movq %rbx, %rdi
-    movq $1, %rsi
-    movq $4, %rdx
+    movq $INPUT_ELEMENT_BYTES, %rsi
+    movq $MATRIX_WIDTH, %rdx
     movq %r15, %rcx
-    call _fread               // TODO change macro-ifdef-defined label
+    call FREAD
     addq %rax, %r13
 
     movq %r15, %rdi
-    callq _checkFileStatus          // TODO consider inlining file err/eof check
-                                    // TODO change macro-ifdef-defined label
+    callq STATUS                            // TODO change macro-ifdef-defined label
     movb %al, exit_flag(%rip)
 
     vmovaps (%rbx), %xmm1
@@ -89,14 +94,14 @@ nosquelch:
 nordc:
     // window filter
     movq %r12, %rcx
-    shrq $5, %rcx
+    shrq $5, %rcx                           // TODO see if I can finally just >> 1
     shlq $4, %rcx
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
     vmovaps %xmm1, (%r14, %rcx)
 
     xorq %rcx, %rcx // reset bits of rcx, s.t. the upper doesn't interfere with squelch check
-    addq $16, %r12
+    addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
     test %r13, %r13
@@ -108,10 +113,10 @@ nordc:
     callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
     leaq result(%rip), %rdi
-    movl $4, %esi
+    movl $OUTPUT_ELEMENT_BYTES, %esi
     movl $DEFAULT_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
-    callq _fwrite           // TODO change macro-ifdef-defined label
+    callq FWRITE
 loopEnd: 
     movb exit_flag(%rip), %al
     testb %al, %al
