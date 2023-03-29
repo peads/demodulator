@@ -1,10 +1,5 @@
-#ifdef __clang__
     .globl _applyComplexConjugate
-    _applyComplexConjugate:
-#else
-    .globl applyComplexConjugate
-    applyComplexConjugate:
-#endif
+_applyComplexConjugate:
     .text
     movq %rdi, %rcx
     movq %rsi, %rax

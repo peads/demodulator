@@ -1,10 +1,5 @@
-#ifdef __clang__
     .globl  _removeDCSpike
-    _removeDCSpike:
-#else
-    .globl  removeDCSpike
-    removeDCSpike:
-#endif
+_removeDCSpike:
     .text
     movq %rdi, %rcx
     movq %rsi, %rax
