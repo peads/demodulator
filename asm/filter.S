@@ -13,7 +13,7 @@ L2:
     shrq $5, %rcx
     shlq $4, %rcx
     vmovaps %xmm0, (%rdi, %rcx)
-    addq $8, %rax
+    addq $16, %rax
 
 //    vpermilps $0x4E, 16(%rdi, %rax), %xmm0
 //    vaddps 16(%rdi, %rax), %xmm0, %xmm0

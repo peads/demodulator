@@ -49,7 +49,7 @@ void processMatrix(FILE *inFile, FILE *outFile, struct chars *chars, __m128 sque
     uint8_t buf[MATRIX_WIDTH] __attribute__((aligned (16)));
 
     readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, chars, outFile);
-    printf("lol\n");
+
 //    while (1) {
 //
 //        ret = readFile(buf, DexitFlagAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
@@ -125,8 +125,8 @@ int main(int argc, char **argv) {
 
     processMatrix(inFile, outFile, &chars, squelch);
 
-    fclose(outFile);
-    fclose(inFile);
+//    fclose(outFile);
+//    fclose(inFile);
 
     return exitFlag != EOF;
 }
