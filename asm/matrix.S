@@ -49,20 +49,20 @@ L6:
     vmovq %xmm0, %rcx   // args->squelch
     test %rcx, %rcx        // if squelch != NULL
     jz nosquelch          // apply squelch
-    vmulps %xmm1, %xmm1, %xmm0
-    vpermilps $0xB1, %xmm0, %xmm3
-    vaddps %xmm0, %xmm3, %xmm0
-    vmulps all_hundredths(%rip), %xmm0, %xmm0
-    vcmpps $0x1D, %xmm1, %xmm0, %xmm0
-    vandps %xmm0, %xmm1, %xmm1
+    vmulps %xmm1, %xmm1, %xmm2
+    vpermilps $0xB1, %xmm2, %xmm3
+    vaddps %xmm2, %xmm3, %xmm2
+    vmulps all_hundredths(%rip), %xmm2, %xmm2
+    vcmpps $0x1D, %xmm1, %xmm2, %xmm2
+    vandps %xmm2, %xmm1, %xmm1
 nosquelch:
     // window filter
     movq %r12, %rcx
-//    vpermilps $0x4E, %xmm1, %xmm0
-//    vaddps %xmm1, %xmm0, %xmm0
+//    vpermilps $0x4E, %xmm1, %xmm2
+//    vaddps %xmm1, %xmm2, %xmm2
 //    shrq $5, %rcx
 //    shlq $4, %rcx
-    vmovaps %xmm0, (%r14, %rcx)
+    vmovaps %xmm1, (%r14, %rcx)
 
     addq $16, %r12
     jl L6
