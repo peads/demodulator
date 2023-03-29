@@ -94,7 +94,7 @@ nosquelch:
 nordc:
     // window filter
     movq %r12, %rcx
-    shrq $5, %rcx                           // TODO see if I can finally just >> 1
+    shrq $5, %rcx
     shlq $4, %rcx
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
