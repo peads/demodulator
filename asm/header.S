@@ -19,7 +19,7 @@
  */
     .data
     .align 4
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, result, exit_flag
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, result, exit_flag, buf128
 all_hundredths:
     .rept 4
     .single 0.01
@@ -48,6 +48,10 @@ dc_raw_const:
     .endr
 negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
 result:
+    .rept 1024
+    .quad 0
+    .endr
+buf128:
     .rept 1024
     .quad 0
     .endr

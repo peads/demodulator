@@ -27,7 +27,7 @@
     .text
     pushq %rbp
     movq %rsp, %rbp
-    addq $-8, %rsp
+    //addq $-8, %rsp
     pushq %rbx
     pushq %r12
     pushq %r13
@@ -36,7 +36,7 @@
     pushq %r9
 
     shlq $4, %rsi
-    pushq %rdx
+    //pushq buf128(%rip)    // buf128
     pushq %rsi
     pushq (%r8)
 
@@ -45,7 +45,7 @@
     movq %rsi, %rbp   // len
     vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
 L7:
-    movq 16(%rsp), %r14   // buf128
+    leaq buf128(%rip), %r14   // buf128
     xorq %r12, %r12       // i
     xorq %r13, %r13       // ret = 0
 L6: 
@@ -66,14 +66,14 @@ L6:
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
-    vmulps cnj_transform(%rip), %xmm1, %xmm1// ar, -aj, br, -bj
+    vmulps cnj_transform(%rip), %xmm1, %xmm1// ar, -aj, br, -bj // TODO consider storing in xmm5+
     vmovq %xmm0, %rcx                       // args->squelch
     test %rcx, %rcx
     jz nosquelch                            // if squelch > 0
     vmulps %xmm1, %xmm1, %xmm2              // apply squelch
     vpermilps $0xB1, %xmm2, %xmm3
     vaddps %xmm2, %xmm3, %xmm2
-    vmulps all_hundredths(%rip), %xmm2, %xmm2
+    vmulps all_hundredths(%rip), %xmm2, %xmm2 // TODO consider storing in xmm5+
     vcmpps $0x1D, %xmm1, %xmm2, %xmm2
     vandps %xmm2, %xmm1, %xmm1
 nosquelch:
@@ -81,10 +81,10 @@ nosquelch:
     testb %cl, %cl
     jz nordc                                // if rdc
     vsubps %xmm4, %xmm1, %xmm2              // apply raw dc iir filter
-    vmulps dc_raw_const(%rip), %xmm2, %xmm2
+    vmulps dc_raw_const(%rip), %xmm2, %xmm2 // TODO consider storing in xmm5+
     vaddps %xmm2, %xmm2, %xmm2
     vsubps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm2, %xmm4
+    vmovaps %xmm2, %xmm4    // can we optimize this out with using xmm4 in place of xmm2 above?
 nordc:
     // window filter
     movq %r12, %rcx
@@ -109,14 +109,14 @@ nordc:
     leaq result(%rip), %rdi
     movl $4, %esi
     movl $1024, %edx
-    movq 24(%rsp), %rcx
+    movq 16(%rsp), %rcx
     callq _fwrite // TODO change macro-ifdef-defined label
 loopEnd: 
     movb exit_flag(%rip), %al
     testb %al, %al
     jz L7
 end: 
-    addq $40, %rsp
+    addq $24, %rsp
     popq %r15
     popq %r14
     popq %r13
