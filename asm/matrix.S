@@ -27,25 +27,23 @@
     .text
     pushq %rbp
     movq %rsp, %rbp
-    //addq $-8, %rsp
     pushq %rbx
     pushq %r12
     pushq %r13
     pushq %r14
     pushq %r15
-    pushq %r9
+    pushq %r8
 
     shlq $4, %rsi
-    //pushq buf128(%rip)    // buf128
     pushq %rsi
-    pushq (%r8)
+    pushq (%rcx)
 
     movq %rdi, %rbx   // buf
-    leaq (%rcx), %r15 // *inFile
+    leaq (%rdx), %r15 // *inFile
     movq %rsi, %rbp   // len
     vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
 L7:
-    leaq buf128(%rip), %r14   // buf128
+    leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
     xorq %r13, %r13       // ret = 0
 L6: 

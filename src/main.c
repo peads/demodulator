@@ -19,8 +19,8 @@
  */
 
 #include "demodulator.h"
-                            // rdi          rsi         xmm0            rdx             rcx             r8                  r9
-extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
+                            // rdi          rsi         xmm0            rdx             rcx             r8
+extern int8_t processMatrix(uint8_t *buf, uint64_t len, __m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
 __attribute__((used)) int8_t checkFileStatus(FILE *file) {
 
@@ -87,5 +87,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, NULL, inFile, &chars, outFile) != EOF;
+    return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, inFile, &chars, outFile) != EOF;
 }
