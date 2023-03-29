@@ -41,122 +41,6 @@ __attribute__((used)) void checkFileStatus(FILE *file) {
 }
                         //rdi           rsi         xmm0            rdx             rcx            r8                  r9
 extern void readFile(uint8_t *buf, uint64_t len, __m128 squelch, __m128 *buf128, FILE *inFile, struct chars *chars, FILE *outFile);
-//__asm__(
-//#ifdef __clang__
-//"_readFile: "
-//#else
-//"readFile: "
-//#endif
-//    "pushq %rbp\n\t"
-//    "movq %rsp, %rbp\n\t"
-////    "addq $-8, %rsp\n\t"
-//    "pushq %rbx\n\t"
-//    "pushq %r12\n\t"
-//    "pushq %r13\n\t"
-//    "pushq %r14\n\t"
-//    "pushq %r15\n\t"
-//    "pushq (%rdx)\n\t"
-//    "pushq %r9\n\t"
-//    "pushq (%r8)\n\t"
-//
-//    "shlq $4, %rsi\n\t"
-//    "addq %rsi, %rdx\n\t"   // store address of end of array
-//    "negq %rsi\n\t"
-//
-//    "leaq (%rcx), %r15\n\t" // file
-//    "movq %rdx, %r14\n\t"   // buf128
-//    "movq %rsi, %r12\n\t"   // len
-//    "movq %rdi, %rbx\n\t"   // buf
-//"L7: "
-//    "xorq %r13, %r13\n\t"       // ret = 0
-//"L6: "
-//    "movq %rbx, %rdi\n\t"    // set the fread arguments, args->file
-//    "movq $1, %rsi\n\t"
-//    "movq $4, %rdx\n\t"
-//    "movq %r15, %rcx\n\t"
-//    "call _fread\n\t"               // TODO change macro-ifdef-defined label
-//    "addq %rax, %r13\n\t"
-//
-//    "movq %r15, %rdi\n\t"
-//    "callq _checkFileStatus\n\t"    // TODO consider inlining file err/eof check
-//                                    // TODO change macro-ifdef-defined label
-//
-//    "vmovaps (%rbx), %xmm1\n\t" // args->buf
-//    "vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1\n\t"
-//    "vpmovsxbw %xmm1, %xmm1\n\t"
-//    "vpmovsxwd %xmm1, %xmm1\n\t"
-//    "vcvtdq2ps %xmm1, %xmm1\n\t"
-//    "vmulps cnj_transform(%rip), %xmm1, %xmm1\n\t"
-//    "vmovq %xmm0, %rcx\n\t"   // args->squelch
-//    "test %rcx, %rcx\n\t"        // if squelch != NULL
-//    "jz nosquelch\n\t"          // apply squelch
-//    "vmulps %xmm1, %xmm1, %xmm0\n\t"
-//    "vpermilps $0xB1, %xmm0, %xmm3\n\t"
-//    "vaddps %xmm0, %xmm3, %xmm0\n\t"
-//    "vmulps all_hundredths(%rip), %xmm0, %xmm0\n\t"
-//    "vcmpps $0x1D, %xmm1, %xmm0, %xmm0\n\t"
-//    "vandps %xmm0, %xmm1, %xmm1\n\t"
-//"nosquelch:\n\t"
-//    "vmovaps %xmm1, (%r12, %r14)\n\t"
-//    "addq $16, %r12\n\t"
-//    "jl L6\n\t"
-//
-//    "test %r13, %r13\n\t"
-//    "jz loopEnd\n\t"
-//
-//    "movb (%rsp), %cl\n\t"
-//    "testb %cl, %cl\n\t"
-//    "jz isNotRdc\n\t"           // if isRdc
-//// removeDCSpike(buf128, DexitFlagAULT_BUF_SIZE);
-//    "movq %r14, %rdi\n\t"
-//    "movl $1024, %esi\n\t"
-//    "callq _removeDCSpike\n\t" // TODO change to actual label name once in own .S file
-//"isNotRdc: "
-////    "movb 1(%rsp), %cl\n\t"
-////    "testb %cl, %cl\n\t"
-////    "jnz isOt\n\t"           // if !isOt
-//// applyComplexConjugate(buf128, DexitFlagAULT_BUF_SIZE);
-////    "movq %r14, %rdi\n\t"
-////    "movl $1024, %esi\n\t"
-////    "callq _applyComplexConjugate\n\t" // TODO change to actual label name once in own .S filejm
-////"isOt: "
-//// filter(buf128, DexitFlagAULT_BUF_SIZE, downsample);
-//    "movq %r14, %rdi\n\t"
-//    "movl $1024, %esi\n\t"
-//    "movb 2(%rsp), %dl\n\t"
-//    "test %dl, %dl\n\t"
-//    "jz end\n\t"
-//    "callq _filter\n\t" // TODO change to actual label
-//    "jmp end\n\t"
-//// demodulateFmData(buf128, depth, result);
-//    "movq %r14, %rdi\n\t"
-//    "movl %eax, %esi\n\t"
-//    "leaq _result(%rip), %rdx\n\t"
-//    "callq _demodulateFmData\n\t" // TODO change to actual label
-//// fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-//    "movq _result(%rip), %rdi\n\t" // TODO result put in header.S
-//    "movl $1024, %esi\n\t"
-//    "movq %rax, %rdx\n\t"
-//    "movq (%rsp), %rdi\n\t"
-//    "callq _fwrite\n\t" // TODO change macro-ifdef-defined label
-//"loopEnd: "
-//    "movq _exitFlag(%rip), %rcx\n\t" // TODO put exitFlag in header.S
-//    "test %rcx, %rcx\n\t"
-//    "jz L7\n\t"
-//
-//"end: "
-//    "addq $24, %rsp\n\t"
-////    "popq %rdx\n\t"
-////    "popq %r9\n\t"
-////    "popq %r8\n\t"
-//    "popq %r15\n\t"
-//    "popq %r14\n\t"
-//    "popq %r13\n\t"
-//    "popq %r12\n\t"
-//    "popq %rbx\n\t"
-//    "popq %rbp\n\t"
-//    "ret"
-//);
 
 void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRdc, uint8_t isOt, __m128 squelch) {
 
@@ -168,7 +52,6 @@ void processMatrix(FILE *inFile, FILE *outFile, uint8_t downsample, uint8_t isRd
     chars.isRdc = isRdc;
     chars.isOt = isOt;
     chars.downsample = downsample;
-
     readFile(buf, DEFAULT_BUF_SIZE, squelch, buf128, inFile, &chars, outFile);
     printf("lol\n");
 //    while (1) {

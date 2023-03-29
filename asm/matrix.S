@@ -8,25 +8,26 @@
     .text
     pushq %rbp
     movq %rsp, %rbp
-//    addq $-8, %rsp
+    addq $-8, %rsp
     pushq %rbx
     pushq %r12
     pushq %r13
     pushq %r14
     pushq %r15
-    pushq (%rdx)
     pushq %r9
-    pushq (%r8)
 
     shlq $4, %rsi
     addq %rsi, %rdx   // store address of end of array
     negq %rsi
+    pushq %rdx
+    pushq %rsi
+    pushq (%r8)
 
-    leaq (%rcx), %r15 // *inFile
-    movq %rdx, %r14   // buf128
-    movq %rsi, %r12   // len
     movq %rdi, %rbx   // buf
-L7: 
+    leaq (%rcx), %r15 // *inFile
+L7:
+    movq 16(%rsp), %r14   // buf128
+    movq 8(%rsp), %r12   // len
     xorq %r13, %r13       // ret = 0
 L6: 
     movq %rbx, %rdi    // set the fread arguments, args->file
@@ -96,14 +97,14 @@ isNotRdc:
 //    jmp end
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
-    movl %eax, %esi
+    movl $1024, %esi
     leaq _result(%rip), %rdx
     callq _demodulateFmData // TODO change to actual label
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    movq _result(%rip), %rdi // TODO result put in header.S
-    movl $1024, %esi
-    movq %rax, %rdx
-    movq (%rsp), %rdi
+    leaq _result(%rip), %rdi
+    movl $8, %esi
+    movl $1024, %edx
+    movq 24(%rsp), %rcx // TODO result put in header.S
     callq _fwrite // TODO change macro-ifdef-defined label
 loopEnd: 
     movq _exitFlag(%rip), %rcx
@@ -111,10 +112,7 @@ loopEnd:
     jz L7
 
 end: 
-    addq $24, %rsp
-//    popq %rdx
-//    popq %r9
-//    popq %r8
+    addq $40, %rsp
     popq %r15
     popq %r14
     popq %r13
