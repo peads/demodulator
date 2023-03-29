@@ -20,7 +20,7 @@
 #include "definitions.h"
     .data
     .align 4
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, result, exit_flag, buf128
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, result, exit_flag, buf128, buf
 all_hundredths:
     .rept MATRIX_WIDTH
     .single 0.01
@@ -51,6 +51,10 @@ negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
 result:
     .rept DEFAULT_BUF_SIZE
     .quad 0
+    .endr
+buf:
+    .rept DEFAULT_BUF_SIZE
+    .byte 0
     .endr
 buf128:
     .rept DEFAULT_BUF_SIZE

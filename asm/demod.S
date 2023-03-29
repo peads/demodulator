@@ -45,7 +45,7 @@
     pushq %rsi
     pushq (%rcx)
 
-    movq %rdi, %rbx   // buf
+    leaq buf(%rip), %rbx   // buf
     leaq (%rdx), %r15 // *inFile
     movq %rsi, %rbp   // len
     vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq

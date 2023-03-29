@@ -97,6 +97,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-
+                        //rdi   rsi                 xmm0     rcx         r8         r9
     return processMatrix(buf, DEFAULT_BUF_SIZE, squelch, inFile, &chars, outFile) != EOF;
 }
