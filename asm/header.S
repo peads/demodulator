@@ -19,7 +19,6 @@
  */
 #include "definitions.h"
     .data
-    .p2align 4
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf
 all_hundredths:
     .rept MATRIX_WIDTH
@@ -42,14 +41,20 @@ all_41s:
     .single 41.0
     .endr
 cnj_transform:
-    .single 1.0, -1.0, 1.0, -1.0
+    .rept 1
+    .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
+    .endr
 dc_avg_iq:
-    .zero 1 << MATRIX_WIDTH
+    .zero 1
+    .p2align MATRIX_WIDTH
 dc_raw_const:
     .rept MATRIX_WIDTH
     .single 1e-05
     .endr
-negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
+negate_b_im:
+    .rept 2
+    .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
+    .endr
 result:
     .zero HALF_BUF_SIZE << MATRIX_WIDTH
 buf:
