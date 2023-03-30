@@ -74,7 +74,7 @@ L6:
     call FERROR
     testb %al, %al
     jz feof
-    movb $0, %dil
+    xorq %rdx, %rdx
     call PERROR
     jmp end
 feof:
