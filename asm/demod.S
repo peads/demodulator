@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-#ifdef __clang__
+#if defined(__clang__) || defined(__APPLE__)
 #define FWRITE _fwrite
 #define FREAD _fread
 #define STATUS _checkFileStatus
@@ -106,14 +106,13 @@ nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
-    vmovaps dc_avg_iq(%rip), %xmm4
-    vsubps %xmm4, %xmm1, %xmm4              // apply raw dc iir filter
+    vsubps dc_avg_iq(%rip), %xmm1, %xmm4    // apply raw dc iir filter
     vmulps dc_raw_const(%rip), %xmm4, %xmm4
     vaddps %xmm4, %xmm4, %xmm4
     vsubps %xmm4, %xmm1, %xmm1
     vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
-    // window filter
+    // window fir filter
     movq %r12, %rax
     shrq $5, %rax
     shlq $4, %rax
@@ -121,7 +120,6 @@ nordc:
     vaddps %xmm2, %xmm1, %xmm1
     vmovaps %xmm1, (%r14, %rax)
 
-    xorq %rcx, %rcx // reset bits of rcx, s.t. the upper doesn't interfere with squelch check
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
@@ -146,3 +144,4 @@ end:
     popq %rbx
     popq %rbp
     ret
+
