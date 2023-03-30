@@ -19,10 +19,10 @@
  */
 #include <stdio.h>
 #include <stdint.h>
-#include <immintrin.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 struct chars {
     uint8_t isRdc;      // 0
