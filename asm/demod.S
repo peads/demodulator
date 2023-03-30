@@ -23,12 +23,18 @@
 #define FWRITE _fwrite
 #define FREAD _fread
 #define STATUS _checkFileStatus
+#define FERROR _ferror
+#define FEOF _feof
+#define PERROR _perror
     .globl  _processMatrix
     _processMatrix:
 #else
 #define FWRITE fwrite
 #define FREAD fread
 #define STATUS checkFileStatus
+#define FERROR ferror
+#define FEOF feof
+#define PERROR perror
     .globl  processMatrix
     processMatrix:
 #endif
@@ -66,15 +72,15 @@ L6:
     addq %rax, %r13
 
     movq %r15, %rdi
-    call _ferror
+    call FERROR
     testb %al, %al
     jnz error
     movq %r15, %rdi
-    call _feof
+    call FEOF
     jmp save_status
 error: 
     movb $0, %dil
-    call _perror
+    call PERROR
 save_status:
     movb %al, exit_flag(%rip)
 
