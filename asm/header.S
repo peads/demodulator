@@ -19,7 +19,7 @@
  */
 #include "definitions.h"
     .data
-    .align 16
+    .p2align 4
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf
 all_hundredths:
     .rept MATRIX_WIDTH
@@ -53,7 +53,8 @@ negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
 result:
     .zero HALF_BUF_SIZE << MATRIX_WIDTH
 buf:
-    .zero 1 << MATRIX_WIDTH
+    .zero 1
+    .p2align MATRIX_WIDTH
 buf128:
     .zero DEFAULT_BUF_SIZE << MATRIX_WIDTH
 exit_flag:
