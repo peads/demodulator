@@ -74,11 +74,11 @@ L6:
     movq %r15, %rdi
     call FERROR
     testb %al, %al
-    jz feof
+    jz check
     xorq %rdx, %rdx
     call PERROR
     jmp end
-feof:
+check:
     movq %r15, %rdi
     call FEOF
     testb %al, %al
