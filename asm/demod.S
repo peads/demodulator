@@ -91,8 +91,8 @@ continue:
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
     vmulps %xmm7, %xmm1, %xmm1              // ar, -aj, br, -bj
-    vmovq %xmm0, %rcx                       // args->squelch
-    test %rcx, %rcx
+    //vmovq %xmm0, %rcx                       // args->squelch
+    ptest %xmm0, %xmm0
     jz nosquelch                            // if squelch > 0
     vmulps %xmm1, %xmm1, %xmm2              // apply squelch
     vpermilps $0xB1, %xmm2, %xmm3
