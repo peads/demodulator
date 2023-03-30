@@ -23,7 +23,6 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "definitions.h"
 
 struct chars {
     uint8_t isRdc;      // 0
