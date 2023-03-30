@@ -106,8 +106,7 @@ nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
-    vmovaps dc_avg_iq(%rip), %xmm4
-    vsubps %xmm4, %xmm1, %xmm4              // apply raw dc iir filter
+    vsubps dc_avg_iq(%rip), %xmm1, %xmm4    // apply raw dc iir filter
     vmulps dc_raw_const(%rip), %xmm4, %xmm4
     vaddps %xmm4, %xmm4, %xmm4
     vsubps %xmm4, %xmm1, %xmm1
@@ -121,7 +120,6 @@ nordc:
     vaddps %xmm2, %xmm1, %xmm1
     vmovaps %xmm1, (%r14, %rax)
 
-    xorq %rcx, %rcx // reset bits of rcx, s.t. the upper doesn't interfere with squelch check
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
