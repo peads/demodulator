@@ -33,7 +33,6 @@ struct chars {
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
-uint64_t squelch[MATRIX_WIDTH >> 1] __attribute__((aligned(16)));
 int main(int argc, char **argv) {
 
     int opt;

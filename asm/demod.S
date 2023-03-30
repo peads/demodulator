@@ -46,7 +46,7 @@
     pushq %r15
 
     vbroadcastss %xmm0, %xmm0
-    vmovaps %xmm0, _squelch(%rip)
+    vmovaps %xmm0, squelch(%rip)
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -56,10 +56,6 @@
 
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
-    //vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
-    //vmovaps dc_raw_const(%rip), %xmm5
-    //vmovaps all_hundredths(%rip), %xmm6
-    //vmovaps cnj_transform(%rip), %xmm7
 L7:
     leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
@@ -97,7 +93,7 @@ continue:
     jnz oft
     vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
 oft:
-    movaps _squelch(%rip), %xmm0
+    movaps squelch(%rip), %xmm0
     ptest %xmm0, %xmm0
     jz nosquelch                            // if squelch > 0
     vmulps %xmm1, %xmm1, %xmm2              // apply squelch

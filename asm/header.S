@@ -19,7 +19,7 @@
  */
 #include "definitions.h"
     .data
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
 all_hundredths:
     .rept MATRIX_WIDTH
     .single 0.01
@@ -45,6 +45,9 @@ cnj_transform:
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
     .endr
 dc_avg_iq:
+    .zero 1
+    .p2align MATRIX_WIDTH
+squelch:
     .zero 1
     .p2align MATRIX_WIDTH
 dc_raw_const:
