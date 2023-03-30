@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
 #include "definitions.h"
 #ifdef __clang__
 #define FWRITE _fwrite
@@ -74,16 +73,18 @@ L6:
     movq %r15, %rdi
     call FERROR
     testb %al, %al
-    jnz error
-    movq %r15, %rdi
-    call FEOF
-    jmp save_status
-error: 
+    jz feof
     movb $0, %dil
     call PERROR
-save_status:
-    movb %al, exit_flag(%rip)
-
+    jmp end
+feof:
+    movq %r15, %rdi
+    call FEOF
+    testb %al, %al
+    jz continue
+    movb $-1, %al
+    jmp end
+continue:
     vmovaps (%rbx), %xmm1
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
@@ -120,8 +121,6 @@ nordc:
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-    test %r13, %r13
-    jz loopEnd
 // demodulateFmData(buf128, depth, result);
     movq %r14, %rdi
     movl $HALF_BUF_SIZE, %esi
@@ -133,11 +132,8 @@ nordc:
     movl $DEFAULT_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
     callq FWRITE
-loopEnd: 
-    movb exit_flag(%rip), %al
-    testb %al, %al
-    jz L7
-end: 
+    jmp L7
+end:
     addq $24, %rsp
     popq %r15
     popq %r14
