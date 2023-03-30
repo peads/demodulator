@@ -30,12 +30,12 @@ struct chars {
     uint8_t downsample; // 2
 };
 
-extern int8_t processMatrix(__m128 squelch, FILE *inFile, struct chars *chars, FILE *outFile);
+extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
 int main(int argc, char **argv) {
 
     int opt;
-    __m128 squelch = {0,0,0,0};
+    float squelch = 0.f;
     FILE *inFile = NULL;
     FILE *outFile = NULL;
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                             // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    squelch = _mm_set1_ps(powf(10.f, (float) atof(optarg) / 10.f));
+                    squelch = powf(10.f, (float) atof(optarg) / 10.f);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {

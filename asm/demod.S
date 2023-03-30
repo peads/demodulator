@@ -45,6 +45,7 @@
     pushq %r14
     pushq %r15
 
+    vbroadcastss %xmm0, %xmm0
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -90,8 +91,11 @@ continue:
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
+    movb 1(%rsp), %cl
+    testb %cl, %cl
+    jnz oft
     vmulps %xmm7, %xmm1, %xmm1              // ar, -aj, br, -bj
-    //vmovq %xmm0, %rcx                       // args->squelch
+oft:
     ptest %xmm0, %xmm0
     jz nosquelch                            // if squelch > 0
     vmulps %xmm1, %xmm1, %xmm2              // apply squelch
