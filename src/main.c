@@ -23,6 +23,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "definitions.h"
 
 struct chars {
     uint8_t isRdc;      // 0
@@ -32,13 +33,13 @@ struct chars {
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
+uint64_t squelch[MATRIX_WIDTH >> 1] __attribute__((aligned(16)));
 int main(int argc, char **argv) {
 
     int opt;
-    float squelch = 0.f;
+    float temp = 0.f;
     FILE *inFile = NULL;
     FILE *outFile = NULL;
-
     struct chars chars;
 
     if (argc < 3) {
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                             // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    squelch = powf(10.f, (float) atof(optarg) / 10.f);
+                    temp = powf(10.f, (float) atof(optarg) / 10.f);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -80,5 +81,5 @@ int main(int argc, char **argv) {
             }
         }
     }
-    return processMatrix(squelch, inFile, &chars, outFile) != EOF;
+    return processMatrix(temp, inFile, &chars, outFile) != EOF;
 }
