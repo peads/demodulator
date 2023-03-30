@@ -19,8 +19,7 @@
  */
 #include "definitions.h"
     .data
-    .align 4
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
 all_hundredths:
     .rept MATRIX_WIDTH
     .single 0.01
@@ -41,24 +40,32 @@ all_41s:
     .rept 8
     .single 41.0
     .endr
-cnj_transform: .single 1.0, -1.0, 1.0, -1.0
-dc_avg_iq: .zero 16
+cnj_transform:
+    .rept 1
+    .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
+    .endr
+dc_avg_iq:
+    .zero 1
+    .p2align MATRIX_WIDTH
+squelch:
+    .zero 1
+    .p2align MATRIX_WIDTH
 dc_raw_const:
     .rept MATRIX_WIDTH
     .single 1e-05
     .endr
-negate_b_im: .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
+negate_b_im:
+    .rept 2
+    .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
+    .endr
 result:
-    .rept HALF_BUF_SIZE
-    .quad 0
-    .endr
+    .zero 1//HALF_BUF_SIZE << MATRIX_WIDTH
+    .p2align P2_HALF_BUF_SIZE + MATRIX_WIDTH
 buf:
-    .rept MATRIX_WIDTH
-    .quad 0
-    .endr
+    .zero 1
+    .p2align MATRIX_WIDTH
 buf128:
-    .rept DEFAULT_BUF_SIZE
-    .quad 0
-    .endr
+    .zero 1//DEFAULT_BUF_SIZE << MATRIX_WIDTH
+    .p2align P2_DEFAULT_BUF_SIZE + MATRIX_WIDTH
 exit_flag:
     .byte 0

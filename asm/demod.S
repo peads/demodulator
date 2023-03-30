@@ -45,6 +45,8 @@
     pushq %r14
     pushq %r15
 
+    vbroadcastss %xmm0, %xmm0
+    vmovaps %xmm0, squelch(%rip)
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -54,10 +56,6 @@
 
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
-    vxorps %xmm4, %xmm4, %xmm4  // dc_avg_iq
-    vmovaps dc_raw_const(%rip), %xmm5
-    vmovaps all_hundredths(%rip), %xmm6
-    vmovaps cnj_transform(%rip), %xmm7
 L7:
     leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
@@ -73,11 +71,11 @@ L6:
     movq %r15, %rdi
     call FERROR
     testb %al, %al
-    jz feof
+    jz check
     xorq %rdx, %rdx
     call PERROR
     jmp end
-feof:
+check:
     movq %r15, %rdi
     call FEOF
     testb %al, %al
@@ -90,24 +88,30 @@ continue:
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
-    vmulps %xmm7, %xmm1, %xmm1              // ar, -aj, br, -bj
-    vmovq %xmm0, %rcx                       // args->squelch
-    test %rcx, %rcx
+    movb 1(%rsp), %cl
+    testb %cl, %cl
+    jnz oft
+    vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
+oft:
+    movaps squelch(%rip), %xmm0
+    ptest %xmm0, %xmm0
     jz nosquelch                            // if squelch > 0
     vmulps %xmm1, %xmm1, %xmm2              // apply squelch
     vpermilps $0xB1, %xmm2, %xmm3
     vaddps %xmm2, %xmm3, %xmm2
-    vmulps %xmm6, %xmm2, %xmm2
+    vmulps all_hundredths(%rip), %xmm2, %xmm2
     vcmpps $0x1D, %xmm1, %xmm2, %xmm2
     vandps %xmm2, %xmm1, %xmm1
 nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
+    vmovaps dc_avg_iq(%rip), %xmm4
     vsubps %xmm4, %xmm1, %xmm4              // apply raw dc iir filter
-    vmulps %xmm5, %xmm4, %xmm4
+    vmulps dc_raw_const(%rip), %xmm4, %xmm4
     vaddps %xmm4, %xmm4, %xmm4
     vsubps %xmm4, %xmm1, %xmm1
+    vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
     // window filter
     movq %r12, %rax
