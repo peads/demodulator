@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-#ifdef __clang__
+#if defined(__clang__) || defined(__APPLE__)
 #define FWRITE _fwrite
 #define FREAD _fread
 #define STATUS _checkFileStatus
@@ -112,7 +112,7 @@ nosquelch:
     vsubps %xmm4, %xmm1, %xmm1
     vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
-    // window filter
+    // window fir filter
     movq %r12, %rax
     shrq $5, %rax
     shlq $4, %rax
