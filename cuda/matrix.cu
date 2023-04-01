@@ -20,7 +20,7 @@
 #include "matrix.cuh"
 
 __global__
-void foo(uint8_t *buf, uint32_t len, float *buff) {
+void window(const uint8_t *buf, const uint32_t len, float *buff) {
 
     uint32_t idx;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -33,35 +33,53 @@ void foo(uint8_t *buf, uint32_t len, float *buff) {
         buff[idx + 1] = buf[i + 2] - 127 - (buf[i + 3] - 127);
     }
 }
+
+__global__
+void fmDemod(const float *buf, const uint32_t len, float *result) {
+
+    uint32_t i,j = 0;
+    uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t stride = blockDim.x * gridDim.x + 4;
+    float zr, zj;
+
+    for (i = index; i < len; i += stride, ++j) {
+        zr = buf[i]*buf[i+2] - buf[i+1]*buf[i+3];     // ar*br - aj*bj
+        zj = buf[i]*buf[i+3] + buf[i+1]*buf[i+2];     // ar*bj + br*aj
+        result[j] = atan2f(zr, zj);
+    }
+}
+
 int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
     uint8_t *buf;
     float *buff;
-    float temp[DEFAULT_BUF_SIZE];
     float *result;
     int8_t exitFlag = 0;
+    size_t readBytes;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
     cudaMallocManaged(&buff, HALF_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
     cudaMallocManaged(&result, HALF_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
-    while (1) {
+    while (!exitFlag) {
 
-        fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
 
         if (exitFlag = ferror(inFile)) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
-            break;
         }
 
-        foo<<<1,256>>>(buf, DEFAULT_BUF_SIZE, buff);
+        window<<<1, 256>>>(buf, readBytes, buff);
         cudaDeviceSynchronize();
-    }
 
-    memcpy(temp, buff, DEFAULT_BUF_SIZE*sizeof(float));
+        fmDemod<<<1, 256>>>(buff, HALF_BUF_SIZE, result);
+        cudaDeviceSynchronize();
+
+        fwrite(result, OUTPUT_ELEMENT_BYTES, HALF_BUF_SIZE, outFile);
+    }
 
     return exitFlag;
 }
@@ -92,7 +110,7 @@ int main(int argc, char **argv) {
 //                    break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                     // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    temp = powf(10.f, (float) atof(optarg) / 10.f);
+                    temp = exp10f((float) atof(optarg) / 10.f);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {

@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "definitions.h"
