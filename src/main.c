@@ -39,6 +39,8 @@ int main(int argc, char **argv) {
     FILE *inFile = NULL;
     FILE *outFile = NULL;
     struct chars chars;
+    chars.isOt = 0;
+    chars.isRdc = 0;
 
     if (argc < 3) {
         return -1;
