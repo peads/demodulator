@@ -37,29 +37,30 @@ void window(const uint8_t *buf, const uint32_t len, float *buff) {
 __global__
 void fmDemod(const float *buf, const uint32_t len, float *result) {
 
-    uint32_t i,j = 0;
+    uint32_t i,j;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t stride = blockDim.x * gridDim.x + 4;
+    uint32_t stride = blockDim.x * gridDim.x;
     float zr, zj;
 
-    for (i = index; i < len; i += stride, ++j) {
-        zr = buf[i]*buf[i+2] - buf[i+1]*buf[i+3];     // ar*br - aj*bj
-        zj = buf[i]*buf[i+3] + buf[i+1]*buf[i+2];     // ar*bj + br*aj
+    for (j = index, i = index; i < len; i += stride + 4, j += stride) {
+        zr = buf[i]*buf[i+2] + buf[i+1]*buf[i+3];     // ar*br - aj*bj
+        zj = -buf[i]*buf[i+3] + buf[i+1]*buf[i+2];     // ar*bj + br*aj
         result[j] = atan2f(zr, zj);
     }
 }
 
 int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    uint8_t *buf;
+    uint8_t *buf;// __attribute__((aligned(32)));
     float *buff;
-    float *result;
+    float *result;// __attribute__((aligned(32)));
+    //float temp[HALF_BUF_SIZE];
     int8_t exitFlag = 0;
     size_t readBytes;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
-    cudaMallocManaged(&buff, HALF_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
-    cudaMallocManaged(&result, HALF_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMallocManaged(&buff, DEFAULT_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMallocManaged(&result, DEFAULT_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
 
@@ -78,7 +79,8 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
         fmDemod<<<1, 256>>>(buff, HALF_BUF_SIZE, result);
         cudaDeviceSynchronize();
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, HALF_BUF_SIZE, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, HALF_BUF_SIZE >> 1, outFile);
+        //memcpy(temp, result, (HALF_BUF_SIZE >> 1)*OUTPUT_ELEMENT_BYTES);
     }
 
     return exitFlag;
