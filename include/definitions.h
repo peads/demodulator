@@ -31,9 +31,8 @@
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
 #define DEFAULT_BUF_SIZE 1024
-#define P2_DEFAULT_BUF_SIZE 10
-#define HALF_BUF_SIZE DEFAULT_BUF_SIZE >> 1
-#define P2_HALF_BUF_SIZE P2_DEFAULT_BUF_SIZE - 1
+#define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
+#define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
