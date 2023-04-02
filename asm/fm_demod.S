@@ -45,9 +45,10 @@ _arg:
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
     vmulps all_64s(%rip), %ymm0, %ymm2        // 64*zj
-    vmulps all_23s(%rip), %ymm0, %ymm3        // 23*zr
-    vaddps all_41s(%rip), %ymm3, %ymm3        // 23*zr + 41
-    vpermilps $0x1B, %ymm3, %ymm3
+    //vmulps all_23s(%rip), %ymm0, %ymm3        // 23*zr
+    //vaddps all_41s(%rip), %ymm3, %ymm3        // 23*zr + 41
+    vfmadd132ps all_23s(%rip), %ymm4, %ymm0
+    vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
 
@@ -62,6 +63,7 @@ _arg:
 .globl _demodulateFmData
 _demodulateFmData:
     .text
+    vmovaps all_41s(%rip), %ymm4
     movq %rdi, %rcx   // store buf address
     movq %rsi, %r8    // store n
     shlq $4, %r8
