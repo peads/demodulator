@@ -25,7 +25,6 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
-
 _arg:
 .text
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
@@ -46,7 +45,11 @@ _arg:
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
     vmulps all_64s(%rip), %ymm0, %ymm2        // 64*zj
-    vfmadd132ps all_23s(%rip), %ymm4, %ymm0   // 23*zr + 41
+#ifndef IS_FMA                          // 23*zr + 41
+    vmulps all_23s(%rip), %ymm0, %ymm3; vaddps %ymm4, %ymm3, %ymm0
+#else
+    vfmadd132ps all_23s(%rip), %ymm4, %ymm0
+#endif
     vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
