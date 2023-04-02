@@ -25,6 +25,13 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
+#ifndef IS_FMA
+#define FMADD vmulps all_23s(%rip), %ymm0, %ymm3; \
+              vaddps all_41s(%rip), %ymm3, %ymm0
+#else
+#define FMADD vfmadd132ps all_23s(%rip), %ymm4, %ymm0
+#endif
+
 _arg:
 .text
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
@@ -45,12 +52,7 @@ _arg:
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
     vmulps all_64s(%rip), %ymm0, %ymm2        // 64*zj
-#ifndef IS_FMA
-    vmulps all_23s(%rip), %ymm0, %ymm3        // 23*zr
-    vaddps all_41s(%rip), %ymm3, %ymm0        // 23*zr + 41
-#else
-    vfmadd132ps all_23s(%rip), %ymm4, %ymm0
-#endif
+    FMADD                                     // 23*zr + 41
     vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
