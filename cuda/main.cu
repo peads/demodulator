@@ -42,15 +42,15 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+
+    static const int grid_dim = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
 
     uint8_t *buf;
     float *result;
 
     int8_t exitFlag = 0;
     size_t readBytes;
-    int block_dim = 256;
-    int grid_dim = (DEFAULT_BUF_SIZE + block_dim - 1) / block_dim;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
     cudaMallocManaged(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
@@ -66,7 +66,7 @@ int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *out
             exitFlag = EOF;
         }
 
-        fmDemod<<<grid_dim, block_dim>>>(buf, readBytes, result);
+        fmDemod<<<grid_dim, BLOCKDIM>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);

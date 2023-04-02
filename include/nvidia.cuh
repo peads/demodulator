@@ -10,10 +10,12 @@
 #include <unistd.h>
 #include <cstdlib>
 #include "definitions.h"
+#define BLOCKDIM 256
+#undef DEFAULT_BUF_SIZE
+#define DEFAULT_BUF_SIZE 4194304
 struct chars {
     uint8_t isRdc;      // 0
     uint8_t isOt;       // 1
     //uint8_t downsample; // 2
 };
-int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 #endif //DEMODULATOR_NVIDIA_CUH
