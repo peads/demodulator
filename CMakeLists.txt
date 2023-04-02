@@ -25,14 +25,13 @@ if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64")
 else()
     set(CMAKE_CUDA_ARCHITECTURES 30 32 53 61 62 70 72 75)
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda-10.2/bin/nvcc")
+    add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA)
 #    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mlittle-endian")
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/*.cu")
-    include_directories("${CMAKE_HOME_DIRECTORY}/include" "${CMAKE_HOME_DIRECTORY}/cuda")
+    include_directories("${CMAKE_HOME_DIRECTORY}/include")
 
     add_executable(${PROJECT_NAME} ${SRCS})
-
-    target_link_libraries(${PROJECT_NAME} PUBLIC m)
 endif()
 

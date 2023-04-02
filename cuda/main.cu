@@ -17,18 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include "definitions.h"
-
-struct chars {
-    uint8_t isRdc;      // 0
-    uint8_t isOt;       // 1
-    //uint8_t downsample; // 2
-};
+#include "nvidia.cuh"
 
 __global__
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
@@ -53,14 +43,15 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
     uint8_t *buf;
     float *result;
+
     int8_t exitFlag = 0;
     size_t readBytes;
-    int blockDim = 256;
-    int gridDim = (DEFAULT_BUF_SIZE + blockDim - 1) / blockDim;
+    int block_dim = 256;
+    int grid_dim = (DEFAULT_BUF_SIZE + block_dim - 1) / block_dim;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
     cudaMallocManaged(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
@@ -70,13 +61,13 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
         readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
 
         if (exitFlag = ferror(inFile)) {
-            perror(NULL);
+            perror(nullptr);
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
         }
 
-        fmDemod<<<gridDim, blockDim>>>(buf, readBytes, result);
+        fmDemod<<<grid_dim, block_dim>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
@@ -91,9 +82,9 @@ int main(int argc, char **argv) {
 
     int opt;
     float temp = 0.f;
-    FILE *inFile = NULL;
-    FILE *outFile = NULL;
-    struct chars chars;
+    FILE *inFile = nullptr;
+    FILE *outFile = nullptr;
+    struct chars chars{};
     chars.isOt = 0;
     chars.isRdc = 0;
 
@@ -119,7 +110,7 @@ int main(int argc, char **argv) {
                     if (!strstr(optarg, "-")) {
                         inFile = fopen(optarg, "rb");
                     } else {
-                        freopen(NULL, "rb", stdin);
+                        freopen(nullptr, "rb", stdin);
                         inFile = stdin;
                     }
                     break;
@@ -127,7 +118,7 @@ int main(int argc, char **argv) {
                     if (!strstr(optarg, "-")) {
                         outFile = fopen(optarg, "wb");
                     } else {
-                        freopen(NULL, "wb", stdout);
+                        freopen(nullptr, "wb", stdout);
                         outFile = stdout;
                     }
                     break;
@@ -137,5 +128,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    return readFile(temp, inFile, &chars, outFile) != EOF;
+    return processMatrix(temp, inFile, &chars, outFile) != EOF;
 }
