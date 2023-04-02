@@ -46,7 +46,8 @@ _arg:
 
     vmulps all_64s(%rip), %ymm0, %ymm2        // 64*zj
 #ifndef IS_FMA                          // 23*zr + 41
-    vmulps all_23s(%rip), %ymm0, %ymm3; vaddps %ymm4, %ymm3, %ymm0
+    vmulps all_23s(%rip), %ymm0, %ymm3
+    vaddps %ymm4, %ymm3, %ymm0
 #else
     vfmadd132ps all_23s(%rip), %ymm4, %ymm0
 #endif

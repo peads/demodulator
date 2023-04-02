@@ -5,7 +5,14 @@ set(CMAKE_C_STANDARD 99)
 #add_compile_options(-g)
 add_compile_options(-O3)
 
-if (DEFINED IS_NVIDIA)
+option(IS_NVIDIA OFF)
+option(IS_FMA OFF)
+
+if (IS_FMA)
+    add_compile_definitions(IS_FMA)
+endif()
+
+if (IS_NVIDIA)
     set(CMAKE_CUDA_ARCHITECTURES 30 32 53 61 62 70 72 75)
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda-10.2/bin/nvcc")
     add_compile_definitions(__CUDACC__)
