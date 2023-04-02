@@ -31,7 +31,7 @@ else()
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/*.cu")
     include_directories("${CMAKE_HOME_DIRECTORY}/include" "${CMAKE_HOME_DIRECTORY}/cuda")
 
-    add_executable(${PROJECT_NAME} ${SRCS} cuda/matrix.cuh)
+    add_executable(${PROJECT_NAME} ${SRCS})
 
     target_link_libraries(${PROJECT_NAME} PUBLIC m)
 endif()
