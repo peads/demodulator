@@ -17,7 +17,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include "matrix.cuh"
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include "definitions.h"
+
+struct chars {
+    uint8_t isRdc;      // 0
+    uint8_t isOt;       // 1
+    //uint8_t downsample; // 2
+};
 
 __global__
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
@@ -25,39 +36,21 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t stride = blockDim.x * gridDim.x;
-    float ar;
-    float aj;
-    float br;
-    float bj;
+    float ar, aj, br, bj, zr, zj;
 
-    struct {
-        int16_t i:8;
-    } x, y, z, w;
 
     for (i = index; i < len; i += stride) {
 
-        x.i = buf[i] - 127;
-        y.i = buf[i + 2] - 127;
-        ar = x.i + y.i;
+        ar = __int2float_rd(buf[i] - 127 + (buf[i + 2] - 127));
+        aj = __int2float_rd(-(buf[i + 1] - 127 + (buf[i + 3] - 127)));
 
-        z.i = -(buf[i + 1] - 127);
-        w.i = -(buf[i + 3] - 127);
-        aj = z.i + w.i;
+        br = __int2float_rd(buf[i + 4] - 127 + (buf[i + 6] - 127));
+        bj = __int2float_rd(buf[i + 5] - 127 + (buf[i + 7] - 127));
 
-        x.i = buf[i+4] - 127;
-        y.i = buf[i + 6] - 127;
-        br = x.i + y.i;
+        zr = __fmaf_rd(ar, br, -__fmul_rd(aj, bj));
+        zj = __fmaf_rd(ar, bj, __fmul_rd(aj, br));
 
-        z.i = -(buf[i + 5] - 127);
-        w.i = -(buf[i + 7] - 127);
-        bj = -(z.i + w.i);
-//        ar.i = buf[i] - 127 + (buf[i + 2] - 127);
-//        aj.i = buf[i + 1] - 127 + (buf[i + 3] - 127);
-//
-//        br.i = buf[i + 4] - 127 + (buf[i + 6] - 127);
-//        bj.i = buf[i + 5] - 127 + (buf[i + 7] - 127);
-
-        result[i >> 2] = atan2f(ar*bj + br*aj, ar*br - aj*bj);
+        result[i >> 2] = atan2f(zj, zr);
     }
 }
 
@@ -65,7 +58,6 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
 
     uint8_t *buf;
     float *result;
-    //float temp[HALF_BUF_SIZE >> 1][2] __attribute__((aligned(32)));
     int8_t exitFlag = 0;
     size_t readBytes;
 
