@@ -35,17 +35,16 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t stride = blockDim.x * gridDim.x;
+    uint32_t step = blockDim.x * gridDim.x;
     float ar, aj, br, bj, zr, zj;
 
+    for (i = index; i < len; i += step) {
 
-    for (i = index; i < len; i += stride) {
+        ar = __int2float_rd(__hadd(buf[i] - 127, (buf[i + 2] - 127)));
+        aj = __int2float_rd(-__hadd(buf[i + 1] - 127, (buf[i + 3] - 127)));
 
-        ar = __int2float_rd(buf[i] - 127 + (buf[i + 2] - 127));
-        aj = __int2float_rd(-(buf[i + 1] - 127 + (buf[i + 3] - 127)));
-
-        br = __int2float_rd(buf[i + 4] - 127 + (buf[i + 6] - 127));
-        bj = __int2float_rd(buf[i + 5] - 127 + (buf[i + 7] - 127));
+        br = __int2float_rd(__hadd(buf[i + 4] - 127, (buf[i + 6] - 127)));
+        bj = __int2float_rd(__hadd(buf[i + 5] - 127, (buf[i + 7] - 127)));
 
         zr = __fmaf_rd(ar, br, -__fmul_rd(aj, bj));
         zj = __fmaf_rd(ar, bj, __fmul_rd(aj, br));
@@ -60,9 +59,11 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
     float *result;
     int8_t exitFlag = 0;
     size_t readBytes;
+    int blockDim = 256;
+    int gridDim = (DEFAULT_BUF_SIZE + blockDim - 1) / blockDim;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
-    cudaMallocManaged(&result, DEFAULT_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMallocManaged(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
 
@@ -75,12 +76,10 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
             exitFlag = EOF;
         }
 
-        fmDemod<<<1, 256>>>(buf, readBytes, result);
+        fmDemod<<<gridDim, blockDim>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
-        //memcpy(temp, result, (HALF_BUF_SIZE >> 1)*OUTPUT_ELEMENT_BYTES);
-
-        fwrite(result, OUTPUT_ELEMENT_BYTES, HALF_BUF_SIZE >> 1, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
     }
 
     cudaFree(buf);
