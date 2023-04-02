@@ -20,46 +20,56 @@
 #include "matrix.cuh"
 
 __global__
-void window(const uint8_t *buf, const uint32_t len, float *buff) {
+void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
-    uint32_t idx;
-    uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t stride = blockDim.x * gridDim.x + 4;
-
-    for (uint32_t i = index; i < len; i += stride) {
-
-        idx = i >> 1;
-        buff[idx] = buf[i] - 127 - (buf[i + 1] - 127);
-        buff[idx + 1] = buf[i + 2] - 127 - (buf[i + 3] - 127);
-    }
-}
-
-__global__
-void fmDemod(const float *buf, const uint32_t len, float *result) {
-
-    uint32_t i,j;
+    uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t stride = blockDim.x * gridDim.x;
-    float zr, zj;
+    float ar;
+    float aj;
+    float br;
+    float bj;
 
-    for (j = index, i = index; i < len; i += stride + 4, j += stride) {
-        zr = buf[i]*buf[i+2] + buf[i+1]*buf[i+3];     // ar*br - aj*bj
-        zj = -buf[i]*buf[i+3] + buf[i+1]*buf[i+2];     // ar*bj + br*aj
-        result[j] = atan2f(zr, zj);
+    struct {
+        int16_t i:8;
+    } x, y, z, w;
+
+    for (i = index; i < len; i += stride) {
+
+        x.i = buf[i] - 127;
+        y.i = buf[i + 2] - 127;
+        ar = x.i + y.i;
+
+        z.i = -(buf[i + 1] - 127);
+        w.i = -(buf[i + 3] - 127);
+        aj = z.i + w.i;
+
+        x.i = buf[i+4] - 127;
+        y.i = buf[i + 6] - 127;
+        br = x.i + y.i;
+
+        z.i = -(buf[i + 5] - 127);
+        w.i = -(buf[i + 7] - 127);
+        bj = -(z.i + w.i);
+//        ar.i = buf[i] - 127 + (buf[i + 2] - 127);
+//        aj.i = buf[i + 1] - 127 + (buf[i + 3] - 127);
+//
+//        br.i = buf[i + 4] - 127 + (buf[i + 6] - 127);
+//        bj.i = buf[i + 5] - 127 + (buf[i + 7] - 127);
+
+        result[i >> 2] = atan2f(ar*bj + br*aj, ar*br - aj*bj);
     }
 }
 
 int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    uint8_t *buf;// __attribute__((aligned(32)));
-    float *buff;
-    float *result;// __attribute__((aligned(32)));
-    //float temp[HALF_BUF_SIZE];
+    uint8_t *buf;
+    float *result;
+    //float temp[HALF_BUF_SIZE >> 1][2] __attribute__((aligned(32)));
     int8_t exitFlag = 0;
     size_t readBytes;
 
     cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
-    cudaMallocManaged(&buff, DEFAULT_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
     cudaMallocManaged(&result, DEFAULT_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
@@ -73,16 +83,16 @@ int8_t readFile(float squelch, FILE *inFile, struct chars *chars, FILE *outFile)
             exitFlag = EOF;
         }
 
-        window<<<1, 256>>>(buf, readBytes, buff);
+        fmDemod<<<1, 256>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
-        fmDemod<<<1, 256>>>(buff, HALF_BUF_SIZE, result);
-        cudaDeviceSynchronize();
+        //memcpy(temp, result, (HALF_BUF_SIZE >> 1)*OUTPUT_ELEMENT_BYTES);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, HALF_BUF_SIZE >> 1, outFile);
-        //memcpy(temp, result, (HALF_BUF_SIZE >> 1)*OUTPUT_ELEMENT_BYTES);
     }
 
+    cudaFree(buf);
+    cudaFree(result);
     return exitFlag;
 }
 
