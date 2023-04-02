@@ -59,14 +59,14 @@ negate_b_im:
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
     .endr
 result:
-    .zero 1
-    .p2align P2_HALF_BUF_SIZE + MATRIX_WIDTH
+    .zero HALF_BUF_SIZE << MATRIX_WIDTH
+    .p2align 4
 buf:
     .zero 1
     .p2align MATRIX_WIDTH
 buf128:
-    .zero 1
-    .p2align P2_DEFAULT_BUF_SIZE + MATRIX_WIDTH
+    .zero DEFAULT_BUF_SIZE << MATRIX_WIDTH
+    .p2align 4
 exit_flag:
     .byte 0
 
