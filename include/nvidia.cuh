@@ -9,10 +9,6 @@
 #include <cstring>
 #include <unistd.h>
 #include <cstdlib>
-struct chars {
-    uint8_t isRdc;      // 0
-    uint8_t isOt;       // 1
-    //uint8_t downsample; // 2
-};
+#include "definitions.h"
 int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 #endif //DEMODULATOR_NVIDIA_CUH

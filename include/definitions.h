@@ -36,6 +36,11 @@
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
 #define P2_HALF_BUF_SIZE (P2_DEFAULT_BUF_SIZE - 1)
 
+struct chars {
+    uint8_t isRdc;      // 0
+    uint8_t isOt;       // 1
+    //uint8_t downsample; // 2
+};
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to
