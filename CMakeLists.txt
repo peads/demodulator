@@ -11,7 +11,7 @@ option(DEFAULT_BUF_SIZE OFF)
 
 if (DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
-elseif()
+else()
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
 endif()
 
