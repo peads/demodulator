@@ -10,9 +10,8 @@ option(IS_FMA ON)
 option(DEFAULT_BUF_SIZE OFF)
 
 if (DEFAULT_BUF_SIZE)
-    message(${DEFAULT_BUF_SIZE})
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
-elseif(!IS_NVIDIA)
+elseif()
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
 endif()
 
@@ -21,6 +20,7 @@ if (IS_FMA)
 endif()
 
 if (IS_NVIDIA)
+    remove_definitions(-DDEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=4194304)
 #    set(CMAKE_CUDA_ARCHITECTURES 30 32 52 53 61 62 70 72 75)
     set(CMAKE_CUDA_ARCHITECTURES 52)
