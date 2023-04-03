@@ -44,8 +44,6 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
 static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    static const int grid_dim = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
-
     uint8_t *buf;
     float *result;
 
@@ -66,7 +64,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
             exitFlag = EOF;
         }
 
-        fmDemod<<<grid_dim, BLOCKDIM>>>(buf, readBytes, result);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);

@@ -30,7 +30,6 @@
 // sizeof(__m128)
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
-#define DEFAULT_BUF_SIZE 1024
 #define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
 

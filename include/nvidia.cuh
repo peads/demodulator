@@ -26,8 +26,7 @@
 #include <cstdlib>
 #include "definitions.h"
 #define BLOCKDIM 256
-#undef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 4194304
+static const int GRIDDIM = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
 struct chars {
     uint8_t isRdc;      // 0
     uint8_t isOt;       // 1
