@@ -32,14 +32,17 @@ all_64s:
     .rept 8
     .single 64.0
     .endr
+    .p2align 5
 all_23s:
     .rept 8
     .single 23.0
     .endr
+    .p2align 5
 all_41s:
     .rept 8
     .single 41.0
     .endr
+    .p2align 5
 cnj_transform:
     .rept 1
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
