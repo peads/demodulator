@@ -27,9 +27,4 @@
 #include "definitions.h"
 #define BLOCKDIM 256
 static const int GRIDDIM = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
-struct chars {
-    uint8_t isRdc;      // 0
-    uint8_t isOt;       // 1
-    //uint8_t downsample; // 2
-};
 #endif //DEMODULATOR_NVIDIA_CUH

@@ -23,12 +23,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
-
-struct chars {
-    uint8_t isRdc;      // 0
-    uint8_t isOt;       // 1
-    //uint8_t downsample; // 2
-};
+#include "matrix.h"
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
