@@ -29,22 +29,20 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
     for (i = index; i < len; i += step) {
 
-        ar = __int2float_rd(__hadd(buf[i] - 127, (buf[i + 2] - 127)));
-        aj = __int2float_rd(-__hadd(buf[i + 1] - 127, (buf[i + 3] - 127)));
+        ar = __int2float_rz(buf[i  ] + buf[i+2] - 254);
+        aj = __int2float_rz(254 - buf[i+1] - buf[i+3]);
 
-        br = __int2float_rd(__hadd(buf[i + 4] - 127, (buf[i + 6] - 127)));
-        bj = __int2float_rd(__hadd(buf[i + 5] - 127, (buf[i + 7] - 127)));
+        br = __int2float_rz(buf[i+4] + buf[i+6] - 254);
+        bj = __int2float_rz(buf[i+5] + buf[i+7] - 254);
 
-        zr = __fmaf_rd(ar, br, -__fmul_rd(aj, bj));
-        zj = __fmaf_rd(ar, bj, __fmul_rd(aj, br));
+        zr = __fmaf_rz(ar, br, -__fmul_rz(aj, bj));
+        zj = __fmaf_rz(ar, bj, __fmul_rz(aj, br));
 
         result[i >> 2] = atan2f(zj, zr);
     }
 }
 
 static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
-
-    static const int grid_dim = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
 
     uint8_t *buf;
     float *result;
@@ -66,7 +64,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
             exitFlag = EOF;
         }
 
-        fmDemod<<<grid_dim, BLOCKDIM>>>(buf, readBytes, result);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(buf, readBytes, result);
         cudaDeviceSynchronize();
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
