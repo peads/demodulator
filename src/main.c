@@ -18,14 +18,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "matrix.h"
-
-extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
+#include "c_main.h"
 
 int main(int argc, char **argv) {
 
