@@ -5,7 +5,7 @@
 int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
     uint8_t buf[DEFAULT_BUF_SIZE] __attribute__((aligned(32)));
-    float result[QTR_BUF_SIZE];
+    float result[DEFAULT_BUF_SIZE<<2];
 
     int8_t exitFlag = 0;
     size_t readBytes;

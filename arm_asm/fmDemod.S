@@ -33,17 +33,30 @@ fmDemod:
     ld1 {v5.16b}, [x5]
     add x6, x0, x1
 L0:
-    ld1 {v3.16b, v4.16b}, [x0]//, #32
+    ld1 {v3.16b}, [x0]          // load first 16 bytes
+    //ld1 {v3.16b, v4.16b}, [x0]//, #32
+    add v3.16b, v5.16b, v3.16b  // add -127 to each element
+    //add v4.16b, v5.16b, v4.16b
 
-    add v3.16b, v5.16b, v3.16b
-    add v4.16b, v5.16b, v4.16b
+    //sxtl2 v10.8h, v3.16b
 
-    st1 {v3.16b, v4.16b}, [x2]//, #32
+    sxtl v9.8h, v3.8b
+    sxtl2 v10.4s, v9.8h          // first four, sign-extended 32-bit ints TODO this for the upper half of v3
+    sxtl v9.4s, v9.4h
+    //st1 {v9.4s, v10.4s}, [x9]//, #32
+
+
+    //vcvt v9.4s, v9.4s
+    //fcmla v9.4s, v9.4s, v10.4s, #1
+    //vcvt v9.4s, v9.4s
+
+    st1 {v9.4s, v10.4s}, [x2]//, #32x
     add x0, x0, #16
-    add x7, x7, #1
-    lsr x8, x7, #1
-    lsl x8, x8, #3
-    add x2, x2, x8
+    //add x7, x7, #1
+    //lsr x8, x7, #1
+    //lsl x8, x8, #3
+    //add x2, x2, x8
+    add x2, x2, #32
 //    str x8, [x9]
 //    add x11, x11, #16
 //    str x11, [x10]
