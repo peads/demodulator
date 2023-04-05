@@ -20,6 +20,8 @@
 
 #include "matrix.h"
 
+__attribute__((used)) uint64_t foo = 0;
+__attribute__((used)) uint64_t bar = 0;
 void fmDemod1(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     uint32_t i;

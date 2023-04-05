@@ -18,7 +18,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-
 #if defined(__clang__) || defined(__APPLE__)
     .globl  _fmDemod
 _fmDemod:
@@ -27,26 +26,32 @@ _fmDemod:
 fmDemod:
 #endif
     ldr x5, =all_nonetwentysevens
+    eor x7, x7, x7
+    //eor x11, x11, x11
+    //ldr x9, =foo
+    //ldr x10, =bar
     ld1 {v5.16b}, [x5]
     add x6, x0, x1
 L0:
-    //ldp q3, q4, [x0]
     ld1 {v3.16b, v4.16b}, [x0]//, #32
 
     add v3.16b, v5.16b, v3.16b
     add v4.16b, v5.16b, v4.16b
 
-
     st1 {v3.16b, v4.16b}, [x2]//, #32
     add x0, x0, #16
-    add x2, x2, #16
-//    ldr x2, [x2]
-//    asr x2, x2, #6
-//    lsl x2, x2, #5
-//    ldr x2, [x2]
-    // shift right 5, shift left 4
+    add x7, x7, #1
+    lsr x8, x7, #1
+    lsl x8, x8, #3
+    add x2, x2, x8
+//    str x8, [x9]
+//    add x11, x11, #16
+//    str x11, [x10]
+    
     cmp x0, x6
     bne L0
+
+    //ldp q3, q4, [x0]
 
     //saddl v3.8h, v5.8b, v3.8b
     //saddl v4.8h, v6.8b, v4.8b
