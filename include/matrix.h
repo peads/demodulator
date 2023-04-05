@@ -2,8 +2,8 @@
 // Created by peads on 4/4/23.
 //
 
-#ifndef DEMODULATOR_C_MAIN_H
-#define DEMODULATOR_C_MAIN_H
+#ifndef DEMODULATOR_MATRIX_H
+#define DEMODULATOR_MATRIX_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -19,4 +19,4 @@ struct chars {
 int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 void fmDemod(const uint8_t *buf, uint32_t len, float *result);
 
-#endif //DEMODULATOR_C_MAIN_H
+#endif //DEMODULATOR_MATRIX_H

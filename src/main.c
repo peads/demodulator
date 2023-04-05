@@ -22,7 +22,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "c_main.h"
+#include "matrix.h"
 
 int main(int argc, char **argv) {
 

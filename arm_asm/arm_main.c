@@ -17,9 +17,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "matrix.h"
 
-void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
+void fmDemod1(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     uint32_t i;
     int32_t ar, aj, br, bj, zr, zj;
