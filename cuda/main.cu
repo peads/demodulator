@@ -39,10 +39,10 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
         lenR = __frsqrt_rn(__fmaf_rn(zr, zr, __fmul_rn(zj, zj)));      // 1/Sqrt[zr*zr + zj*zj]
         zj = __fmul_rn(	64.f, __fmul_rn(zj, lenR));    // 64 * zr/||z||
-        zr = __fmaf_rn(	23.f, __fmul_rn(zr, lenR),     // 23 * zr/||z|| + 41
-                        41.f);
+        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(	23.f, __fmul_rn(zr, lenR),     // 23 * zr/||z|| + 41
+                        41.f)));
 
-        result[i >> 2] = __fmul_rn(zj, __frcp_rn(zr));        // 64 * zr/||z|| / (23 * zr/||z|| + 41)
+        result[i >> 2] = isnan(zr) ? 0.f : zr;        // 64 * zr/||z|| / (23 * zr/||z|| + 41)
         //atan2f(__half2float(zj), __half2float(zr));
     }
 }
