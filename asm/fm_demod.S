@@ -45,12 +45,7 @@ _arg:
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
     vmulps all_64s(%rip), %ymm0, %ymm2      // 64*zj
-#ifndef IS_FMA
-    vmulps all_23s(%rip), %ymm0, %ymm3      // 23*zr + 41
-    vaddps %ymm4, %ymm3, %ymm0
-#else
-    vfmadd132ps all_23s(%rip), %ymm4, %ymm0
-#endif
+    vfmadd132ps all_23s(%rip), %ymm4, %ymm0 // 23*zr + 41s
     vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0

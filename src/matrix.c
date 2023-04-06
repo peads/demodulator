@@ -2,14 +2,15 @@
 // Created by peads on 4/3/23.
 //
 #include <stdio.h>
+#include <math.h>
 #include "definitions.h"
 #include "matrix.h"
-#include "math.h"
+
 
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
     uint32_t i;
-    float ar, aj, br, bj, zr, zj;
+    float ar, aj, br, bj, zr, zj, lenR;
 
     for (i = 0; i < len; i++) {
 
@@ -19,10 +20,13 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         br = (float)(buf[i+4] + buf[i+6] - 254);
         bj = (float)(buf[i+5] + buf[i+7] - 254);
 
-        zr = ar*br - aj*bj;//__fmaf_rz(ar, br, -__fmul_rz(aj, bj));
-        zj = ar*bj + aj*br;//__fmaf_rz(ar, bj, __fmul_rz(aj, br));
+        zr = fmaf(ar, br, -aj*bj);
+        zj = fmaf(ar, bj, aj*br);
 
-        result[i >> 2] = atan2f(zj, zr);
+        lenR = 1.f/sqrtf(fmaf(zr, zr, zj*zj));
+        zr = 64.f*zj*lenR/fmaf(zr*lenR, 23.f, 41.f);
+
+        result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
