@@ -34,16 +34,15 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         br = __int2float_rn(buf[i+4] + buf[i+6] - 254);
         bj = __int2float_rn(buf[i+5] + buf[i+7] - 254);
 
-        zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj)); // ar*br - aj*bj
-        zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));            // ar*bj + aj*br
+        zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj));
+        zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));
 
-        lenR = __frsqrt_rn(__fmaf_rn(zr, zr, __fmul_rn(zj, zj)));      // 1/Sqrt[zr*zr + zj*zj]
-        zj = __fmul_rn(	64.f, __fmul_rn(zj, lenR));    // 64 * zr/||z||
-        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(	23.f, __fmul_rn(zr, lenR),     // 23 * zr/||z|| + 41
+        lenR = __frsqrt_rn(__fmaf_rn(zr, zr, __fmul_rn(zj, zj)));
+        zj = __fmul_rn(	64.f, __fmul_rn(zj, lenR));
+        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(	23.f, __fmul_rn(zr, lenR),
                         41.f)));
 
-        result[i >> 2] = isnan(zr) ? 0.f : zr;        // 64 * zr/||z|| / (23 * zr/||z|| + 41)
-        //atan2f(__half2float(zj), __half2float(zr));
+        result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
