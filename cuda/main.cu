@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+#include <cuda_fp16.h>
 #include "nvidia.cuh"
 
 __global__
@@ -25,20 +26,19 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float ar, aj, br, bj, zr, zj;
+    __half ar, aj, br, bj, zr, zj;
 
     for (i = index; i < len; i += step) {
+        ar = __int2half_rz(buf[i  ] + buf[i+2] - 254);
+        aj = __int2half_rz(254 - buf[i+1] - buf[i+3]);
 
-        ar = __int2float_rz(buf[i  ] + buf[i+2] - 254);
-        aj = __int2float_rz(254 - buf[i+1] - buf[i+3]);
+        br = __int2half_rz(buf[i+4] + buf[i+6] - 254);
+        bj = __int2half_rz(buf[i+5] + buf[i+7] - 254);
 
-        br = __int2float_rz(buf[i+4] + buf[i+6] - 254);
-        bj = __int2float_rz(buf[i+5] + buf[i+7] - 254);
+        zr = __hfma(ar, br, __hneg(__hmul(aj, bj)));
+        zj = __hfma(ar, bj, __hmul(aj, br));
 
-        zr = __fmaf_rz(ar, br, -__fmul_rz(aj, bj));
-        zj = __fmaf_rz(ar, bj, __fmul_rz(aj, br));
-
-        result[i >> 2] = atan2f(zj, zr);
+        result[i >> 2] = atan2f(__half2float(zj), __half2float(zr));
     }
 }
 
