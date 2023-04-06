@@ -27,7 +27,7 @@ if (IS_NVIDIA)
     set(CMAKE_CUDA_COMPILER "/usr/bin/nvcc")
     add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -m64 -ftz=true -use_fast_math -Xcompiler=\"-Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math\" -res-usage -default-stream=per-thread")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -m64 -ftz=true -use_fast_math -Xcompiler=\"-Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -funsafe-math-optimizations\" -res-usage -default-stream=per-thread")
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/*.cu")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
 
