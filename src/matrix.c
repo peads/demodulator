@@ -24,7 +24,7 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
         zj = fmaf(ar, bj, aj*br);
 
         lenR = 1.f/sqrtf(fmaf(zr, zr, zj*zj));
-        zr = 64.f*zj*lenR/fmaf(zr*lenR, 23.f, 41.f);
+        zr = 64.f*zj*lenR * 1.f/fmaf(zr*lenR, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
