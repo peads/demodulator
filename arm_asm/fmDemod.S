@@ -43,6 +43,7 @@ L0:
     sxtl v9.8h, v3.8b
     sxtl2 v10.4s, v9.8h          // first four, sign-extended 32-bit ints TODO this for the upper half of v3
     sxtl v9.4s, v9.4h
+    vcvt.f32.s32 v9, v9
     //st1 {v9.4s, v10.4s}, [x9]//, #32
 
 
