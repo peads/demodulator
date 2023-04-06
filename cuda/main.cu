@@ -37,10 +37,11 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj));
         zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));
 
-        lenR = __frsqrt_rn(__fmaf_rn(zr, zr, __fmul_rn(zj, zj)));
+        lenR = __frsqrt_rn(
+                __fmaf_rn(zr, zr,__fmul_rn(zj, zj)));
         zj = __fmul_rn(	64.f, __fmul_rn(zj, lenR));
-        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(	23.f, __fmul_rn(zr, lenR),
-                        41.f)));
+        zr = __fmul_rn(zj, __frcp_rn(
+                __fmaf_rn(	23.f, __fmul_rn(zr, lenR),41.f)));
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
