@@ -55,7 +55,7 @@ else()
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mavx2 -mfma -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
     elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -floop-parallelize-all -foptimize-register-move -Wunsafe-loop-optimizations -fgcse-lm -fgcse-sm -fgcse-las -fgcse-after-reload -fgcse-after-reload -findirect-inlining -fmodulo-sched -Wno-unused-result -mavx2 -mfma -march=native -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-loop-distribution -floop-parallelize-all -foptimize-register-move -Wunsafe-loop-optimizations -fgcse-lm -fgcse-sm -fgcse-las -fgcse-after-reload -fgcse-after-reload -findirect-inlining -fmodulo-sched -Wno-unused-result -mavx2 -mfma -march=native -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
     endif()
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
