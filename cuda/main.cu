@@ -25,20 +25,24 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float ar, aj, br, bj, zr, zj;
+    float ar, aj, br, bj, zr, zj, lenR;
 
     for (i = index; i < len; i += step) {
+        ar = __int2float_rn(buf[i  ] + buf[i+2] - 254);
+        aj = __int2float_rn(254 - buf[i+1] - buf[i+3]);
 
-        ar = __int2float_rz(buf[i  ] + buf[i+2] - 254);
-        aj = __int2float_rz(254 - buf[i+1] - buf[i+3]);
+        br = __int2float_rn(buf[i+4] + buf[i+6] - 254);
+        bj = __int2float_rn(buf[i+5] + buf[i+7] - 254);
 
-        br = __int2float_rz(buf[i+4] + buf[i+6] - 254);
-        bj = __int2float_rz(buf[i+5] + buf[i+7] - 254);
+        zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj));
+        zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));
 
-        zr = __fmaf_rz(ar, br, -__fmul_rz(aj, bj));
-        zj = __fmaf_rz(ar, bj, __fmul_rz(aj, br));
+        lenR = rnorm3df(zr, zj, 0.f);
+        zj = __fmul_rn(64.f, __fmul_rn(zj, lenR));
+        zr = __fmul_rn(zj, __frcp_rn(
+                __fmaf_rn(23.f, __fmul_rn(zr, lenR), 41.f)));
 
-        result[i >> 2] = atan2f(zj, zr);
+        result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
