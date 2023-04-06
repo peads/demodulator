@@ -25,7 +25,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float ar, aj, br, bj, zr, zj, lenR, normZr, normZj;
+    float ar, aj, br, bj, zr, zj, lenR;
 
     for (i = index; i < len; i += step) {
         ar = __int2float_rn(buf[i  ] + buf[i+2] - 254);
