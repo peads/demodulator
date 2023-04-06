@@ -26,7 +26,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    __half ar, aj, br, bj, zr, zj;
+    __half ar, aj, br, bj, zr, zj, lenR, normZr, normZj;
 
     for (i = index; i < len; i += step) {
         ar = __int2half_rz(buf[i  ] + buf[i+2] - 254);
@@ -35,10 +35,16 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         br = __int2half_rz(buf[i+4] + buf[i+6] - 254);
         bj = __int2half_rz(buf[i+5] + buf[i+7] - 254);
 
-        zr = __hfma(ar, br, __hneg(__hmul(aj, bj)));
-        zj = __hfma(ar, bj, __hmul(aj, br));
+        zr = __hfma(ar, br, __hneg(__hmul(aj, bj))); // ar*br - aj*bj
+        zj = __hfma(ar, bj, __hmul(aj, br));            // ar*bj + aj*br
 
-        result[i >> 2] = atan2f(__half2float(zj), __half2float(zr));
+        lenR = hrsqrt(__hfma(zr, zr, __hmul(zj, zj)));      // 1/Sqrt[zr*zr + zj*zj]
+        zj = __hmul(	__short2half_rz(64), __hmul(zj, lenR));    // 64 * zr/||z||
+        zr = __hfma(	__short2half_rz(23), __hmul(zr, lenR),     // 23 * zr/||z|| + 41
+                        __short2half_rz(41));
+
+        result[i >> 2] = __half2float(__hmul(zj, hrcp(zr)));        // 64 * zr/||z|| / (23 * zr/||z|| + 41)
+        //atan2f(__half2float(zj), __half2float(zr));
     }
 }
 
