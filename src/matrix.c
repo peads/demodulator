@@ -7,7 +7,7 @@
 #include "matrix.h"
 
 
-void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
+void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     uint32_t i;
     float ar, aj, br, bj, zr, zj, lenR;
