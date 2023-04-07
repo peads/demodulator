@@ -42,7 +42,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         zr = __fmul_rn(zj, __frcp_rn(
                 __fmaf_rn(23.f, __fmul_rn(zr, lenR), 41.f)));
 
-        result[i >> 2] = isnan(zr) ? 0.f : zr;
+        result[i >> 2] = isnan(zr) ? 0.f : zr; // delay line
     }
 }
 
