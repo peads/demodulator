@@ -52,8 +52,8 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
 
     int8_t exitFlag = 0;
     uint8_t *buf;
-    uint8_t prevR = 0;
-    uint32_t prevJ = 0;
+    uint8_t prevR = 0;  
+    uint8_t prevJ = 0;
     size_t readBytes;
     float *result;
 

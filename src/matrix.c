@@ -33,15 +33,22 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
 
 int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    uint8_t buf[DEFAULT_BUF_SIZE];
-    float result[QTR_BUF_SIZE];
+    static const uint32_t len = (DEFAULT_BUF_SIZE + 2);
 
+    uint8_t buf[len];
+    uint8_t prevR = 0;
+    uint8_t prevJ = 0;
     int8_t exitFlag = 0;
     size_t readBytes;
+    float result[QTR_BUF_SIZE];
 
     while (!exitFlag) {
 
-        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        buf[0] = prevR;
+        buf[1] = prevJ;
+        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        prevR = buf[len - 2];
+        prevJ = buf[len - 1];
 
         if (exitFlag = ferror(inFile)) {
             perror(NULL);
