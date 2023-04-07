@@ -48,18 +48,25 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
 static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    uint8_t *buf;
-    float *result;
+    static const uint32_t len = (DEFAULT_BUF_SIZE + 2);
 
     int8_t exitFlag = 0;
+    uint8_t *buf;
+    uint8_t prevR = 0;
+    uint32_t prevJ = 0;
     size_t readBytes;
+    float *result;
 
-    cudaMallocManaged(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
+    cudaMallocManaged(&buf, len*INPUT_ELEMENT_BYTES);
     cudaMallocManaged(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
 
-        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        buf[0] = prevR;
+        buf[1] = prevJ;
+        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        prevR = buf[len - 2];
+        prevJ = buf[len - 1];
 
         if (exitFlag = ferror(inFile)) {
             perror(nullptr);
