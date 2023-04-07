@@ -51,14 +51,16 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
     static const uint32_t len = (DEFAULT_BUF_SIZE + 2);
 
     int8_t exitFlag = 0;
-    uint8_t *buf;
+    uint8_t *buf, *readBuf;
     uint8_t prevR = 0;
     uint8_t prevJ = 0;
     size_t readBytes;
-    float *result;
+    float *result, *writeBuf;
 
-    cudaMallocManaged(&buf, len*INPUT_ELEMENT_BYTES);
-    cudaMallocManaged(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMallocHost(&buf, len*INPUT_ELEMENT_BYTES);
+    cudaMalloc(&readBuf, len*INPUT_ELEMENT_BYTES);
+    cudaMallocHost(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMalloc(&writeBuf, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
     while (!exitFlag) {
 
@@ -67,6 +69,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
         readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
         prevR = buf[len - 2];
         prevJ = buf[len - 1];
+        cudaMemcpy(readBuf, buf, readBytes, cudaMemcpyHostToDevice);
 
         if (exitFlag = ferror(inFile)) {
             perror(nullptr);
@@ -75,14 +78,17 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
             exitFlag = EOF;
         }
 
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(buf, readBytes, result);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(readBuf, readBytes, writeBuf);
         cudaDeviceSynchronize();
+        cudaMemcpy(result, writeBuf, readBytes, cudaMemcpyDeviceToHost);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
     }
 
     cudaFree(buf);
     cudaFree(result);
+    cudaFree(readBuf);
+    cudaFree(writeBuf);
     return exitFlag;
 }
 
