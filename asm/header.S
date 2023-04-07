@@ -67,9 +67,9 @@ result:
 buf:
     .zero 1
     .p2align MATRIX_WIDTH
-//buf128:
-//    .zero DEFAULT_BUF_SIZE << MATRIX_WIDTH
-//    .p2align 4
+buf128:
+    .zero DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
+    .p2align 4
 exit_flag:
     .byte 0
 

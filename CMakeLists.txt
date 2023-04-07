@@ -12,6 +12,8 @@ option(IS_INTEL OFF)
 
 if (DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
+elseif(IS_INTEL)
+    add_compile_definitions(DEFAULT_BUF_SIZE=2048)
 endif()
 
 if (IS_FMA)
