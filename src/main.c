@@ -24,6 +24,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
+#include "definitions.h"
+
+uint64_t *buf128;
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
@@ -36,6 +39,8 @@ int main(int argc, char **argv) {
     struct chars chars;
     chars.isOt = 0;
     chars.isRdc = 0;
+
+    buf128 = calloc(OUT_BUF_SIZE, OUTPUT_ELEMENT_BYTES);
 
     if (argc < 3) {
         return -1;

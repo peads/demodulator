@@ -57,7 +57,7 @@
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
 L7:
-    leaq buf128(%rip), %r14
+    movq buf128(%rip), %r14
     xorq %r12, %r12       // i
     xorq %r13, %r13
 L6:

@@ -11,4 +11,6 @@ struct chars {
     uint8_t isOt;       // 1
     //uint8_t downsample; // 2
 };
+
+
 #endif //DEMODULATOR_MATRIX_H

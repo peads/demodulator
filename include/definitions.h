@@ -35,6 +35,7 @@
 #endif
 #define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
+#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << MATRIX_WIDTH
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
