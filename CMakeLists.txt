@@ -12,8 +12,6 @@ option(IS_INTEL OFF)
 
 if (DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
-else()
-    add_compile_definitions(DEFAULT_BUF_SIZE=2048)
 endif()
 
 if (IS_FMA)
@@ -22,12 +20,12 @@ endif()
 
 if (IS_NVIDIA)
     remove_definitions(-DDEFAULT_BUF_SIZE)
-    add_compile_definitions(DEFAULT_BUF_SIZE=2097152)
+    add_compile_definitions(DEFAULT_BUF_SIZE=4194304)
     set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75)
     set(CMAKE_CUDA_COMPILER "/usr/bin/nvcc")
     add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -m64 -ftz=true -use_fast_math -Xcompiler=\"-Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -funsafe-math-optimizations\" -res-usage -default-stream=per-thread")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -m64 -ftz=true -use_fast_math -Xcompiler=\"-Wno-unused-result -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -funsafe-math-optimizations\" -res-usage ")
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/*.cu")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
 

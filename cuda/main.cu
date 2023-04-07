@@ -48,27 +48,20 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
 static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    static const uint32_t len = (DEFAULT_BUF_SIZE + 2);
-
     int8_t exitFlag = 0;
     uint8_t *buf, *readBuf;
-    uint8_t prevR = 0;
-    uint8_t prevJ = 0;
     size_t readBytes;
     float *result, *writeBuf;
 
-    cudaMallocHost(&buf, len*INPUT_ELEMENT_BYTES);
-    cudaMalloc(&readBuf, len*INPUT_ELEMENT_BYTES);
+    cudaMallocHost(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
+    cudaMalloc(&readBuf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
     cudaMallocHost(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
     cudaMalloc(&writeBuf, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
 
+    buf[0] = 0;
+    buf[1] = 0;
+    readBytes = fread(buf+2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE-2, inFile);
     while (!exitFlag) {
-
-        buf[0] = prevR;
-        buf[1] = prevJ;
-        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
-        prevR = buf[len - 2];
-        prevJ = buf[len - 1];
         cudaMemcpy(readBuf, buf, readBytes, cudaMemcpyHostToDevice);
 
         if (exitFlag = ferror(inFile)) {
@@ -79,9 +72,11 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
         }
 
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(readBuf, readBytes, writeBuf);
-        cudaDeviceSynchronize();
-        cudaMemcpy(result, writeBuf, readBytes, cudaMemcpyDeviceToHost);
 
+        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+
+        cudaDeviceSynchronize();
+        cudaMemcpy(result, writeBuf, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
     }
 
