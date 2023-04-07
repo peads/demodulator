@@ -3,6 +3,7 @@
 //
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
 #include "definitions.h"
 #include "matrix.h"
 
@@ -33,22 +34,14 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
 
 int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
-    static const uint32_t len = (DEFAULT_BUF_SIZE + 2);
-
-    uint8_t buf[len];
-    uint8_t prevR = 0;
-    uint8_t prevJ = 0;
+    uint8_t *buf = calloc(DEFAULT_BUF_SIZE, INPUT_ELEMENT_BYTES);
     int8_t exitFlag = 0;
     size_t readBytes;
     float result[QTR_BUF_SIZE];
 
-    while (!exitFlag) {
+    readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
 
-        buf[0] = prevR;
-        buf[1] = prevJ;
-        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
-        prevR = buf[len - 2];
-        prevJ = buf[len - 1];
+    while (!exitFlag) {
 
         if (exitFlag = ferror(inFile)) {
             perror(NULL);
@@ -60,6 +53,8 @@ int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *out
         fmDemod(buf, readBytes, result);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
+
+        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
     }
     return exitFlag;
 }

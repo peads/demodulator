@@ -20,7 +20,7 @@ endif()
 
 if (IS_NVIDIA)
     remove_definitions(-DDEFAULT_BUF_SIZE)
-    add_compile_definitions(DEFAULT_BUF_SIZE=4194304)
+#    add_compile_definitions(DEFAULT_BUF_SIZE=4194304)
     set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75)
     set(CMAKE_CUDA_COMPILER "/usr/bin/nvcc")
     add_compile_definitions(__CUDACC__)

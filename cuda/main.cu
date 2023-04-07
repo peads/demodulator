@@ -60,7 +60,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
 
     buf[0] = 0;
     buf[1] = 0;
-    readBytes = fread(buf+2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE-2, inFile);
+    readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
     while (!exitFlag) {
         cudaMemcpy(readBuf, buf, readBytes, cudaMemcpyHostToDevice);
 
