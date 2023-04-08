@@ -67,8 +67,8 @@ negate_b_im:
     .endr
     .p2align 5
 result:
-    .zero HALF_BUF_SIZE << 5
-    .p2align 5
+    .zero HALF_BUF_SIZE << 4
+    .p2align 4
 buf:
     .zero 1 << 5
     .p2align 4
