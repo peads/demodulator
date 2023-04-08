@@ -21,7 +21,7 @@
     .data
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
 all_hundredths:
-    .rept MATRIX_WIDTH
+    .rept 8
     .single 0.01
     .endr
 all_nonetwentysevens:
@@ -44,17 +44,17 @@ all_41s:
     .endr
     .p2align 5
 cnj_transform:
-    .rept 1
+    .rept 2
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
     .endr
 dc_avg_iq:
     .zero 1
-    .p2align MATRIX_WIDTH
+    .p2align 5
 squelch:
     .zero 1
-    .p2align MATRIX_WIDTH
+    .p2align 5
 dc_raw_const:
-    .rept MATRIX_WIDTH
+    .rept 8
     .single 1e-05
     .endr
 negate_b_im:
@@ -62,14 +62,14 @@ negate_b_im:
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
     .endr
 result:
-    .zero HALF_BUF_SIZE << MATRIX_WIDTH
-    .p2align 4
+    .zero HALF_BUF_SIZE << 5
+    .p2align 5
 buf:
     .zero 1
-    .p2align MATRIX_WIDTH
+    .p2align 5
 buf128:
-    .zero DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
-    .p2align 4
+    .zero DEFAULT_BUF_SIZE << 5
+    .p2align 5
 exit_flag:
     .byte 0
 

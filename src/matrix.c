@@ -24,6 +24,7 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
         zr = fmaf(ar, br, -aj*bj);
         zj = fmaf(ar, bj, aj*br);
 
+//        result[i >> 2] = atan2f(zj, zr);
         lenR = 1.f/sqrtf(fmaf(zr, zr, zj*zj));
         zr = 64.f*zj*lenR * 1.f/fmaf(zr*lenR, 23.f, 41.f);
 

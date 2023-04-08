@@ -45,8 +45,8 @@
     pushq %r14
     pushq %r15
 
-    vbroadcastss %xmm0, %xmm0
-    vmovaps %xmm0, squelch(%rip)
+    vbroadcastss %xmm0, %ymm0
+    vmovaps %ymm0, squelch(%rip)
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -83,42 +83,48 @@ check:
     movb $-1, %al
     jmp end
 continue:
-    vmovaps (%rbx), %xmm1
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
+    vmovaps (%rbx), %ymm1
+    vpaddb all_nonetwentysevens(%rip), %ymm1, %ymm1 // convert uint8 to int16
+    vextractf128 $1, %ymm1, %xmm2
+    vextractf128 $0, %ymm1, %xmm1
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
+    vpmovsxbw %xmm2, %xmm2
+    vpmovsxwd %xmm2, %xmm2
+    vcvtdq2ps %xmm2, %xmm2                  // int16 to float
+    vinsertf128 $1, %xmm1, %ymm2, %ymm1
     movb 1(%rsp), %cl
     testb %cl, %cl
     jnz oft
-    vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
+    vmulps cnj_transform(%rip), %ymm1, %ymm1              // ar, -aj, br, -bj
 oft:
-    movaps squelch(%rip), %xmm0
-    ptest %xmm0, %xmm0
+    vmovaps squelch(%rip), %ymm0
+    vptest %ymm0, %ymm0
     jz nosquelch                            // if squelch > 0
-    vmulps %xmm1, %xmm1, %xmm2              // apply squelch
-    vpermilps $0xB1, %xmm2, %xmm3
-    vaddps %xmm2, %xmm3, %xmm2
-    vmulps all_hundredths(%rip), %xmm2, %xmm2
-    vcmpps $0x1D, %xmm1, %xmm2, %xmm2
-    vandps %xmm2, %xmm1, %xmm1
+    vmulps %ymm1, %ymm1, %ymm2              // apply squelch
+    vpermilps $0xB1, %ymm2, %ymm3
+    vaddps %ymm2, %ymm3, %ymm2
+    vmulps all_hundredths(%rip), %ymm2, %ymm2
+    vcmpps $0x1D, %ymm1, %ymm2, %ymm2
+    vandps %ymm2, %ymm1, %ymm1
 nosquelch:
     movb (%rsp), %cl
     testb %cl, %cl
     jz nordc                                // if rdc
-    vsubps dc_avg_iq(%rip), %xmm1, %xmm4    // apply raw dc iir filter
-    vmulps dc_raw_const(%rip), %xmm4, %xmm4
-    vaddps %xmm4, %xmm4, %xmm4
-    vsubps %xmm4, %xmm1, %xmm1
-    vmovaps %xmm4, dc_avg_iq(%rip)
+    vsubps dc_avg_iq(%rip), %ymm1, %ymm4    // apply raw dc iir filter
+    vmulps dc_raw_const(%rip), %ymm4, %ymm4
+    vaddps %ymm4, %ymm4, %ymm4
+    vsubps %ymm4, %ymm1, %ymm1
+    vmovaps %ymm4, dc_avg_iq(%rip)
 nordc:
     // window fir filter
     movq %r12, %rax
-    shrq $5, %rax
-    shlq $4, %rax
-    vpermilps $0x4E, %xmm1, %xmm2
-    vaddps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm1, (%r14, %rax)
+    shrq $6, %rax
+    shlq $5, %rax
+    vpermilps $0x4E, %ymm1, %ymm2
+    vaddps %ymm2, %ymm1, %ymm1
+    vmovaps %ymm1, (%r14, %rax) // TODO split this into two elements in the array
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp

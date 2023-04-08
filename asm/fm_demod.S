@@ -52,10 +52,10 @@ _arg:
 
     vextractf128 $1, %ymm0, %xmm1
     vpermilps $1, %ymm0, %ymm0
-    vblendps $1, %xmm0, %xmm1, %xmm0
-    vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
-    vandps %xmm1, %xmm0, %xmm0
-    vmovq %xmm0, %rax
+    //vblendps $1, %xmm0, %xmm1, %xmm0
+    //vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
+    //vandps %xmm1, %xmm0, %xmm0
+    vmovaps %ymm0, (%rax)
     jmpq *%rdx
 
 .globl _demodulateFmData
@@ -75,58 +75,58 @@ _demodulateFmData:
 
     negq %r8
     negq %r10
-L4: 
-    vmovaps (%rcx,%r8), %xmm1
-    vmovaps -16(%rcx,%r8), %xmm0
+L4:
+    vmovaps (%rcx,%r8), %ymm1
+    vmovaps -16(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r9,%r10)
 // loop unroll one
-    vmovaps 16(%rcx,%r8), %xmm1
-    vmovaps (%rcx,%r8), %xmm0
+    vmovaps 16(%rcx,%r8), %ymm1
+    vmovaps (%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 8(%r9,%r10)
 // loop unroll two
-    vmovaps 32(%rcx,%r8), %xmm1
-    vmovaps 16(%rcx,%r8), %xmm0
+    vmovaps 32(%rcx,%r8), %ymm1
+    vmovaps 16(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 16(%r9,%r10)
 // loop unroll three
-    vmovaps 48(%rcx,%r8), %xmm1
-    vmovaps 32(%rcx,%r8), %xmm0
+    vmovaps 48(%rcx,%r8), %ymm1
+    vmovaps 32(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 24(%r9,%r10)
 
-    vmovaps 64(%rcx,%r8), %xmm1
-    vmovaps 48(%rcx,%r8), %xmm0
+    vmovaps 64(%rcx,%r8), %ymm1
+    vmovaps 48(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 32(%r9,%r10)
 
-    vmovaps 80(%rcx,%r8), %xmm1
-    vmovaps 64(%rcx,%r8), %xmm0
+    vmovaps 80(%rcx,%r8), %ymm1
+    vmovaps 64(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 40(%r9,%r10)
 
-    vmovaps 96(%rcx,%r8), %xmm1
-    vmovaps 80(%rcx,%r8), %xmm0
+    vmovaps 96(%rcx,%r8), %ymm1
+    vmovaps 80(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, 48(%r9,%r10)
 
-    vmovaps 112(%rcx,%r8), %xmm1
-    vmovaps 96(%rcx,%r8), %xmm0
+    vmovaps 112(%rcx,%r8), %ymm1
+    vmovaps 96(%rcx,%r8), %ymm0
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
