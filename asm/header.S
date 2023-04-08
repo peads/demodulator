@@ -70,7 +70,7 @@ result:
     .zero 24
     .p2align 4
 buf:
-    .zero 1 << 5
+    .zero 32
     .p2align 4
 buf128:
     .zero DEFAULT_BUF_SIZE << 5

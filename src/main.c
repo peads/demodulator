@@ -29,8 +29,6 @@ extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
 __m256 temp;
 __m256 temp1;
 __m256 temp2;
-__m128i itemp;
-__m128i itemp1;
 int main(int argc, char **argv) {
 
     int opt;
