@@ -24,11 +24,13 @@
 #include <stdlib.h>
 #include <immintrin.h>
 #include "matrix.h"
+#include "definitions.h"
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 __m256 temp;
 __m256 temp1;
 __m256 temp2;
+__m256 buf128[QTR_BUF_SIZE];
 int main(int argc, char **argv) {
 
     int opt;

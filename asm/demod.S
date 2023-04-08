@@ -84,13 +84,10 @@ check:
     jmp end
 continue:
     vmovdqa (%rbx), %xmm1
-    //vmovdqa %xmm1, itemp(%rip)
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
-    //vmovdqa %xmm1, itemp1(%rip)
     vpmovsxwd %xmm1, %ymm1
     vcvtdq2ps %ymm1, %ymm1                  // int16 to float
-    //vmovaps %ymm1, temp(%rip)
     movb 1(%rsp), %cl
     testb %cl, %cl
     jnz oft
