@@ -73,7 +73,7 @@ buf:
     .zero 32
     .p2align 4
 buf128:
-    .zero 16384
+    .zero DEFAULT_BUF_SIZE << 3 // N/4 * sizeof(__m256) = N/4 * 32 = N * 8
     .p2align 5
 exit_flag:
     .byte 0
