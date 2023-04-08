@@ -52,12 +52,18 @@ _arg:
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
 
-    vextractf128 $1, %ymm0, %xmm1
-    vpermilps $1, %ymm0, %ymm0
-    vblendps $1, %xmm0, %xmm1, %xmm0
-    vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
-    vandps %xmm1, %xmm0, %xmm0
+    //vextractf128 $1, %ymm0, %xmm1
+    vperm2f128 $1, %ymm0, %ymm0, %ymm1
+    //vpermilps $1, %ymm0, %ymm1
+    vblendps $1, %ymm0, %ymm1, %ymm0
+    vcmpps $0x0, %ymm0, %ymm0, %ymm1  // effectively the NAN check
+    vandps %ymm1, %ymm0, %ymm0
     vmovaps %xmm0, (%r9,%r10)
+    vextractf128 $1, %ymm0, %xmm1
+    vmovaps %xmm1, 32(%r9,%r10)
+
+    vmovaps %xmm0, temp(%rip)
+    vmovaps %xmm1, temp1(%rip)
     jmpq *%rdx
 _demodulateFmData:
     vmovaps all_41s(%rip), %ymm4
@@ -75,12 +81,20 @@ _demodulateFmData:
     negq %r8
     negq %r10
 L4:
-    vmovaps (%rcx,%r8), %ymm1
-    vextractf128 $0, %ymm1, %xmm0
-    vextractf128 $1, %ymm1, %xmm1
+    vmovaps (%rcx, %r8), %ymm1
+    vextractf128 $1, %ymm1, %xmm0
+    vmovaps %xmm0, %xmm5
+
+    //vmovaps -32(%rcx,%r8), %ymm0
+    leaq (%rip), %rdx
+    addq $9, %rdx
+    jmp _arg
+
+    vmovaps %xmm5, %xmm0
+    vmovaps 32(%rcx, %r8), %ymm1
     vmovaps %xmm0, temp(%rip)
     vmovaps %xmm1, temp1(%rip)
-    //vmovaps -32(%rcx,%r8), %ymm0
+
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
@@ -137,8 +151,8 @@ L4:
 
 //    addq $64, %r10 // i++
 //    addq $128, %r8 // j += 2
-    addq $32, %r10 // i++
-    addq $64, %r8 // j += 2
+    addq $16, %r10 // i++
+    addq $32, %r8 // j += 2
     jl L4
     shlq $1, %rsi
     movq %rsi, %rax
