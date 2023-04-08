@@ -22,10 +22,16 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <immintrin.h>
 #include "matrix.h"
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
-
+__m256 temp;
+__m256 temp1;
+__m256 temp2;
+__m128i itemp;
+__m128i itemp1;
+char buf[8] __attribute__((aligned(16)));
 int main(int argc, char **argv) {
 
     int opt;

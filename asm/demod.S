@@ -83,17 +83,14 @@ check:
     movb $-1, %al
     jmp end
 continue:
-    vmovaps (%rbx), %ymm1
-    vpaddb all_nonetwentysevens(%rip), %ymm1, %ymm1 // convert uint8 to int16
-    vextractf128 $1, %ymm1, %xmm2
-    vextractf128 $0, %ymm1, %xmm1
+    vmovdqa (%rbx), %xmm1
+    //vmovdqa %xmm1, itemp(%rip)
+    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
-    vpmovsxwd %xmm1, %xmm1
-    vcvtdq2ps %xmm1, %xmm1                  // int16 to float
-    vpmovsxbw %xmm2, %xmm2
-    vpmovsxwd %xmm2, %xmm2
-    vcvtdq2ps %xmm2, %xmm2                  // int16 to float
-    vinsertf128 $1, %xmm1, %ymm2, %ymm1
+    //vmovdqa %xmm1, itemp1(%rip)
+    vpmovsxwd %xmm1, %ymm1
+    vcvtdq2ps %ymm1, %ymm1                  // int16 to float
+    //vmovaps %ymm1, temp(%rip)
     movb 1(%rsp), %cl
     testb %cl, %cl
     jnz oft

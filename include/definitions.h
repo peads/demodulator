@@ -28,14 +28,14 @@
 // sizeof(float) >> 1
 #define OUTPUT_ELEMENT_BYTES 4
 // sizeof(__m128)
-#define MATRIX_ELEMENT_BYTES 16
-#define MATRIX_WIDTH 4
+#define MATRIX_ELEMENT_BYTES 32
+#define MATRIX_WIDTH 8
 #ifndef DEFAULT_BUF_SIZE
 #define DEFAULT_BUF_SIZE 4194304
 #endif
 #define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
-#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << MATRIX_WIDTH
+#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
 
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.

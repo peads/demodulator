@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, squelch//, buf
     .data
 all_hundredths:
     .rept 8
@@ -70,8 +70,8 @@ result:
     .zero HALF_BUF_SIZE << 5
     .p2align 5
 buf:
-    .zero 1
-    .p2align 5
+    .zero 1 << 5
+    .p2align 4
 buf128:
     .zero DEFAULT_BUF_SIZE << 5
     .p2align 5
