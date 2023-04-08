@@ -67,7 +67,7 @@ negate_b_im:
     .endr
     .p2align 5
 result:
-    .zero 24
+    .zero 32
     .p2align 4
 buf:
     .zero 32
