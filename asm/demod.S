@@ -124,7 +124,7 @@ nordc:
     shlq $5, %rax
     vpermilps $0x4E, %ymm1, %ymm2
     vaddps %ymm2, %ymm1, %ymm1
-    vmovaps %ymm1, (%r14, %rax) // TODO split this into two elements in the array
+    vmovaps %ymm1, (%r14, %rax)
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp

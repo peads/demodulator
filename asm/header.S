@@ -18,16 +18,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-    .data
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
+    .data
 all_hundredths:
     .rept 8
     .single 0.01
     .endr
+    .p2align 5
 all_nonetwentysevens:
     .rept 2
     .quad -0x7f7f7f7f7f7f7f7f
     .endr
+    .p2align 5
 all_64s:
     .rept 8
     .single 64.0
@@ -47,6 +49,7 @@ cnj_transform:
     .rept 2
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
     .endr
+    .p2align 5
 dc_avg_iq:
     .zero 1
     .p2align 5
@@ -57,10 +60,12 @@ dc_raw_const:
     .rept 8
     .single 1e-05
     .endr
+    .p2align 5
 negate_b_im:
     .rept 2
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
     .endr
+    .p2align 5
 result:
     .zero HALF_BUF_SIZE << 5
     .p2align 5
