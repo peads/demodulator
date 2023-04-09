@@ -25,12 +25,10 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
-    .globl _demodulateFmData
-    .text
 _arg:
+.text
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
     vinsertf128 $1, %xmm1, %ymm0, %ymm0
-    vmovaps %ymm0, temp2(%rip)
     vmulps negate_b_im(%rip), %ymm0, %ymm0 // (ar, aj, br, -bj)
 
     vpermilps $0xEB, %ymm0, %ymm1     // (ar, aj, br, bj) => (aj, aj, ar, ar)
@@ -46,27 +44,28 @@ _arg:
     vrsqrtps %ymm1, %ymm1             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
-    vmulps all_64s(%rip), %ymm0, %ymm2      // 64*zj
-    vfmadd132ps all_23s(%rip), %ymm4, %ymm0 // 23*zr + 41s
+    vmulps all_64s(%rip), %ymm0, %ymm2        // 64*zj
+#ifndef IS_FMA                          // 23*zr + 41
+    vmulps all_23s(%rip), %ymm0, %ymm3
+    vaddps %ymm4, %ymm3, %ymm0
+#else
+    vfmadd132ps all_23s(%rip), %ymm4, %ymm0
+#endif
     vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
 
-    vpermilps $1, %ymm0, %ymm1
-    vblendps $1, %ymm0, %ymm1, %ymm0
-    vcmpps $0x0, %ymm0, %ymm0, %ymm1   //effectively the NAN check
-    vandps %ymm1, %ymm0, %ymm0
-    //vextractf128 $1, %ymm0, %xmm1
-    vperm2f128 $1, %ymm0, %ymm0, %ymm1
-    vblendps $0b11000000, %ymm0, %ymm1, %ymm0
-    //vmovaps %xmm0, 16(%r9,%r10)
-    //vmovaps %xmm1,  (%r9,%r10)
-    vmovaps %ymm0, (%r9,%r10)
-
-    vmovaps %xmm0, temp(%rip)
-    vmovaps %xmm1, temp1(%rip)
+    vextractf128 $1, %ymm0, %xmm1
+    vpermilps $1, %ymm0, %ymm0
+    vblendps $1, %xmm0, %xmm1, %xmm0
+    vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
+    vandps %xmm1, %xmm0, %xmm0
+    vmovq %xmm0, %rax
     jmpq *%rdx
+
+.globl _demodulateFmData
 _demodulateFmData:
+    .text
     vmovaps all_41s(%rip), %ymm4
     movq %rdi, %rcx   // store buf address
     movq %rsi, %r8    // store n
@@ -81,68 +80,65 @@ _demodulateFmData:
 
     negq %r8
     negq %r10
-L4:
-    vmovaps (%rcx, %r8), %ymm1
-    vextractf128 $1, %ymm1, %xmm0
-    //vmovaps %ymm1, %ymm5
+L4: 
+    vmovaps (%rcx, %r8), %ymm0
+    vextractf128 $1, %ymm0, %xmm1
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
-//    movq %rax, (%r9,%r10)
+    movq %rax, (%r9,%r10)
 //// loop unroll one
-//    vmovaps 16(%rcx,%r8), %ymm1
-//    vmovaps (%rcx,%r8), %ymm0
+//    vmovaps 16(%rcx,%r8), %xmm1
+//    vmovaps (%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 8(%r9,%r10)
 //// loop unroll two
-//    vmovaps 32(%rcx,%r8), %ymm1
-//    vmovaps 16(%rcx,%r8), %ymm0
+//    vmovaps 32(%rcx,%r8), %xmm1
+//    vmovaps 16(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 16(%r9,%r10)
 //// loop unroll three
-//    vmovaps 48(%rcx,%r8), %ymm1
-//    vmovaps 32(%rcx,%r8), %ymm0
+//    vmovaps 48(%rcx,%r8), %xmm1
+//    vmovaps 32(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 24(%r9,%r10)
 //
-//    vmovaps 64(%rcx,%r8), %ymm1
-//    vmovaps 48(%rcx,%r8), %ymm0
+//    vmovaps 64(%rcx,%r8), %xmm1
+//    vmovaps 48(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 32(%r9,%r10)
 //
-//    vmovaps 80(%rcx,%r8), %ymm1
-//    vmovaps 64(%rcx,%r8), %ymm0
+//    vmovaps 80(%rcx,%r8), %xmm1
+//    vmovaps 64(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 40(%r9,%r10)
 //
-//    vmovaps 96(%rcx,%r8), %ymm1
-//    vmovaps 80(%rcx,%r8), %ymm0
+//    vmovaps 96(%rcx,%r8), %xmm1
+//    vmovaps 80(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 48(%r9,%r10)
 //
-//    vmovaps 112(%rcx,%r8), %ymm1
-//    vmovaps 96(%rcx,%r8), %ymm0
+//    vmovaps 112(%rcx,%r8), %xmm1
+//    vmovaps 96(%rcx,%r8), %xmm0
 //    leaq (%rip), %rdx
 //    addq $9, %rdx
 //    jmp _arg
 //    movq %rax, 56(%r9,%r10)
 
-//    addq $64, %r10 // i++
-//    addq $128, %r8 // j += 2
-    addq $32, %r10 // i++
-    addq $64, %r8 // j += 2
+    addq $8, %r10 // i++
+    addq $32, %r8 // j += 2
     jl L4
     shlq $1, %rsi
     movq %rsi, %rax

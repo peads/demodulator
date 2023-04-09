@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, squelch, buf, buf128
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, squelch, buf, buf128, result
     .data
 all_hundredths:
     .rept 8
@@ -74,7 +74,7 @@ buf:
     .p2align 4
 buf128:
     .zero DEFAULT_BUF_SIZE << 3 // N/4 * sizeof(__m256) = N/4 * 32 = N * 8
-    .p2align 5
+    .p2align 4
 exit_flag:
     .byte 0
 
