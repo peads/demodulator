@@ -83,7 +83,7 @@ check:
     movb $-1, %al
     jmp end
 continue:
-    vmovaps (%rbx), %xmm1
+    vmovdqa (%rbx), %xmm1
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1

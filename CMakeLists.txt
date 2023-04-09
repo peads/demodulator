@@ -6,7 +6,6 @@ set(CMAKE_C_STANDARD 99)
 add_compile_options(-O3)
 
 option(IS_NVIDIA OFF)
-option(IS_FMA ON)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_INTEL OFF)
 
@@ -14,10 +13,6 @@ if (DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 elseif(IS_INTEL)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
-endif()
-
-if (IS_FMA)
-    add_compile_definitions(IS_FMA)
 endif()
 
 if (IS_NVIDIA)
