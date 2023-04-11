@@ -139,6 +139,7 @@ int main(int argc, char **argv) {
             }
         }
     }
+    fprintf(stderr, "Grid dim: %u\n", GRIDDIM);
 
     return processMatrix(temp, inFile, &chars, outFile) != EOF;
 }
