@@ -24,7 +24,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
     __shared__ float Z[1024];
     uint32_t i;
-    uint32_t index = blockDim.x + threadIdx.x;
+    uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
     float ar, aj, br, bj, zr, zj, lenR;
 
@@ -80,6 +80,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
         readBytes = fread(hBuf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
 
         cudaMemcpyAsync(hResult, dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+
         fwrite(hResult, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
     }
 
