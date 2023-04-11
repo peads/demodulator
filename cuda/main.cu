@@ -22,7 +22,6 @@
 __global__
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
-    __shared__ float Z[1024];
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
@@ -41,10 +40,10 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
         lenR = rnorm3df(zr, zj, 0.f);
         zj = __fmul_rn(64.f, __fmul_rn(zj, lenR));
-        Z[threadIdx.x] = __fmul_rn(zj, __frcp_rn(
+        zr = __fmul_rn(zj, __frcp_rn(
                 __fmaf_rn(23.f, __fmul_rn(zr, lenR), 41.f)));
 
-        result[i >> 2] = isnan(Z[threadIdx.x]) ? 0.f : Z[threadIdx.x]; // delay line
+        result[i >> 2] = isnan(zr) ? 0.f : zr; // delay line
     }
 }
 
@@ -86,6 +85,8 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
     cudaFreeHost(hResult);
     cudaFree(dBuf);
     cudaFree(dResult);
+    fclose(inFile);
+    fclose(outFile);
     return exitFlag;
 }
 
