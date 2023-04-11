@@ -49,20 +49,20 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
     int8_t exitFlag = 0;
-    uint8_t *buf, *readBuf;
+    uint8_t *hBuf, *dBuf;
     size_t readBytes;
-    float *result, *writeBuf;
+    float *hResult, *dResult;
 
-    cudaMallocHost(&buf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
-    cudaMalloc(&readBuf, DEFAULT_BUF_SIZE*INPUT_ELEMENT_BYTES);
-    cudaMallocHost(&result, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
-    cudaMalloc(&writeBuf, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES);
+    cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
+    cudaMalloc(&dBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
+    cudaMallocHost(&hResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES);
+    cudaMalloc(&dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES);
 
-    buf[0] = 0;
-    buf[1] = 0;
-    readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
+    hBuf[0] = 0;
+    hBuf[1] = 0;
+    readBytes = fread(hBuf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
     while (!exitFlag) {
-        cudaMemcpy(readBuf, buf, readBytes, cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(dBuf, hBuf, readBytes, cudaMemcpyHostToDevice);
 
         if (exitFlag = ferror(inFile)) {
             perror(nullptr);
@@ -71,19 +71,18 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
             exitFlag = EOF;
         }
 
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(readBuf, readBytes, writeBuf);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes, dResult);
 
-        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
+        readBytes = fread(hBuf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
 
-        cudaDeviceSynchronize();
-        cudaMemcpy(result, writeBuf, QTR_BUF_SIZE*OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
-        fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
+        cudaMemcpyAsync(hResult, dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+        fwrite(hResult, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
     }
 
-    cudaFree(buf);
-    cudaFree(result);
-    cudaFree(readBuf);
-    cudaFree(writeBuf);
+    cudaFreeHost(hBuf);
+    cudaFreeHost(hResult);
+    cudaFree(dBuf);
+    cudaFree(dResult);
     return exitFlag;
 }
 
@@ -119,7 +118,9 @@ int main(int argc, char **argv) {
                     if (!strstr(optarg, "-")) {
                         inFile = fopen(optarg, "rb");
                     } else {
-                        freopen(nullptr, "rb", stdin);
+                        if (!freopen(nullptr, "rb", stdin)){
+                            return -1;
+                        }
                         inFile = stdin;
                     }
                     break;
@@ -127,7 +128,9 @@ int main(int argc, char **argv) {
                     if (!strstr(optarg, "-")) {
                         outFile = fopen(optarg, "wb");
                     } else {
-                        freopen(nullptr, "wb", stdout);
+                        if (!freopen(nullptr, "wb", stdout)){
+                            return -1;
+                        }
                         outFile = stdout;
                     }
                     break;
