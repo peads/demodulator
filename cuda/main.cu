@@ -44,8 +44,6 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         Z[threadIdx.x] = __fmul_rn(zj, __frcp_rn(
                 __fmaf_rn(23.f, __fmul_rn(zr, lenR), 41.f)));
 
-        __syncthreads();
-
         result[i >> 2] = isnan(Z[threadIdx.x]) ? 0.f : Z[threadIdx.x]; // delay line
     }
 }
