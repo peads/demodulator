@@ -25,8 +25,9 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
+    .globl _demodulateFmData, _arg
 _arg:
-.text
+    .text
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
     vinsertf128 $1, %xmm1, %ymm0, %ymm0
     vmulps negate_b_im(%rip), %ymm0, %ymm0 // (ar, aj, br, -bj)
@@ -57,10 +58,7 @@ _arg:
     vandps %xmm1, %xmm0, %xmm0
     vmovq %xmm0, %rax
     jmpq *%rdx
-
-.globl _demodulateFmData
 _demodulateFmData:
-    .text
     vmovaps all_41s(%rip), %ymm4
     movq %rdi, %rcx   // store buf address
     movq %rsi, %r8    // store n
