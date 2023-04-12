@@ -25,7 +25,7 @@
 #include <immintrin.h>
 #include "matrix.h"
 
-__attribute__((used)) uint64_t result[DEFAULT_BUF_SIZE] __attribute__((aligned(16)));
+uint64_t result[2048] __attribute__((aligned(16)));
 __attribute__((used)) __m128 temp;
 __attribute__((used)) __m128 temp1;
 

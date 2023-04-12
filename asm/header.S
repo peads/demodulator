@@ -19,9 +19,9 @@
  */
 #include "definitions.h"
     .data
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, buf,squelch,buf128//, result
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, buf,squelch,buf128
 all_hundredths:
-    .rept MATRIX_WIDTH
+    .rept 4
     .single 0.01
     .endr
 all_nonetwentysevens:
@@ -49,26 +49,22 @@ cnj_transform:
     .endr
 dc_avg_iq:
     .zero 1
-    .p2align MATRIX_WIDTH
+    .p2align 4
 squelch:
     .zero 1
-    .p2align MATRIX_WIDTH
+    .p2align 4
 dc_raw_const:
-    .rept MATRIX_WIDTH
+    .rept 4
     .single 1e-05
     .endr
 negate_b_im:
     .rept 2
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
     .endr
-result:
-    .zero HALF_BUF_SIZE << MATRIX_WIDTH
-    .p2align 4
 buf:
-    .zero 1
-    .p2align MATRIX_WIDTH
+    .zero 4
 buf128:
-    .zero DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
+    .zero 2048 << 3
     .p2align 4
 exit_flag:
     .byte 0

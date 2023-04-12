@@ -112,53 +112,26 @@ nosquelch:
     vsubps %xmm4, %xmm1, %xmm1
     vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
-//    // window fir filter
-//    movq %r12, %rax
-//    shrq $5, %rax
-//    shlq $4, %rax
-//    vpermilps $0x4E, %xmm1, %xmm2
-//    vaddps %xmm2, %xmm1, %xmm1
-//    vmovaps %xmm1, (%r14, %rax)
-//
-//    addq $MATRIX_ELEMENT_BYTES, %r12
-//    test %r12, %rbp
-//    jz L6
-// demodulateFmData(buf128, depth, result);
-//    movq %r14, %rdi
-//    movl $HALF_BUF_SIZE, %esi
-//    leaq result(%rip), %rdx
-//    callq _demodulateFmData
-
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
 
     movq %r12, %rcx
     shrq $1, %rcx
-    //shlq $3, %rcx
 
     vmovaps all_41s(%rip), %ymm4 // TODO can this be moved outside loops?
     vmovaps -16(%r14, %rax), %xmm0
-    vmovaps %xmm0, temp(%rip)
     vmovaps %xmm1, temp1(%rip)
+
     xorq %rax, %rax
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r14, %rcx)
-    //vmovq %rax, %xmm0
-    //vmovaps %xmm0, temp(%rip)
-
-
-    //vmovq %rax, %xmm1
-    //movq %r12, %rcx
-    //shrq $5, %rcx
-    //shlq $4, %rcx
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
     leaq result(%rip), %rdi
     movw $OUTPUT_ELEMENT_BYTES, %si
