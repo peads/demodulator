@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 SET(PROJECT_NAME demodulator)
 set(CMAKE_C_STANDARD 99)
 
-#add_compile_options(-g)
+#add_compile_options(-ggdb)
 add_compile_options(-O3)
 
 option(IS_NVIDIA OFF)

@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im, result
 
     .bss
     .comm buf, 16
@@ -27,10 +27,14 @@
     .p2align 4
     .comm squelch, 16
     .p2align 4
-    //.bss
-    //.comm result, 16384
-
+//    .comm result, 8192
+//    .p2align 5
     .data
+//result:
+//    .rept 2048
+//    .single 0.0, 0.0
+//    .endr
+//    //.p2align 5
     .section .rodata
 all_hundredths:
     .rept 4

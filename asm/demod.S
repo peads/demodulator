@@ -56,8 +56,9 @@
 
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
-L7:
     leaq result(%rip), %r14
+    vxorps %ymm5, %ymm5, %ymm5
+L7:
     xorq %r12, %r12       // i
     xorq %r13, %r13
 L6:
@@ -117,14 +118,12 @@ nordc:
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
 
+    //xorq %rcx, %rcx
     movq %r12, %rcx
     shrq $1, %rcx
 
-    vmovaps all_41s(%rip), %ymm4 // TODO can this be moved outside loops?
-    vmovaps -16(%r14, %rax), %xmm0
-    vmovaps %xmm1, temp1(%rip)
-
-    xorq %rax, %rax
+    vmovaps %xmm5, %xmm0
+    vmovaps %xmm1, %xmm5
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg

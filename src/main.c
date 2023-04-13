@@ -80,5 +80,8 @@ int main(int argc, char **argv) {
             }
         }
     }
-    return processMatrix(temp, inFile, &chars, outFile) != EOF;
+    int ret = processMatrix(temp, inFile, &chars, outFile) != EOF;
+    fclose(inFile);
+    fclose(outFile);
+    return ret;
 }
