@@ -57,10 +57,10 @@
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
-    vxorps %ymm5, %ymm5, %ymm5
 L7:
     xorq %r12, %r12       // i
     xorq %r13, %r13
+    vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
     movq $INPUT_ELEMENT_BYTES, %rsi
@@ -117,8 +117,6 @@ nordc:
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
-
-    //xorq %rcx, %rcx
     movq %r12, %rcx
     shrq $1, %rcx
 
