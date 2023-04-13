@@ -18,8 +18,20 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
+
+    .bss
+    .comm buf, 16
+    .p2align 4
+    .comm dc_avg_iq, 16
+    .p2align 4
+    .comm squelch, 16
+    .p2align 4
+    //.bss
+    //.comm result, 16384
+
     .data
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, buf,squelch,buf128
+    .section .rodata
 all_hundredths:
     .rept 4
     .single 0.01
@@ -47,12 +59,6 @@ cnj_transform:
     .rept 1
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
     .endr
-dc_avg_iq:
-    .zero 1
-    .p2align 4
-squelch:
-    .zero 1
-    .p2align 4
 dc_raw_const:
     .rept 4
     .single 1e-05
@@ -61,11 +67,3 @@ negate_b_im:
     .rept 2
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
     .endr
-buf:
-    .zero 4
-buf128:
-    .zero 2048 << 3
-    .p2align 4
-exit_flag:
-    .byte 0
-

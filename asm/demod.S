@@ -74,6 +74,7 @@ L6:
     jz check
     xorq %rdx, %rdx
     call PERROR
+    mov $1, %rax
     jmp end
 check:
     movq %r15, %rdi
@@ -148,4 +149,3 @@ end:
     popq %rbx
     popq %rbp
     ret
-
