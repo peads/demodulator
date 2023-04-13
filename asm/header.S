@@ -30,11 +30,10 @@
 //    .comm result, 8192
 //    .p2align 5
     .data
-//result:
-//    .rept 2048
-//    .single 0.0, 0.0
-//    .endr
-//    //.p2align 5
+result:
+    .rept 2048
+    .quad 0
+    .endr
     .section .rodata
 all_hundredths:
     .rept 4

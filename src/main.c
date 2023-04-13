@@ -22,12 +22,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <immintrin.h>
 #include "matrix.h"
-
-uint64_t result[2048] __attribute__((aligned(16)));
-__attribute__((used)) __m128 temp;
-__attribute__((used)) __m128 temp1;
 
 extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
 
