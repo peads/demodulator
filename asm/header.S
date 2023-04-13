@@ -21,18 +21,15 @@
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
 
     .bss
-    .comm buf, 16
-    .p2align 4
-    .comm dc_avg_iq, 16
-    .p2align 4
-    .comm squelch, 16
-    .p2align 4
-    .comm result, 16384
+    .comm buf, MATRIX_WIDTH << 2
+    .comm dc_avg_iq, MATRIX_WIDTH << 2
+    .comm squelch, MATRIX_WIDTH << 2
+    .comm result, DEFAULT_BUF_SIZE << 3
 
     .data
     .section .rodata
 all_hundredths:
-    .rept 4
+    .rept MATRIX_WIDTH
     .single 0.01
     .endr
 all_nonetwentysevens:
@@ -40,29 +37,25 @@ all_nonetwentysevens:
     .quad -0x7f7f7f7f7f7f7f7f
     .endr
 all_64s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 64.0
     .endr
     .p2align 5
 all_23s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 23.0
     .endr
     .p2align 5
 all_41s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 41.0
     .endr
     .p2align 5
 cnj_transform:
-    .rept 1
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
-    .endr
 dc_raw_const:
-    .rept 4
+    .rept MATRIX_WIDTH
     .single 1e-05
     .endr
 negate_b_im:
-    .rept 2
-    .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
-    .endr
+    .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
