@@ -131,7 +131,7 @@ nordc:
     test %r12, %rbp
     jz L6
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq result(%rip), %rdi
+    leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
     movw $OUTPUT_ELEMENT_BYTES, %si
     movl $QTR_BUF_SIZE, %edx
     movq 16(%rsp), %rcx

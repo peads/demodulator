@@ -39,9 +39,9 @@ int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *out
     size_t readBytes;
     float result[QTR_BUF_SIZE];
 
-    readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
-
     while (!exitFlag) {
+
+        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
 
         if (exitFlag = ferror(inFile)) {
             perror(NULL);
@@ -53,8 +53,6 @@ int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *out
         fmDemod(buf, readBytes, result);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
-
-        readBytes = fread(buf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
     }
     return exitFlag;
 }
