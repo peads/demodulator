@@ -61,8 +61,11 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
 
     hBuf[0] = 0;
     hBuf[1] = 0;
-    readBytes = fread(hBuf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
+
     while (!exitFlag) {
+
+        readBytes = fread(hBuf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
+
         cudaMemcpyAsync(dBuf, hBuf, readBytes, cudaMemcpyHostToDevice);
 
         if (exitFlag = ferror(inFile)) {
@@ -73,8 +76,6 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
         }
 
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes, dResult);
-
-        readBytes = fread(hBuf, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE, inFile);
 
         cudaMemcpyAsync(hResult, dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
 

@@ -56,10 +56,11 @@
 
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
+    leaq result(%rip), %r14
 L7:
-    leaq buf128(%rip), %r14
     xorq %r12, %r12       // i
     xorq %r13, %r13
+    vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
     movq $INPUT_ELEMENT_BYTES, %rsi
@@ -74,6 +75,7 @@ L6:
     jz check
     xorq %rdx, %rdx
     call PERROR
+    mov $1, %rax
     jmp end
 check:
     movq %r15, %rdi
@@ -112,26 +114,26 @@ nosquelch:
     vsubps %xmm4, %xmm1, %xmm1
     vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
-    // window fir filter
-    movq %r12, %rax
-    shrq $5, %rax
-    shlq $4, %rax
+    // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
-    vmovaps %xmm1, (%r14, %rax)
+    movq %r12, %rcx
+    shrq $1, %rcx
+
+    vmovaps %xmm5, %xmm0
+    vmovaps %xmm1, %xmm5
+    leaq (%rip), %rdx
+    addq $9, %rdx
+    jmp _arg
+    movq %rax, (%r14, %rcx)
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-// demodulateFmData(buf128, depth, result);
-    movq %r14, %rdi
-    movl $HALF_BUF_SIZE, %esi
-    leaq result(%rip), %rdx
-    callq _demodulateFmData
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq result(%rip), %rdi
+    leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
     movw $OUTPUT_ELEMENT_BYTES, %si
-    movl $DEFAULT_BUF_SIZE, %edx
+    movl $QTR_BUF_SIZE, %edx
     movq 16(%rsp), %rcx
     callq FWRITE
     jmp L7
@@ -144,4 +146,3 @@ end:
     popq %rbx
     popq %rbp
     ret
-

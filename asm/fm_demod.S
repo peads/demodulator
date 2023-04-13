@@ -25,8 +25,10 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
+    .globl _demodulateFmData, _arg
 _arg:
-.text
+    .text
+    vmovaps all_41s(%rip), %ymm4
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
     vinsertf128 $1, %xmm1, %ymm0, %ymm0
     vmulps negate_b_im(%rip), %ymm0, %ymm0 // (ar, aj, br, -bj)
@@ -57,84 +59,3 @@ _arg:
     vandps %xmm1, %xmm0, %xmm0
     vmovq %xmm0, %rax
     jmpq *%rdx
-
-.globl _demodulateFmData
-_demodulateFmData:
-    .text
-    vmovaps all_41s(%rip), %ymm4
-    movq %rdi, %rcx   // store buf address
-    movq %rsi, %r8    // store n
-    shlq $4, %r8
-    addq %r8, %rcx    // store address of end of buf
-
-    movq %rdx, %r9    // store result address
-    shrq %r8
-    movq %r8, %r10
-    shlq %r8
-    addq %r10, %r9     // store address of end of result
-
-    negq %r8
-    negq %r10
-L4: 
-    vmovaps (%rcx,%r8), %xmm1
-    vmovaps -16(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, (%r9,%r10)
-// loop unroll one
-    vmovaps 16(%rcx,%r8), %xmm1
-    vmovaps (%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 8(%r9,%r10)
-// loop unroll two
-    vmovaps 32(%rcx,%r8), %xmm1
-    vmovaps 16(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 16(%r9,%r10)
-// loop unroll three
-    vmovaps 48(%rcx,%r8), %xmm1
-    vmovaps 32(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 24(%r9,%r10)
-
-    vmovaps 64(%rcx,%r8), %xmm1
-    vmovaps 48(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 32(%r9,%r10)
-
-    vmovaps 80(%rcx,%r8), %xmm1
-    vmovaps 64(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 40(%r9,%r10)
-
-    vmovaps 96(%rcx,%r8), %xmm1
-    vmovaps 80(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 48(%r9,%r10)
-
-    vmovaps 112(%rcx,%r8), %xmm1
-    vmovaps 96(%rcx,%r8), %xmm0
-    leaq (%rip), %rdx
-    addq $9, %rdx
-    jmp _arg
-    movq %rax, 56(%r9,%r10)
-
-    addq $64, %r10 // i++
-    addq $128, %r8 // j += 2
-    jl L4
-    shlq $1, %rsi
-    movq %rsi, %rax
-    ret

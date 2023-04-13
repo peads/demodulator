@@ -18,8 +18,16 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
+
+    .bss
+    .comm buf, MATRIX_WIDTH << 2
+    .comm dc_avg_iq, MATRIX_WIDTH << 2
+    .comm squelch, MATRIX_WIDTH << 2
+    .comm result, DEFAULT_BUF_SIZE << 3
+
     .data
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_avg_iq, dc_raw_const, negate_b_im, exit_flag, result, buf128, buf,squelch
+    .section .rodata
 all_hundredths:
     .rept MATRIX_WIDTH
     .single 0.01
@@ -29,47 +37,25 @@ all_nonetwentysevens:
     .quad -0x7f7f7f7f7f7f7f7f
     .endr
 all_64s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 64.0
     .endr
     .p2align 5
 all_23s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 23.0
     .endr
     .p2align 5
 all_41s:
-    .rept 8
+    .rept MATRIX_WIDTH << 1
     .single 41.0
     .endr
     .p2align 5
 cnj_transform:
-    .rept 1
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
-    .endr
-dc_avg_iq:
-    .zero 1
-    .p2align MATRIX_WIDTH
-squelch:
-    .zero 1
-    .p2align MATRIX_WIDTH
 dc_raw_const:
     .rept MATRIX_WIDTH
     .single 1e-05
     .endr
 negate_b_im:
-    .rept 2
-    .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
-    .endr
-result:
-    .zero HALF_BUF_SIZE << MATRIX_WIDTH
-    .p2align 4
-buf:
-    .zero 1
-    .p2align MATRIX_WIDTH
-buf128:
-    .zero DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
-    .p2align 4
-exit_flag:
-    .byte 0
-
+    .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
