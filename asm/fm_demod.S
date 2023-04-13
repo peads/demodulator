@@ -28,9 +28,6 @@
     .globl _demodulateFmData, _arg
 _arg:
     .text
-
-    //vmovaps %xmm0, temp(%rip)
-    //vmovaps %xmm1, temp1(%rip)
     vmovaps all_41s(%rip), %ymm4
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
     vinsertf128 $1, %xmm1, %ymm0, %ymm0
