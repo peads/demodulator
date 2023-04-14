@@ -22,7 +22,7 @@
 
 #include "definitions.h"
 
-#if defined(__clang__) || defined(__APPLE__)
+#if defined(__APPLE__)
 #define FREAD _fread
 #define STATUS _checkFileStatus
 #define FERROR _ferror
@@ -42,8 +42,8 @@
 #define SYS_OPEN 0x2
 #define SYS_CLOSE 0x3
 #define O_WRONLY 0x1
-#define O_CREAT 0x100
-#define O_TRUNC 0x200
+#define O_CREAT 0100
+#define O_TRUNC 01000
 #define FREAD fread
 #define STATUS checkFileStatus
 #define FERROR ferror
