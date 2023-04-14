@@ -40,9 +40,11 @@
     .globl  _processMatrix
     _processMatrix:
 #else
+#define SYS_READ 0x0
 #define SYS_WRITE 0x1
 #define SYS_OPEN 0x2
 #define SYS_CLOSE 0x3
+#define O_RDONLY 0x0
 #define O_WRONLY 0x1
 #define O_CREAT 0100
 #define O_TRUNC 01000
