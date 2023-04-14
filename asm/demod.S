@@ -17,26 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include "definitions.h"
-#if defined(__clang__) || defined(__APPLE__)
-#define FWRITE _fwrite
-#define FREAD _fread
-#define STATUS _checkFileStatus
-#define FERROR _ferror
-#define FEOF _feof
-#define PERROR _perror
-    .globl  _processMatrix
-    _processMatrix:
-#else
-#define FWRITE fwrite
-#define FREAD fread
-#define STATUS checkFileStatus
-#define FERROR ferror
-#define FEOF feof
-#define PERROR perror
-    .globl  processMatrix
-    processMatrix:
-#endif
+#include "asm.h"
     .text
     pushq %rbp
     pushq %rbx
@@ -57,6 +38,18 @@
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
+
+    movl $1, 16(%rsp)
+    test %rdx, %rdx
+    jz L7
+    mov $SYS_OPEN, %eax
+    mov %rdx, %rdi          // output stream
+    mov $O_WRONLY, %esi     // flags
+    or $O_CREAT, %esi
+    or $O_TRUNC, %esi
+    mov $0x180, %edx        // mode, 600o = 0b110000000 = 0x180 = rw-------
+    syscall
+    mov %rax, 16(%rsp)      // save the fd
 L7:
     xorq %r12, %r12       // i
     xorq %r13, %r13
@@ -130,14 +123,19 @@ nordc:
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-// fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
-    movw $OUTPUT_ELEMENT_BYTES, %si
-    movl $QTR_BUF_SIZE, %edx
-    movq 16(%rsp), %rcx
-    callq FWRITE
-    jmp L7
+
+    mov $SYS_WRITE, %eax
+    mov 16(%rsp), %rdi       // fd
+    lea result(%rip), %rsi   // data
+    mov $0x4000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
+    syscall
+    test %rax, %rax
+    jnz L7
 end:
+    mov $SYS_CLOSE, %eax
+    mov 16(%rsp), %rdi
+    syscall
+
     addq $24, %rsp
     popq %r15
     popq %r14

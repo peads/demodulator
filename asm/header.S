@@ -27,7 +27,9 @@
     .comm result, DEFAULT_BUF_SIZE << 3
 
     .data
+#ifndef __APPLE__
     .section .rodata
+#endif
 all_hundredths:
     .rept MATRIX_WIDTH
     .single 0.01
