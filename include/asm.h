@@ -29,9 +29,11 @@
 #define FEOF _feof
 #define PERROR _perror
 //DARWIN x64 ONLY
+#define SYS_READ 0x2000003
 #define SYS_WRITE 0x2000004
 #define SYS_OPEN 0x2000005
 #define SYS_CLOSE 0x2000006
+#define O_RDONLY 0x0
 #define O_WRONLY 0x1
 #define O_CREAT 0x200
 #define O_TRUNC 0x400

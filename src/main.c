@@ -17,22 +17,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
 
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, char *outFile);
-
+extern int processMatrix(float squelch, char *inFile, struct chars *chars, char *outFile);
+uint32_t temp;
 int main(int argc, char **argv) {
 
-    int ret = 1;
     int opt;
     float temp = 0.f;
-    FILE *inFile = NULL;
-    char *outFile = NULL;
+    char *inFile;
+    char *outFile;
     struct chars chars;
     chars.isOt = 0;
     chars.isRdc = 0;
@@ -53,12 +51,7 @@ int main(int argc, char **argv) {
                     temp = powf(10.f, (float) atof(optarg) / 10.f);
                     break;
                 case 'i':
-                    if (!strstr(optarg, "-")) {
-                        inFile = fopen(optarg, "rb");
-                    } else {
-                        freopen(NULL, "rb", stdin);
-                        inFile = stdin;
-                    }
+                    inFile = !strstr(optarg, "-") ? optarg : NULL;
                     break;
                 case 'o':
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
@@ -68,8 +61,5 @@ int main(int argc, char **argv) {
             }
         }
     }
-    ret = processMatrix(temp, inFile, &chars, outFile);
-    fclose(inFile);
-//    fclose(outFile);
-    return ret;
+    return processMatrix(temp, inFile, &chars, outFile);
 }

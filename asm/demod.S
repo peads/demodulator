@@ -36,14 +36,24 @@
     pushq (%rsi)
 
     leaq buf(%rip), %rbx        // buf
-    leaq (%rdi), %r15           // *inFile
+    //leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
+    movq $0, %r15
+    test %rdi, %rdi
+    jz open_out
+    mov $SYS_OPEN, %eax
+    //mov %rdi, %rdi          // input stream
+    mov $O_RDONLY, %esi     // flags
+    syscall
+    mov %rax, %r15      // save the fd
+open_out:
+    movq 16(%rsp), %rdi
     movl $1, 16(%rsp)
-    test %rdx, %rdx
+    test %rdi, %rdi
     jz L7
     mov $SYS_OPEN, %eax
-    mov %rdx, %rdi          // output stream
+    //mov %rdx, %rdi          // output stream
     mov $O_WRONLY, %esi     // flags
     or $O_CREAT, %esi
     or $O_TRUNC, %esi
@@ -55,28 +65,14 @@ L7:
     xorq %r13, %r13
     vxorps %ymm5, %ymm5, %ymm5
 L6:
-    movq %rbx, %rdi
-    movq $INPUT_ELEMENT_BYTES, %rsi
-    movq $MATRIX_WIDTH, %rdx
-    movq %r15, %rcx
-    call FREAD
-    addq %rax, %r13
-
-    movq %r15, %rdi
-    call FERROR
-    testb %al, %al
-    jz check
-    xorq %rdx, %rdx
-    call PERROR
-    mov $1, %rax
-    jmp end
-check:
-    movq %r15, %rdi
-    call FEOF
-    testb %al, %al
-    jz continue
-    movb $-1, %al
-    jmp end
+    mov $SYS_READ, %eax
+    mov %r15, %rdi
+    lea (%rbx), %rsi
+    movl $4, %edx
+    syscall
+    test %rax, %rax
+    jz end
+    add %rax, %r13
 continue:
     vmovdqa (%rbx), %xmm1
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
