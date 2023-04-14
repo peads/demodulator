@@ -27,6 +27,7 @@
 #define PERROR _perror
 #define SYS_WRITE 0x2000004
 #define SYS_OPEN 0x2000005
+#define SYS_CLOSE 0x2000006
 #define O_WRONLY 0x1
 #define O_CREAT 0x200
 #define O_TRUNC 0x400
@@ -64,7 +65,7 @@
     leaq result(%rip), %r14
 
     mov $SYS_OPEN, %eax
-    mov %rdx, %rdi       // output stream
+    mov %rdx, %rdi          // output stream
     mov $O_WRONLY, %esi     // flags
     or $O_CREAT, %esi
     or $O_TRUNC, %esi
@@ -140,19 +141,11 @@ nordc:
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r14, %rcx)
-//    movq (%r14, %rcx), %rdx
-//    leaq _temp(%rip), %rax
-//    movq %rdx, (%rax, %rcx)
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-// fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    //leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
-    //movw $OUTPUT_ELEMENT_BYTES, %si
-    //movl $QTR_BUF_SIZE, %edx
-    //movq 16(%rsp), %rcx
-    //callq FWRITE
+
     mov $SYS_WRITE, %eax
     mov 16(%rsp), %rdi       // fd
     lea result(%rip), %rsi   // data
@@ -161,6 +154,10 @@ nordc:
     xor %rax, %rax
     jz L7
 end:
+    mov $SYS_CLOSE, %eax
+    mov 16(%rsp), %rdi
+    syscall
+
     addq $24, %rsp
     popq %r15
     popq %r14

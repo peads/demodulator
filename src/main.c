@@ -24,10 +24,11 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-extern int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, char *outFile);
+extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, char *outFile);
 
 int main(int argc, char **argv) {
 
+    int ret = 1;
     int opt;
     float temp = 0.f;
     FILE *inFile = NULL;
@@ -60,12 +61,6 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
-//                    if (!strstr(optarg, "-")) {
-//                        outFile = fopen(optarg, "wb");
-//                    } else {
-//                        freopen(NULL, "wb", stdout);
-//                        outFile = stdout;
-//                    }
                     outFile = optarg;
                     break;
                 default:
@@ -73,7 +68,7 @@ int main(int argc, char **argv) {
             }
         }
     }
-    int ret = processMatrix(temp, inFile, &chars, outFile) != EOF;
+    ret = processMatrix(temp, inFile, &chars, outFile);
     fclose(inFile);
 //    fclose(outFile);
     return ret;
