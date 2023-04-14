@@ -17,32 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include "definitions.h"
-#if defined(__clang__) || defined(__APPLE__)
-#define FWRITE _fwrite
-#define FREAD _fread
-#define STATUS _checkFileStatus
-#define FERROR _ferror
-#define FEOF _feof
-#define PERROR _perror
-#define SYS_WRITE 0x2000004
-#define SYS_OPEN 0x2000005
-#define SYS_CLOSE 0x2000006
-#define O_WRONLY 0x1
-#define O_CREAT 0x200
-#define O_TRUNC 0x400
-    .globl  _processMatrix
-    _processMatrix:
-#else
-#define FWRITE fwrite
-#define FREAD fread
-#define STATUS checkFileStatus
-#define FERROR ferror
-#define FEOF feof
-#define PERROR perror
-    .globl  processMatrix
-    processMatrix:
-#endif
+#include "asm.h"
     .text
     pushq %rbp
     pushq %rbx
