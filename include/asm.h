@@ -22,7 +22,7 @@
 
 #include "definitions.h"
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #define FREAD _fread
 #define STATUS _checkFileStatus
 #define FERROR _ferror
