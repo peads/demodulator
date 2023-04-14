@@ -25,6 +25,11 @@
 #define FERROR _ferror
 #define FEOF _feof
 #define PERROR _perror
+#define SYS_WRITE 0x2000004
+#define SYS_OPEN 0x2000005
+#define O_WRONLY 0x1
+#define O_CREAT 0x200
+#define O_TRUNC 0x400
     .globl  _processMatrix
     _processMatrix:
 #else
@@ -57,6 +62,15 @@
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
+
+    mov $SYS_OPEN, %eax
+    mov %rdx, %rdi       // output stream
+    mov $O_WRONLY, %esi     // flags
+    or $O_CREAT, %esi
+    or $O_TRUNC, %esi
+    mov $0x180, %edx        // mode, 600o = 0b110000000 = 0x180 = rw-------
+    syscall
+    mov %rax, 16(%rsp)      // save the fd
 L7:
     xorq %r12, %r12       // i
     xorq %r13, %r13
@@ -126,17 +140,26 @@ nordc:
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r14, %rcx)
+//    movq (%r14, %rcx), %rdx
+//    leaq _temp(%rip), %rax
+//    movq %rdx, (%rax, %rcx)
 
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
 // fwrite(result, OUTPUT_ELEMENT_BYTES, depth, outFile);
-    leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
-    movw $OUTPUT_ELEMENT_BYTES, %si
-    movl $QTR_BUF_SIZE, %edx
-    movq 16(%rsp), %rcx
-    callq FWRITE
-    jmp L7
+    //leaq result(%rip), %rdi         // TODO consider batching and writing fewer times
+    //movw $OUTPUT_ELEMENT_BYTES, %si
+    //movl $QTR_BUF_SIZE, %edx
+    //movq 16(%rsp), %rcx
+    //callq FWRITE
+    mov $SYS_WRITE, %eax
+    mov 16(%rsp), %rdi       // fd
+    lea result(%rip), %rsi   // data
+    mov $0x2000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
+    syscall
+    xor %rax, %rax
+    jz L7
 end:
     addq $24, %rsp
     popq %r15
