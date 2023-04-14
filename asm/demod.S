@@ -156,7 +156,7 @@ nordc:
     mov $SYS_WRITE, %eax
     mov 16(%rsp), %rdi       // fd
     lea result(%rip), %rsi   // data
-    mov $0x2000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
+    mov $0x4000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
     syscall
     xor %rax, %rax
     jz L7
