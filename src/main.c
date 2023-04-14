@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
-                    outFile = optarg;
+                    outFile = !strstr(optarg, "-") ? optarg : NULL;
                     break;
                 default:
                     break;

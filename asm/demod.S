@@ -39,6 +39,9 @@
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
+    movl $1, 16(%rsp)
+    test %rdx, %rdx
+    jz L7
     mov $SYS_OPEN, %eax
     mov %rdx, %rdi          // output stream
     mov $O_WRONLY, %esi     // flags
@@ -126,8 +129,8 @@ nordc:
     lea result(%rip), %rsi   // data
     mov $0x4000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
     syscall
-    xor %rax, %rax
-    jz L7
+    test %rax, %rax
+    jnz L7
 end:
     mov $SYS_CLOSE, %eax
     mov 16(%rsp), %rdi
