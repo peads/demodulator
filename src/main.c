@@ -24,15 +24,23 @@
 #include <stdlib.h>
 #include "matrix.h"
 
+#ifdef IS_INTEL
 extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, char *outFile);
+#else
+extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
+#endif
 
 int main(int argc, char **argv) {
 
-    int ret = 1;
+    int ret;
     int opt;
     float temp = 0.f;
     FILE *inFile = NULL;
+#ifdef IS_INTEL
     char *outFile = NULL;
+#else
+    FILE *outFile = NULL;
+#endif
     struct chars chars;
     chars.isOt = 0;
     chars.isRdc = 0;
@@ -61,15 +69,28 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
+#ifdef IS_INTEL
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
+#else
+                    if (!strstr(optarg, "-")) {
+                        outFile = fopen(optarg, "wb");
+                    } else {
+                        freopen(NULL, "wb", stdout);
+                        outFile = stdout;
+                    }
+#endif
                     break;
                 default:
                     break;
             }
         }
     }
+#ifdef IS_INTEL
     ret = processMatrix(temp, inFile, &chars, outFile);
+#else
+    ret = processMatrix(temp, inFile, &chars, outFile) != EOF;
+    fclose(outFile);
+#endif
     fclose(inFile);
-//    fclose(outFile);
     return ret;
 }

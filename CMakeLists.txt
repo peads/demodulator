@@ -9,6 +9,10 @@ option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_INTEL OFF)
 
+if(IS_INTEL)
+    add_compile_definitions(IS_INTEL)
+endif()
+
 if (IS_NVIDIA)
     set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75)
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")

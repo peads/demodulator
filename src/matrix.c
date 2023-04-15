@@ -32,10 +32,10 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
 }
 
 
-int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+int processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
 
     uint8_t *buf = calloc(DEFAULT_BUF_SIZE, INPUT_ELEMENT_BYTES);
-    int8_t exitFlag = 0;
+    int exitFlag = 0;
     size_t readBytes;
     float result[QTR_BUF_SIZE];
 
@@ -43,7 +43,7 @@ int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *out
 
         readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
 
-        if (exitFlag = ferror(inFile)) {
+        if ((exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
