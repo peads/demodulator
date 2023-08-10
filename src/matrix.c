@@ -23,20 +23,10 @@
 #include "definitions.h"
 #include "matrix.h"
 
-float quickRsqrtf(float x) {
-
-    float y = -x;
-    uint32_t i = *(uint32_t *) &x;
-    i = -(i >> 1) + 0x5f3759df;
-    x = *(float *) &i;
-    x *= 0.5f * (3.f + y * x * x);
-    return x;
-}
-
 void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
-    uint32_t i;
-    float ar, aj, br, bj, zr, zj, lenR;
+    uint32_t i, l;
+    float ar, aj, br, bj, zr, zj, lenR, y;
 
     for (i = 0; i < len; i++) {
 
@@ -49,8 +39,14 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
         zr = fmaf(ar, br, -aj * bj);
         zj = fmaf(ar, bj, aj * br);
 
-        lenR = quickRsqrtf(fmaf(zr, zr, zj * zj));
 //        lenR = 1.f / sqrtf(fmaf(zr, zr, zj * zj));
+        // "fast" reciprocal sqrt
+        lenR = fmaf(zr, zr, zj * zj);
+        y = -lenR;
+        l = *(uint32_t *) &lenR;
+        l = -(l >> 1) + 0x5f3759df;
+        lenR = *(float *) &l;
+        lenR *= 0.5f * (3.f + y * lenR * lenR);
 
         zr = 64.f * zj * lenR * 1.f / fmaf(zr * lenR, 23.f, 41.f);
 
