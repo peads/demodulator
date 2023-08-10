@@ -1,12 +1,50 @@
-//
-// Created by peads on 4/3/23.
-//
+/*
+ * This file is part of the demodulator distribution
+ * (https://github.com/peads/demodulator).
+ * with code originally part of the misc_snippets distribution
+ * (https://github.com/peads/misc_snippets).
+ * Copyright (c) 2023 Patrick Eads.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include "definitions.h"
 #include "matrix.h"
 
+typedef union {
+    float f;
+    uint32_t i;
+} u_t;
+
+float quickRsqrt(float f) {
+
+    u_t punned = {.f = f};
+    punned.i = -(punned.i >> 1) + 0x5f3759df;
+    punned.f *= -0.5f * (-3.f + punned.f * punned.f * f);
+    return punned.f;
+}
+
+float quickRsqrtf(float x) {
+
+    float xhalf = 0.5f * x;
+    uint32_t i = *(uint32_t *) &x;
+    i = 0x5f3759df - (i >> 1);
+    x = *(float *) &i;
+    x = x * (1.5f - xhalf * x * x);
+    return x;
+}
 
 void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
@@ -15,24 +53,28 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
 
     for (i = 0; i < len; i++) {
 
-        ar = (float)(buf[i  ] + buf[i+2] - 254);
-        aj = (float)(254 - buf[i+1] - buf[i+3]);
+        ar = (float) (buf[i] + buf[i + 2] - 254);
+        aj = (float) (254 - buf[i + 1] - buf[i + 3]);
 
-        br = (float)(buf[i+4] + buf[i+6] - 254);
-        bj = (float)(buf[i+5] + buf[i+7] - 254);
+        br = (float) (buf[i + 4] + buf[i + 6] - 254);
+        bj = (float) (buf[i + 5] + buf[i + 7] - 254);
 
-        zr = fmaf(ar, br, -aj*bj);
-        zj = fmaf(ar, bj, aj*br);
+        zr = fmaf(ar, br, -aj * bj);
+        zj = fmaf(ar, bj, aj * br);
 
-        lenR = 1.f/sqrtf(fmaf(zr, zr, zj*zj));
-        zr = 64.f*zj*lenR * 1.f/fmaf(zr*lenR, 23.f, 41.f);
+        lenR = quickRsqrtf(fmaf(zr, zr, zj * zj));
+//        lenR = 1.f / sqrtf(fmaf(zr, zr, zj * zj));
+//        printf("%f == %f\n", quickRsqrt(fmaf(zr, zr, zj * zj)), lenR);
+//        assert(fabsf(quickRsqrt(fmaf(zr, zr, zj * zj)) - lenR) < 0.00001f );
+//
+//        const float lenR1 = quickRsqrt(fmaf(zr, zr, zj * zj));
+        zr = 64.f * zj * lenR * 1.f / fmaf(zr * lenR, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
-
-int processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
 
     uint8_t *buf = calloc(DEFAULT_BUF_SIZE, INPUT_ELEMENT_BYTES);
     int exitFlag = 0;

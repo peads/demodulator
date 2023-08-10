@@ -47,7 +47,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile) {
+static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
 
     int8_t exitFlag = 0;
     uint8_t *hBuf, *dBuf;
@@ -68,7 +68,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, FI
 
         cudaMemcpyAsync(dBuf, hBuf, readBytes, cudaMemcpyHostToDevice);
 
-        if (exitFlag = ferror(inFile)) {
+        if ((exitFlag = ferror(inFile))) {
             perror(nullptr);
             break;
         } else if (feof(inFile)) {
