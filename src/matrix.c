@@ -23,21 +23,8 @@
 #include "definitions.h"
 #include "matrix.h"
 
-//float quickRsqrt(float f) {
-//
-//    union {
-//        float f;
-//        uint32_t i;
-//    } punned = {.f = f};
-//
-//    punned.i = -(punned.i >> 1) + 0x5f3759df;
-//    punned.f *= -0.5f * (-3.f + punned.f * punned.f * f);
-//    return punned.f;
-//}
-
 float quickRsqrtf(float x) {
 
-    //float xhalf = 0.5f * x;
     float y = -x;
     uint32_t i = *(uint32_t *) &x;
     i = -(i >> 1) + 0x5f3759df;
