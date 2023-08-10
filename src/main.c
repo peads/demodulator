@@ -24,11 +24,7 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-#ifdef IS_INTEL
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, char *outFile);
-#else
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, FILE *outFile);
-#endif
+extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile);
 
 int main(int argc, char **argv) {
 
@@ -85,10 +81,10 @@ int main(int argc, char **argv) {
             }
         }
     }
-#ifdef IS_INTEL
+
     ret = processMatrix(temp, inFile, &chars, outFile);
-#else
-    ret = processMatrix(temp, inFile, &chars, outFile) != EOF;
+#ifndef IS_INTEL
+    ret = ret != EOF;
     fclose(outFile);
 #endif
     fclose(inFile);
