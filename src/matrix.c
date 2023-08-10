@@ -23,26 +23,26 @@
 #include "definitions.h"
 #include "matrix.h"
 
-typedef union {
-    float f;
-    uint32_t i;
-} u_t;
-
-float quickRsqrt(float f) {
-
-    u_t punned = {.f = f};
-    punned.i = -(punned.i >> 1) + 0x5f3759df;
-    punned.f *= -0.5f * (-3.f + punned.f * punned.f * f);
-    return punned.f;
-}
+//float quickRsqrt(float f) {
+//
+//    union {
+//        float f;
+//        uint32_t i;
+//    } punned = {.f = f};
+//
+//    punned.i = -(punned.i >> 1) + 0x5f3759df;
+//    punned.f *= -0.5f * (-3.f + punned.f * punned.f * f);
+//    return punned.f;
+//}
 
 float quickRsqrtf(float x) {
 
-    float xhalf = 0.5f * x;
+    //float xhalf = 0.5f * x;
+    float y = -x;
     uint32_t i = *(uint32_t *) &x;
-    i = 0x5f3759df - (i >> 1);
+    i = -(i >> 1) + 0x5f3759df;
     x = *(float *) &i;
-    x = x * (1.5f - xhalf * x * x);
+    x *= 0.5f * (3.f + y * x * x);
     return x;
 }
 
@@ -64,10 +64,7 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
 
         lenR = quickRsqrtf(fmaf(zr, zr, zj * zj));
 //        lenR = 1.f / sqrtf(fmaf(zr, zr, zj * zj));
-//        printf("%f == %f\n", quickRsqrt(fmaf(zr, zr, zj * zj)), lenR);
-//        assert(fabsf(quickRsqrt(fmaf(zr, zr, zj * zj)) - lenR) < 0.00001f );
-//
-//        const float lenR1 = quickRsqrt(fmaf(zr, zr, zj * zj));
+
         zr = 64.f * zj * lenR * 1.f / fmaf(zr * lenR, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
