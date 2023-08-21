@@ -79,7 +79,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, vo
 
         cudaMemcpyAsync(hResult, dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
+        fwrite(hResult, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, (FILE *) outFile);
     }
 
     cudaFreeHost(hBuf);
@@ -87,7 +87,7 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, vo
     cudaFree(dBuf);
     cudaFree(dResult);
     fclose(inFile);
-    fclose(outFile);
+    fclose((FILE *) outFile);
     return exitFlag;
 }
 
@@ -148,3 +148,4 @@ int main(int argc, char **argv) {
 
     return processMatrix(temp, inFile, &chars, outFile) != EOF;
 }
+
