@@ -1,5 +1,12 @@
 # demodulator
 Yet another FM demodulator, but now in three flavors because I like pain! (x64 asm, C, and CUDA)
+## Building
+Clone this repo, then use cmake to build.
+
+`mkdir build && cd build && cmake .. && make -j$(nproc)`
+#### CMake compile options 
+- `-DIS_INTEL` default: OFF
+- `-DIS_NVIDIA` default: OFF
 ## Usage
 The demodulator doesn't care about sampling rate; feed it some raw I/Q data, but depending on which flavor you compiled (the asm version does not affect sampling rate, the C and CUDA versions halve it) ymmv, and with some further pipe work with sox you have wonderfully useful audio.
  
