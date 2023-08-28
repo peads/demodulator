@@ -118,6 +118,8 @@ int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFil
         }
 
         fmDemod(buf, readBytes, result, convertUint8ToFloat, fastRsqrt);
+//        fmDemod(buf, readBytes, result, convertInt16ToFloat, fastRsqrt);
+//        fmDemod(buf, readBytes, result, noconversion, slowRsqrt);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
     }
