@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 SET(PROJECT_NAME demodulator)
 set(CMAKE_C_STANDARD 99)
 
-#add_compile_options(-g)
-add_compile_options(-O3)
+add_compile_options(-g)
+#add_compile_options(-O3)
 
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
