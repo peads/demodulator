@@ -12,5 +12,10 @@ struct chars {
     //uint8_t downsample; // 2
 };
 
+union fastSqrtPun {
+    uint32_t i;
+    float f;
+};
+
 
 #endif //DEMODULATOR_MATRIX_H

@@ -25,8 +25,8 @@
 
 void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
-    uint32_t i, l;
-    float ar, aj, br, bj, zr, zj, lenR, y;
+    uint32_t i;
+    float ar, aj, br, bj, zr, zj, y;
 
     for (i = 0; i < len; i++) {
 
@@ -39,16 +39,12 @@ void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restr
         zr = fmaf(ar, br, -aj * bj);
         zj = fmaf(ar, bj, aj * br);
 
-//        lenR = 1.f / sqrtf(fmaf(zr, zr, zj * zj));
-        // "fast" reciprocal sqrt
-        lenR = fmaf(zr, zr, zj * zj);
-        y = -lenR;
-        l = *(uint32_t *) &lenR;
-        l = -(l >> 1) + 0x5f3759df;
-        lenR = *(float *) &l;
-        lenR *= 0.5f * (3.f + y * lenR * lenR);
+        union fastSqrtPun pun = {.f = fmaf(zr, zr, zj * zj)};
+        y = -pun.f;
+        pun.i = -(pun.i >> 1) + 0x5f3759df;
+        pun.f *= 0.5f * (3.f + y * pun.f * pun.f);
 
-        zr = 64.f * zj * lenR * 1.f / fmaf(zr * lenR, 23.f, 41.f);
+        zr = 64.f * zj * pun.f * 1.f / fmaf(zr * pun.f, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
