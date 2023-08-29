@@ -76,14 +76,14 @@ check:
     movb $-1, %al
     jmp end
 continue:
+    vmovdqa (%rbx), %xmm1
     movb (%rsp), %cl
     testb %cl, %cl
-    jz int16                                // if rdc
-    vmovdqa (%rbx), %xmm1
+    jz int16
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
-    vpmovsxwd %xmm1, %xmm1
 int16:
+    vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                          // int16 to float
     vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
     // boxcar filter
