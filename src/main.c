@@ -17,14 +17,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
-
-extern int processMatrix(FILE *inFile, uint8_t mode, void *outFile);
+#include "prototypes.h"
 
 int printIfError(FILE *file) {
 

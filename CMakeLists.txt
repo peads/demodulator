@@ -36,9 +36,9 @@ elseif(IS_INTEL)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-disable=10441")
     endif()
 
-    FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/asm/*.S")
+    FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} src/main.c ${SRCS})
+    add_executable(${PROJECT_NAME} src/main.c ${SRCS} include/prototypes.h)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
@@ -53,7 +53,7 @@ else()
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} include/matrix.h)
+    add_executable(${PROJECT_NAME} ${SRCS} "include/matrix.h" "include/prototypes.h")
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
