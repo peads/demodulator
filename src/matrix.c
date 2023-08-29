@@ -26,56 +26,10 @@
 static size_t inputElementBytes = 2;
 static uint32_t bufSize = DEFAULT_BUF_SIZE;
 static conversionFunction_t convert = convertInt16ToFloat;
-#ifndef __AVX__
-static fastRsqrtFun_t rsqrt = fastRsqrt;
-#else
-__asm__ (
-#ifdef __APPLE_CC__
-    "_intelRsqrt: "
-#else
-    "intelRsqrt: "
-#endif
-        "vrsqrtss %xmm0, %xmm0, %xmm0\n\t"
-        "ret"
-);
-static fastRsqrtFun_t rsqrt = intelRsqrt;
-#endif
 
+#ifndef HAS_EITHER
 
-// this is buggy as shit
-void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
-
-    const float *buf = (float *) in;
-
-    out[0] = (buf[index] + buf[index + 2]);
-    out[1] = (buf[index + 1] + buf[index + 3]);
-    out[2] = (buf[index + 4] + buf[index + 6]);
-    out[3] = -(buf[index + 5] + buf[index + 7]);
-}
-
-void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
-                         float *__restrict__ out) {
-
-    const int16_t *buf = (int16_t *) in;
-
-    out[0] = (float) (buf[index] + buf[index + 2]);
-    out[1] = (float) (buf[index + 1] + buf[index + 3]);
-    out[2] = (float) (buf[index + 4] + buf[index + 6]);
-    out[3] = (float) -(buf[index + 5] + buf[index + 7]);
-}
-
-void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
-                         float *__restrict__ out) {
-
-    const uint8_t *buf = (uint8_t *) in;
-
-    out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
-    out[1] = (float) (254 - buf[index + 1] - buf[index + 3]);   // aj
-    out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
-    out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
-}
-
-float fastRsqrt(float y) {
+inline float fastRsqrt(float y) {
 
     static union fastRsqrtPun pun;
 
@@ -86,7 +40,58 @@ float fastRsqrt(float y) {
     return pun.f;
 }
 
-float slowRsqrt(float y) {
+#else
+
+inline float fastRsqrt(float x) {
+    __asm__ (
+#ifdef HAS_AVX
+            "vrsqrtss %0, %0, %0\n\t"
+#else //if HAS_SSE
+            "rsqrtss %0, %0\n\t"
+#endif
+            :"=x" (x): "0" (x));
+    return x;
+}
+#endif
+
+static fastRsqrtFun_t rsqrt = fastRsqrt;
+
+
+// this is buggy as shit
+inline void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
+
+    const float *buf = (float *) in;
+
+    out[0] = (buf[index] + buf[index + 2]);
+    out[1] = (buf[index + 1] + buf[index + 3]);
+    out[2] = (buf[index + 4] + buf[index + 6]);
+    out[3] = -(buf[index + 5] + buf[index + 7]);
+}
+
+inline void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
+                         float *__restrict__ out) {
+
+    const int16_t *buf = (int16_t *) in;
+
+    out[0] = (float) (buf[index] + buf[index + 2]);
+    out[1] = (float) (buf[index + 1] + buf[index + 3]);
+    out[2] = (float) (buf[index + 4] + buf[index + 6]);
+    out[3] = (float) -(buf[index + 5] + buf[index + 7]);
+}
+
+inline void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
+                         float *__restrict__ out) {
+
+    const uint8_t *buf = (uint8_t *) in;
+
+    out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
+    out[1] = (float) (254 - buf[index + 1] - buf[index + 3]);   // aj
+    out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
+    out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
+}
+
+inline float slowRsqrt(float y) {
+
     return 1.f/sqrtf(y);
 }
 
@@ -115,10 +120,10 @@ void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict
     }
 }
 
-int processMode(uint8_t mode) {
+static int processMode(uint8_t mode) {
 
     switch (mode & 0b11) {
-        case 0: // default mode
+        case 0: // default mode (input int16)
             break;
         case 1: // input uint8
             convert = convertUint8ToFloat;
@@ -126,7 +131,7 @@ int processMode(uint8_t mode) {
             break;
         case 2: // input float
             convert = noconversion;
-#ifndef __AVX__
+#ifndef HAS_EITHER
             rsqrt = slowRsqrt;
 #endif
             inputElementBytes = 4;

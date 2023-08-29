@@ -6,6 +6,20 @@
 #define DEMODULATOR_MATRIX_H
 #include <stdint.h>
 
+#if (defined(__AVX__) || defined(__AVX2__))
+    #define HAS_AVX
+#endif
+
+#if (defined(__SSE__) || defined(__SSE2__) || defined(__SSE3__) || defined(__SSE4_1__) \
+        || defined(__SSE4_2__) || defined(__SSE_MATH__) || defined(__SSE2_MATH__) \
+        || defined(__SSSE3__))
+    #define HAS_SSE
+#endif
+
+#if defined(HAS_AVX) || defined(HAS_SSE)
+    #define HAS_EITHER
+#endif
+
 typedef void (*conversionFunction_t)(const void *__restrict__, const uint32_t, float *__restrict__);
 typedef float (*fastRsqrtFun_t)(float);
 
@@ -25,8 +39,5 @@ void convertInt16ToFloat(const void *__restrict__ in, uint32_t index, float *__r
 void convertUint8ToFloat(const void *__restrict__ in, uint32_t index, float *__restrict__ out);
 float fastRsqrt(float y);
 float slowRsqrt(float y);
-#ifdef __AVX__
-float intelRsqrt(float y);
-#endif
 
 #endif //DEMODULATOR_MATRIX_H
