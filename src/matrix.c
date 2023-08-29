@@ -23,9 +23,9 @@
 #include "definitions.h"
 #include "matrix.h"
 
-static size_t inputElementBytes = 2;
+static size_t inputElementBytes;
 static uint32_t bufSize = DEFAULT_BUF_SIZE;
-static conversionFunction_t convert = convertInt16ToFloat;
+static conversionFunction_t convert;
 
 #ifndef HAS_EITHER
 
@@ -38,6 +38,10 @@ inline float fastRsqrt(float y) {
     pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
 
     return pun.f;
+}
+
+inline float slowSqrt(float y) {
+    return 1.f/sqrtf(y);
 }
 
 #else
@@ -58,7 +62,7 @@ static fastRsqrtFun_t rsqrt = fastRsqrt;
 
 
 // this is buggy as shit
-inline void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
+static void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
 
     const float *buf = (float *) in;
 
@@ -68,7 +72,7 @@ inline void noconversion(const void *__restrict__ in, const uint32_t index, floa
     out[3] = -(buf[index + 5] + buf[index + 7]);
 }
 
-inline void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
+static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
                          float *__restrict__ out) {
 
     const int16_t *buf = (int16_t *) in;
@@ -79,7 +83,7 @@ inline void convertInt16ToFloat(const void *__restrict__ in, const uint32_t inde
     out[3] = (float) -(buf[index + 5] + buf[index + 7]);
 }
 
-inline void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
+static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
                          float *__restrict__ out) {
 
     const uint8_t *buf = (uint8_t *) in;
@@ -88,11 +92,6 @@ inline void convertUint8ToFloat(const void *__restrict__ in, const uint32_t inde
     out[1] = (float) (254 - buf[index + 1] - buf[index + 3]);   // aj
     out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
     out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
-}
-
-inline float slowRsqrt(float y) {
-
-    return 1.f/sqrtf(y);
 }
 
 void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
@@ -119,6 +118,8 @@ static int processMode(uint8_t mode) {
 
     switch (mode & 0b11) {
         case 0: // default mode (input int16)
+            convert = convertInt16ToFloat;
+            inputElementBytes = 2;
             break;
         case 1: // input uint8
             convert = convertUint8ToFloat;
@@ -135,16 +136,7 @@ static int processMode(uint8_t mode) {
         default:
             return -1;
     }
-
-    switch ((mode & 0b100) >> 2) {
-        case 0:
-            rsqrt = slowRsqrt;
-            break;
-        case 1:
-        default:
-            rsqrt = fastRsqrt;
-            break;
-    }
+    
     return 0;
 }
 

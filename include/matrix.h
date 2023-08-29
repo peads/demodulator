@@ -34,10 +34,4 @@ union fastRsqrtPun {
     float f;
 };
 
-void noconversion(const void *__restrict__ in, uint32_t index, float *__restrict__ out);
-void convertInt16ToFloat(const void *__restrict__ in, uint32_t index, float *__restrict__ out);
-void convertUint8ToFloat(const void *__restrict__ in, uint32_t index, float *__restrict__ out);
-float fastRsqrt(float y);
-float slowRsqrt(float y);
-
 #endif //DEMODULATOR_MATRIX_H
