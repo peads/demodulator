@@ -98,10 +98,6 @@ inline float slowRsqrt(float y) {
 void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
-    static float *ar = out;
-    static float *aj = out + 1;
-    static float *br = out + 2;
-    static float *bj = out + 3;
 
     uint32_t i;
     float zr, zj, y;
@@ -110,10 +106,9 @@ void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict
 
         convert(buf, i, out);
 
-        zr = fmaf(*ar, *br, -*aj * *bj);
-        zj = fmaf(*ar, *bj, *aj * *br);
+        zr = fmaf(out[0], out[2], -out[1] * out[3]);
+        zj = fmaf(out[0], out[3], out[1] * out[2]);
         y = rsqrt(fmaf(zr, zr, zj * zj));
-
         zr = 64.f * zj * y * 1.f / fmaf(zr * y, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
