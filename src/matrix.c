@@ -29,7 +29,7 @@ static conversionFunction_t convert;
 
 #ifndef HAS_EITHER
 
-inline float fastRsqrt(float y) {
+inline float rsqrt(float y) {
 
     static union fastRsqrtPun pun;
 
@@ -39,14 +39,9 @@ inline float fastRsqrt(float y) {
 
     return pun.f;
 }
-
-inline float slowSqrt(float y) {
-    return 1.f/sqrtf(y);
-}
-
 #else
 
-inline float fastRsqrt(float x) {
+inline float rsqrt(float x) {
     __asm__ (
 #ifdef HAS_AVX
             "vrsqrtss %0, %0, %0\n\t"
@@ -57,8 +52,6 @@ inline float fastRsqrt(float x) {
     return x;
 }
 #endif
-
-static fastRsqrtFun_t rsqrt = fastRsqrt;
 
 
 // this is buggy as shit
@@ -127,16 +120,13 @@ static int processMode(uint8_t mode) {
             break;
         case 2: // input float
             convert = noconversion;
-#ifndef HAS_EITHER
-            rsqrt = slowRsqrt;
-#endif
             inputElementBytes = 4;
             bufSize = 1024;
             break;
         default:
             return -1;
     }
-    
+
     return 0;
 }
 
