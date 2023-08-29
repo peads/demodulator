@@ -26,7 +26,21 @@
 static size_t inputElementBytes = 2;
 static uint32_t bufSize = DEFAULT_BUF_SIZE;
 static conversionFunction_t convert = convertInt16ToFloat;
+#ifndef __AVX__
 static fastRsqrtFun_t rsqrt = fastRsqrt;
+#else
+__asm__ (
+#ifdef __APPLE_CC__
+    "_intelRsqrt: "
+#else
+    "intelRsqrt: "
+#endif
+        "vrsqrtss %xmm0, %xmm0, %xmm0\n\t"
+        "ret"
+);
+static fastRsqrtFun_t rsqrt = intelRsqrt;
+#endif
+
 
 // this is buggy as shit
 void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
@@ -103,7 +117,7 @@ void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict
 
 int processMode(uint8_t mode) {
 
-    switch (mode) {
+    switch (mode & 0b11) {
         case 0: // default mode
             break;
         case 1: // input uint8
@@ -112,12 +126,24 @@ int processMode(uint8_t mode) {
             break;
         case 2: // input float
             convert = noconversion;
+#ifndef __AVX__
             rsqrt = slowRsqrt;
+#endif
             inputElementBytes = 4;
             bufSize = 1024;
             break;
         default:
             return -1;
+    }
+
+    switch ((mode & 0b100) >> 2) {
+        case 0:
+            rsqrt = slowRsqrt;
+            break;
+        case 1:
+        default:
+            rsqrt = fastRsqrt;
+            break;
     }
     return 0;
 }

@@ -54,11 +54,13 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:s:r:df")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:s:r:q:df")) != -1) {
             switch (opt) {
                 case 'r' :
-                    mode = atoi(optarg);
+                    mode |= 0b11 & atoi(optarg);
                     break;
+                case 'q':
+                    mode |= (0b100 & (atoi(optarg) << 2));
                 case 'd':
                     chars.isRdc = 1;
                     break;
