@@ -24,9 +24,9 @@
 //#define DEBUG
 
 // sizeof(uint8_t)
-#define INPUT_ELEMENT_BYTES 1
+//#define INPUT_ELEMENT_BYTES 1
 // sizeof(int16_t)
-//#define INPUT_ELEMENT_BYTES 2
+#define INPUT_ELEMENT_BYTES 2
 // sizeof(float)
 //define INPUT_ELEMENT_BYTES 4
 

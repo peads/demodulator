@@ -23,6 +23,7 @@
 #include "definitions.h"
 #include "matrix.h"
 
+// this is buggy as shit
 void noconversion(const void *__restrict__ in, const uint32_t index,
                   float *__restrict__ out)  {
 
@@ -117,8 +118,8 @@ int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFil
             exitFlag = EOF;
         }
 
-        fmDemod(buf, readBytes, result, convertUint8ToFloat, fastRsqrt);
-//        fmDemod(buf, readBytes, result, convertInt16ToFloat, fastRsqrt);
+//        fmDemod(buf, readBytes, result, convertUint8ToFloat, fastRsqrt);
+        fmDemod(buf, readBytes, result, convertInt16ToFloat, fastRsqrt);
 //        fmDemod(buf, readBytes, result, noconversion, slowRsqrt);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
