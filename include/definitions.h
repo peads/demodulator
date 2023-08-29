@@ -23,8 +23,6 @@
 
 //#define DEBUG
 
-// sizeof(uint8_t)
-#define INPUT_ELEMENT_BYTES 1
 // sizeof(float) >> 1
 #define OUTPUT_ELEMENT_BYTES 4
 // sizeof(__m128)
@@ -32,7 +30,6 @@
 #define MATRIX_WIDTH 4
 #ifndef DEFAULT_BUF_SIZE
 #define DEFAULT_BUF_SIZE 1048576
-//2097152
 #endif
 #define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)

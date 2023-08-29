@@ -23,47 +23,124 @@
 #include "definitions.h"
 #include "matrix.h"
 
-void fmDemod(const uint8_t *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
+static size_t inputElementBytes;
+static uint32_t bufSize = DEFAULT_BUF_SIZE;
+static conversionFunction_t convert;
 
-    uint32_t i, l;
-    float ar, aj, br, bj, zr, zj, lenR, y;
+#ifndef HAS_EITHER
+
+inline float rsqrt(float y) {
+
+    static union fastRsqrtPun pun;
+
+    pun.f = y;
+    pun.i = -(pun.i >> 1) + 0x5f3759df;
+    pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
+
+    return pun.f;
+}
+#else
+
+inline float rsqrt(float x) {
+    __asm__ (
+#ifdef HAS_AVX
+            "vrsqrtss %0, %0, %0\n\t"
+#else //if HAS_SSE
+            "rsqrtss %0, %0\n\t"
+#endif
+            :"=x" (x): "0" (x));
+    return x;
+}
+#endif
+
+
+// this is buggy as shit
+static void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
+
+    const float *buf = (float *) in;
+
+    out[0] = (buf[index] + buf[index + 2]);
+    out[1] = (buf[index + 1] + buf[index + 3]);
+    out[2] = (buf[index + 4] + buf[index + 6]);
+    out[3] = -(buf[index + 5] + buf[index + 7]);
+}
+
+static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
+                         float *__restrict__ out) {
+
+    const int16_t *buf = (int16_t *) in;
+
+    out[0] = (float) (buf[index] + buf[index + 2]);
+    out[1] = (float) (buf[index + 1] + buf[index + 3]);
+    out[2] = (float) (buf[index + 4] + buf[index + 6]);
+    out[3] = (float) -(buf[index + 5] + buf[index + 7]);
+}
+
+static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
+                         float *__restrict__ out) {
+
+    const uint8_t *buf = (uint8_t *) in;
+
+    out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
+    out[1] = (float) (254 - buf[index + 1] - buf[index + 3]);   // aj
+    out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
+    out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
+}
+
+static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
+
+    static float out[4] = {0.f, 0.f, 0.f, 0.f};
+
+    uint32_t i;
+    float zr, zj, y;
 
     for (i = 0; i < len; i++) {
 
-        ar = (float) (buf[i] + buf[i + 2] - 254);
-        aj = (float) (254 - buf[i + 1] - buf[i + 3]);
+        convert(buf, i, out);
 
-        br = (float) (buf[i + 4] + buf[i + 6] - 254);
-        bj = (float) (buf[i + 5] + buf[i + 7] - 254);
-
-        zr = fmaf(ar, br, -aj * bj);
-        zj = fmaf(ar, bj, aj * br);
-
-//        lenR = 1.f / sqrtf(fmaf(zr, zr, zj * zj));
-        // "fast" reciprocal sqrt
-        lenR = fmaf(zr, zr, zj * zj);
-        y = -lenR;
-        l = *(uint32_t *) &lenR;
-        l = -(l >> 1) + 0x5f3759df;
-        lenR = *(float *) &l;
-        lenR *= 0.5f * (3.f + y * lenR * lenR);
-
-        zr = 64.f * zj * lenR * 1.f / fmaf(zr * lenR, 23.f, 41.f);
+        zr = fmaf(out[0], out[2], -out[1] * out[3]);
+        zj = fmaf(out[0], out[3], out[1] * out[2]);
+        y = rsqrt(fmaf(zr, zr, zj * zj));
+        zr = 64.f * zj * y * 1.f / fmaf(zr * y, 23.f, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
-int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
+static int processMode(uint8_t mode) {
 
-    uint8_t *buf = calloc(DEFAULT_BUF_SIZE, INPUT_ELEMENT_BYTES);
-    int exitFlag = 0;
+    switch (mode & 0b11) {
+        case 0: // default mode (input int16)
+            convert = convertInt16ToFloat;
+            inputElementBytes = 2;
+            break;
+        case 1: // input uint8
+            convert = convertUint8ToFloat;
+            inputElementBytes = 1;
+            break;
+        case 2: // input float
+            convert = noconversion;
+            inputElementBytes = 4;
+            bufSize = 1024;
+            break;
+        default:
+            return -1;
+    }
+
+    return 0;
+}
+
+int processMatrix(FILE *inFile, uint8_t mode, void *outFile) {
+
+    int exitFlag = processMode(mode);
+    const size_t shiftedSize = bufSize - 2;
+    void *buf = calloc(bufSize, inputElementBytes);
     size_t readBytes;
-    float result[QTR_BUF_SIZE];
+    float result[bufSize >> 2];
 
     while (!exitFlag) {
 
-        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
+        readBytes = fread(buf + 2, inputElementBytes, shiftedSize, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -74,7 +151,7 @@ int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFil
 
         fmDemod(buf, readBytes, result);
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
     }
     return exitFlag;
 }

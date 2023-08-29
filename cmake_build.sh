@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CUST_OPTS=""
-INSTALL_PREFIX="/usr/local"
+INSTALL_PREFIX="/tmp"
 
 if [ ! -z "$1" ]; then
     CUST_OPTS=$1

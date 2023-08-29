@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "nvidia.cuh"
+#include "prototypes.h"
 
 __global__
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
@@ -47,9 +48,9 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
+int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
 
-    int8_t exitFlag = 0;
+    int exitFlag = 0;
     uint8_t *hBuf, *dBuf;
     size_t readBytes;
     float *hResult, *dResult;
@@ -90,62 +91,3 @@ static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, vo
     fclose((FILE *) outFile);
     return exitFlag;
 }
-
-int main(int argc, char **argv) {
-
-    int opt;
-    float temp = 0.f;
-    FILE *inFile = nullptr;
-    FILE *outFile = nullptr;
-    struct chars chars{};
-    chars.isOt = 0;
-    chars.isRdc = 0;
-
-    if (argc < 3) {
-        return -1;
-    } else {
-        while ((opt = getopt(argc, argv, "i:o:s:rf")) != -1) {
-            switch (opt) {
-                case 'r':
-                    chars.isRdc = 1;
-                    break;
-                case 'f':
-                    chars.isOt = 1;
-                    break;
-//                case 'd': // TODO reimplement downsmapling?
-//                    chars.downsample = atoi(optarg);
-//                    break;
-                case 's':   // TODO add parameter to take into account the impedance of the system
-                    // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    temp = exp10f((float) atof(optarg) / 10.f);
-                    break;
-                case 'i':
-                    if (!strstr(optarg, "-")) {
-                        inFile = fopen(optarg, "rb");
-                    } else {
-                        if (!freopen(nullptr, "rb", stdin)){
-                            return -1;
-                        }
-                        inFile = stdin;
-                    }
-                    break;
-                case 'o':
-                    if (!strstr(optarg, "-")) {
-                        outFile = fopen(optarg, "wb");
-                    } else {
-                        if (!freopen(nullptr, "wb", stdout)){
-                            return -1;
-                        }
-                        outFile = stdout;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    fprintf(stderr, "Grid dim: %u\n", GRIDDIM);
-
-    return processMatrix(temp, inFile, &chars, outFile) != EOF;
-}
-

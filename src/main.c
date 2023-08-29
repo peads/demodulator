@@ -17,50 +17,47 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
+#include "prototypes.h"
 
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile);
+int printIfError(FILE *file) {
+
+    if (!file) {
+        perror(NULL);
+        return 1;
+    }
+    return 0;
+}
 
 int main(int argc, char **argv) {
 
-    int ret;
+    uint8_t mode = 0;
+    int ret = 0;
     int opt;
-    float temp = 0.f;
     FILE *inFile = NULL;
 #ifdef IS_INTEL
     char *outFile = NULL;
 #else
     FILE *outFile = NULL;
 #endif
-    struct chars chars;
-    chars.isOt = 0;
-    chars.isRdc = 0;
 
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:s:rf")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:")) != -1) {
             switch (opt) {
-                case 'r':
-                    chars.isRdc = 1;
-                    break;
-                case 'f':
-                    chars.isOt = 1;
-                    break;
-                case 's':   // TODO add parameter to take into account the impedance of the system
-                            // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    temp = powf(10.f, (float) atof(optarg) / 10.f);
+                case 'r' :
+                    mode |= 0b11 & atoi(optarg);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
-                        inFile = fopen(optarg, "rb");
+                        ret += printIfError(inFile = fopen(optarg, "rb"));
                     } else {
-                        freopen(NULL, "rb", stdin);
+                        ret += printIfError(freopen(NULL, "rb", stdin));
                         inFile = stdin;
                     }
                     break;
@@ -69,9 +66,9 @@ int main(int argc, char **argv) {
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
 #else
                     if (!strstr(optarg, "-")) {
-                        outFile = fopen(optarg, "wb");
+                        ret += printIfError(outFile = fopen(optarg, "wb"));
                     } else {
-                        freopen(NULL, "wb", stdout);
+                        ret += printIfError(freopen(NULL, "wb", stdout));
                         outFile = stdout;
                     }
 #endif
@@ -82,9 +79,13 @@ int main(int argc, char **argv) {
         }
     }
 
-    ret = processMatrix(temp, inFile, &chars, outFile);
-#ifndef IS_INTEL
-    ret = ret != EOF;
+    if (!ret) {
+        ret = processMatrix(inFile, mode, outFile);
+#ifdef IS_INTEL
+    }
+#else
+        ret = ret != EOF;
+    }
     fclose(outFile);
 #endif
     fclose(inFile);
