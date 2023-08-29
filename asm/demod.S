@@ -37,8 +37,8 @@
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
-    movq $2, INPUT_ELEMENT_BYTES(%rip)
-    subq %rsi, INPUT_ELEMENT_BYTES(%rip)
+    movq $2, input_element_bytes(%rip)
+    subq %rsi, input_element_bytes(%rip)
 
     movl $1, 16(%rsp)
     test %rdx, %rdx
@@ -57,7 +57,7 @@ L7:
     vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
-    movq INPUT_ELEMENT_BYTES(%rip), %rsi
+    movq input_element_bytes(%rip), %rsi
     movq $MATRIX_WIDTH, %rdx
     movq %r15, %rcx
     call FREAD
