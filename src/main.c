@@ -48,25 +48,23 @@ int main(int argc, char **argv) {
     FILE *outFile = NULL;
 #endif
     struct chars chars;
-    chars.isOt = 0;
-    chars.isRdc = 0;
+//    chars.isOt = 0;
+//    chars.isRdc = 0;
 
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:s:r:q:df")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:s:r:")) != -1) {
             switch (opt) {
                 case 'r' :
                     mode |= 0b11 & atoi(optarg);
                     break;
-                case 'q':
-                    mode |= (0b100 & (atoi(optarg) << 2));
-                case 'd':
-                    chars.isRdc = 1;
-                    break;
-                case 'f':
-                    chars.isOt = 1;
-                    break;
+//                case 'd':
+//                    chars.isRdc = 1;
+//                    break;
+//                case 'f':
+//                    chars.isOt = 1;
+//                    break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                     // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
                     temp = powf(10.f, (float) atof(optarg) / 10.f);
@@ -91,7 +89,8 @@ int main(int argc, char **argv) {
                     }
 #endif
                     break;
-                default:break;
+                default:
+                    break;
             }
         }
     }

@@ -83,6 +83,8 @@ continue:
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
     vcvtdq2ps %xmm1, %xmm1                  // int16 to float
+    vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
+/*
     movb 1(%rsp), %cl
     testb %cl, %cl
     jnz oft
@@ -107,6 +109,7 @@ nosquelch:
     vsubps %xmm4, %xmm1, %xmm1
     vmovaps %xmm4, dc_avg_iq(%rip)
 nordc:
+*/
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
