@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile, uint8_t mode);
+extern int processMatrix(FILE *inFile, uint8_t mode, void *outFile);
 
 int printIfError(FILE *file) {
 
@@ -40,34 +40,20 @@ int main(int argc, char **argv) {
     uint8_t mode = 0;
     int ret = 0;
     int opt;
-    float temp = 0.f;
     FILE *inFile = NULL;
 #ifdef IS_INTEL
     char *outFile = NULL;
 #else
     FILE *outFile = NULL;
 #endif
-    struct chars chars;
-//    chars.isOt = 0;
-//    chars.isRdc = 0;
 
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:s:r:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:")) != -1) {
             switch (opt) {
                 case 'r' :
                     mode |= 0b11 & atoi(optarg);
-                    break;
-//                case 'd':
-//                    chars.isRdc = 1;
-//                    break;
-//                case 'f':
-//                    chars.isOt = 1;
-//                    break;
-                case 's':   // TODO add parameter to take into account the impedance of the system
-                    // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
-                    temp = powf(10.f, (float) atof(optarg) / 10.f);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -96,7 +82,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        ret = processMatrix(temp, inFile, &chars, outFile, mode);
+        ret = processMatrix(inFile, mode, outFile);
 #ifdef IS_INTEL
     }
 #else

@@ -130,7 +130,7 @@ static int processMode(uint8_t mode) {
     return 0;
 }
 
-int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile, uint8_t mode) {
+int processMatrix(FILE *inFile, uint8_t mode, void *outFile) {
 
     int exitFlag = processMode(mode);
     const size_t shiftedSize = bufSize - 2;

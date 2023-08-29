@@ -26,14 +26,12 @@
     pushq %r14
     pushq %r15
 
-    vbroadcastss %xmm0, %xmm0
-    vmovaps %xmm0, squelch(%rip)
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
     pushq %rdx
     pushq %rbp
-    pushq (%rsi)
+    pushq %rsi
 
     leaq buf(%rip), %rbx        // buf
     leaq (%rdi), %r15           // *inFile
@@ -51,7 +49,7 @@
     syscall
     mov %rax, 16(%rsp)      // save the fd
 L7:
-    xorq %r12, %r12       // i
+    xorq %r12, %r12         // i
     xorq %r13, %r13
     vxorps %ymm5, %ymm5, %ymm5
 L6:
@@ -78,38 +76,16 @@ check:
     movb $-1, %al
     jmp end
 continue:
+    movb (%rsp), %cl
+    testb %cl, %cl
+    jz int16                                // if rdc
     vmovdqa (%rbx), %xmm1
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
     vpmovsxwd %xmm1, %xmm1
-    vcvtdq2ps %xmm1, %xmm1                  // int16 to float
-    vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
-/*
-    movb 1(%rsp), %cl
-    testb %cl, %cl
-    jnz oft
-    vmulps cnj_transform(%rip), %xmm1, %xmm1              // ar, -aj, br, -bj
-oft:
-    movaps squelch(%rip), %xmm0
-    ptest %xmm0, %xmm0
-    jz nosquelch                            // if squelch > 0
-    vmulps %xmm1, %xmm1, %xmm2              // apply squelch
-    vpermilps $0xB1, %xmm2, %xmm3
-    vaddps %xmm2, %xmm3, %xmm2
-    vmulps all_hundredths(%rip), %xmm2, %xmm2
-    vcmpps $0x1D, %xmm1, %xmm2, %xmm2
-    vandps %xmm2, %xmm1, %xmm1
-nosquelch:
-    movb (%rsp), %cl
-    testb %cl, %cl
-    jz nordc                                // if rdc
-    vsubps dc_avg_iq(%rip), %xmm1, %xmm4    // apply raw dc iir filter
-    vmulps dc_raw_const(%rip), %xmm4, %xmm4
-    vaddps %xmm4, %xmm4, %xmm4
-    vsubps %xmm4, %xmm1, %xmm1
-    vmovaps %xmm4, dc_avg_iq(%rip)
-nordc:
-*/
+int16:
+    vcvtdq2ps %xmm1, %xmm1                          // int16 to float
+    vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
