@@ -26,9 +26,18 @@
 
 extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile);
 
+int printIfError(FILE *file) {
+
+    if (!file) {
+        perror(NULL);
+        return 1;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
 
-    int ret;
+    int ret = 0;
     int opt;
     float temp = 0.f;
     FILE *inFile = NULL;
@@ -46,21 +55,19 @@ int main(int argc, char **argv) {
     } else {
         while ((opt = getopt(argc, argv, "i:o:s:rf")) != -1) {
             switch (opt) {
-                case 'r':
-                    chars.isRdc = 1;
+                case 'r':chars.isRdc = 1;
                     break;
-                case 'f':
-                    chars.isOt = 1;
+                case 'f':chars.isOt = 1;
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
-                            // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
+                    // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
                     temp = powf(10.f, (float) atof(optarg) / 10.f);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
-                        inFile = fopen(optarg, "rb");
+                        ret += printIfError(inFile = fopen(optarg, "rb"));
                     } else {
-                        freopen(NULL, "rb", stdin);
+                        ret += printIfError(freopen(NULL, "rb", stdin));
                         inFile = stdin;
                     }
                     break;
@@ -69,22 +76,25 @@ int main(int argc, char **argv) {
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
 #else
                     if (!strstr(optarg, "-")) {
-                        outFile = fopen(optarg, "wb");
+                        ret += printIfError(outFile = fopen(optarg, "wb"));
                     } else {
-                        freopen(NULL, "wb", stdout);
+                        ret += printIfError(freopen(NULL, "wb", stdout));
                         outFile = stdout;
                     }
 #endif
                     break;
-                default:
-                    break;
+                default:break;
             }
         }
     }
 
-    ret = processMatrix(temp, inFile, &chars, outFile);
-#ifndef IS_INTEL
-    ret = ret != EOF;
+    if (!ret) {
+        ret = processMatrix(temp, inFile, &chars, outFile);
+#ifdef IS_INTEL
+    }
+#else
+        ret = ret != EOF;
+    }
     fclose(outFile);
 #endif
     fclose(inFile);

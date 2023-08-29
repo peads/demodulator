@@ -23,13 +23,19 @@
 
 //#define DEBUG
 
+#ifdef IS_INTEL
+
 // sizeof(uint8_t)
-//#define INPUT_ELEMENT_BYTES 1
+#define INPUT_ELEMENT_BYTES 1
+
+#else
+
 // sizeof(int16_t)
 #define INPUT_ELEMENT_BYTES 2
+
 // sizeof(float)
 //define INPUT_ELEMENT_BYTES 4
-
+#endif
 // sizeof(float) >> 1
 #define OUTPUT_ELEMENT_BYTES 4
 // sizeof(__m128)
