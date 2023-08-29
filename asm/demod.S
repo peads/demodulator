@@ -37,6 +37,9 @@
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
+    movq $2, INPUT_ELEMENT_BYTES(%rip)
+    subq %rsi, INPUT_ELEMENT_BYTES(%rip)
+
     movl $1, 16(%rsp)
     test %rdx, %rdx
     jz L7
@@ -54,7 +57,7 @@ L7:
     vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
-    movq $INPUT_ELEMENT_BYTES, %rsi
+    movq INPUT_ELEMENT_BYTES(%rip), %rsi
     movq $MATRIX_WIDTH, %rdx
     movq %r15, %rcx
     call FREAD
@@ -83,8 +86,8 @@ continue:
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1
-    vcvtdq2ps %xmm1, %xmm1                          // int16 to float
+    vpmovsxwd %xmm1, %xmm1                          // int16 to float
+    vcvtdq2ps %xmm1, %xmm1
     vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2

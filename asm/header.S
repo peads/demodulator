@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "definitions.h"
+
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
 
     .bss
@@ -25,6 +26,7 @@
     .comm dc_avg_iq, MATRIX_WIDTH << 2
     .comm squelch, MATRIX_WIDTH << 2
     .comm result, DEFAULT_BUF_SIZE << 3
+    .comm INPUT_ELEMENT_BYTES, 1
 
     .data
 #ifndef __APPLE__
