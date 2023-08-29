@@ -87,7 +87,7 @@ static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t inde
     out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
 }
 
-void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
+static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
