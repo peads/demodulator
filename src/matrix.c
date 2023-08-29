@@ -23,9 +23,13 @@
 #include "definitions.h"
 #include "matrix.h"
 
+static size_t inputElementBytes = 2;
+static uint32_t bufSize = DEFAULT_BUF_SIZE;
+static conversionFunction_t convert = convertInt16ToFloat;
+static fastRsqrtFun_t rsqrt = fastRsqrt;
+
 // this is buggy as shit
-void noconversion(const void *__restrict__ in, const uint32_t index,
-                  float *__restrict__ out)  {
+void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
 
     const float *buf = (float *) in;
 
@@ -72,8 +76,7 @@ float slowRsqrt(float y) {
     return 1.f/sqrtf(y);
 }
 
-void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result,
-             conversionFunction_t convert, fastRsqrtFun_t rsqrt) {
+void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
 
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
     static float *ar = out;
@@ -98,18 +101,38 @@ void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict
     }
 }
 
-int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
+int processMode(uint8_t mode) {
 
-    const size_t shiftedSize = DEFAULT_BUF_SIZE - 2;
+    switch (mode) {
+        case 0: // default mode
+            break;
+        case 1: // input uint8
+            convert = convertUint8ToFloat;
+            inputElementBytes = 1;
+            break;
+        case 2: // input float
+            convert = noconversion;
+            rsqrt = slowRsqrt;
+            inputElementBytes = 4;
+            bufSize = 1024;
+            break;
+        default:
+            return -1;
+    }
+    return 0;
+}
 
-    void *buf = calloc(DEFAULT_BUF_SIZE, INPUT_ELEMENT_BYTES);
-    int exitFlag = 0;
+int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile, uint8_t mode) {
+
+    int exitFlag = processMode(mode);
+    const size_t shiftedSize = bufSize - 2;
+    void *buf = calloc(bufSize, inputElementBytes);
     size_t readBytes;
-    float result[QTR_BUF_SIZE];
+    float result[bufSize >> 2];
 
     while (!exitFlag) {
 
-        readBytes = fread(buf + 2, INPUT_ELEMENT_BYTES, shiftedSize, inFile);
+        readBytes = fread(buf + 2, inputElementBytes, shiftedSize, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -118,9 +141,7 @@ int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFil
             exitFlag = EOF;
         }
 
-//        fmDemod(buf, readBytes, result, convertUint8ToFloat, fastRsqrt);
-        fmDemod(buf, readBytes, result, convertInt16ToFloat, fastRsqrt);
-//        fmDemod(buf, readBytes, result, noconversion, slowRsqrt);
+        fmDemod(buf, readBytes, result);
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
     }

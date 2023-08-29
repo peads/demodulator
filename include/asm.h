@@ -22,6 +22,7 @@
 
 #include "definitions.h"
 
+#define INPUT_ELEMENT_BYTES 1
 #ifdef __APPLE__
 #define FREAD _fread
 #define STATUS _checkFileStatus

@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile);
+extern int processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile, uint8_t mode);
 
 int printIfError(FILE *file) {
 
@@ -37,6 +37,7 @@ int printIfError(FILE *file) {
 
 int main(int argc, char **argv) {
 
+    uint8_t mode = 0;
     int ret = 0;
     int opt;
     float temp = 0.f;
@@ -53,11 +54,16 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:s:rf")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:s:r:df")) != -1) {
             switch (opt) {
-                case 'r':chars.isRdc = 1;
+                case 'r' :
+                    mode = atoi(optarg);
                     break;
-                case 'f':chars.isOt = 1;
+                case 'd':
+                    chars.isRdc = 1;
+                    break;
+                case 'f':
+                    chars.isOt = 1;
                     break;
                 case 's':   // TODO add parameter to take into account the impedance of the system
                     // currently calculated for 50 Ohms (i.e. Prms = ((I^2 + Q^2)/2)/50 = (I^2 + Q^2)/100)
@@ -89,7 +95,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        ret = processMatrix(temp, inFile, &chars, outFile);
+        ret = processMatrix(temp, inFile, &chars, outFile, mode);
 #ifdef IS_INTEL
     }
 #else

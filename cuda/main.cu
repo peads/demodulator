@@ -47,7 +47,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile) {
+static int8_t processMatrix(float squelch, FILE *inFile, struct chars *chars, void *outFile, unsigned char mode) {
 
     int8_t exitFlag = 0;
     uint8_t *hBuf, *dBuf;
