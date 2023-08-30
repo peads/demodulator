@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
-#include "prototypes.h"
 
 int printIfError(FILE *file) {
 

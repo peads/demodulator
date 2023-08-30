@@ -18,7 +18,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "nvidia.cuh"
-#include "prototypes.h"
 
 __global__
 void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {

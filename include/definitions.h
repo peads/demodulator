@@ -35,6 +35,24 @@
 #define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
 #define OUT_BUF_SIZE DEFAULT_BUF_SIZE << MATRIX_WIDTH
 
+#if (defined(__AVX__) || defined(__AVX2__))
+#define HAS_AVX
+#endif
+
+#if (defined(__SSE__) || defined(__SSE2__) || defined(__SSE3__) || defined(__SSE4_1__) \
+        || defined(__SSE4_2__) || defined(__SSE_MATH__) || defined(__SSE2_MATH__) \
+        || defined(__SSSE3__))
+#define HAS_SSE
+#endif
+
+#if defined(HAS_AVX) || defined(HAS_SSE)
+#define HAS_EITHER_AVX_OR_SSE
+#endif
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+#define HAS_AARCH64
+#endif
+
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to
