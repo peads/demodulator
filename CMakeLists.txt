@@ -8,6 +8,7 @@ add_compile_options(-Ofast)
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_INTEL OFF)
+option(IS_ARM OFF)
 
 if(IS_INTEL)
     add_compile_definitions(IS_INTEL)

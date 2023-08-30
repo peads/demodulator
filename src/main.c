@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     int ret = 0;
     int opt;
     FILE *inFile = NULL;
-#ifdef IS_INTEL
+#if defined(IS_INTEL) || defined(IS_ARM)
     char *outFile = NULL;
 #else
     FILE *outFile = NULL;
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
-#ifdef IS_INTEL
+#if defined(IS_INTEL) || defined(IS_ARM)
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
 #else
                     if (!strstr(optarg, "-")) {
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 
     if (!ret) {
         ret = processMatrix(inFile, mode, outFile);
-#ifdef IS_INTEL
+#if defined(IS_INTEL) || defined(IS_ARM)
     }
 #else
         ret = ret != EOF;
