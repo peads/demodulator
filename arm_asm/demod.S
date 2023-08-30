@@ -1,11 +1,11 @@
 #include "asm.h"
-.data
-/* Data segment: define our message string and calculate its length. */
+    .data
+    /* Data segment: define our message string and calculate its length. */
 msg:
     .ascii        "Hello, ARM64!\n"
-len = . - msg
+    len = . - msg
 
-.text
+    .text
 
 /* Our application's entry point. */
 
