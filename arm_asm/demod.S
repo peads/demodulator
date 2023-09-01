@@ -17,10 +17,10 @@ LEN = . - MSG
     str     x5, [sp, #-16]!     // store callee-preserved regs
  
     mov     x8, #SYS_OPEN
-    mov     w0, #0xffffff9c     // AT_FDCWD
+    mov     w0, #AT_FDCWD
     mov     x1, x2              // fd
-    mov     w2, #0x241          // O_TRUNC | O_CREAT | O_WRONLY
-    mov     w3, #0x180          // mode, 600o = 0b110000000 = 0x180 = rw-------
+    mov     w2, #OPEN_FLAGS     // O_TRUNC | O_CREAT | O_WRONLY
+    mov     w3, #OPEN_MODE      // rw-------
     svc     #0
     mov     x5, x0
     //cmp     x0, #0      // if unable to open file end
