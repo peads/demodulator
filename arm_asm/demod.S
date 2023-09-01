@@ -49,13 +49,6 @@
 
 // TODO write calls to FERROR and FEOF
 
-
-//    ldr     x0, =RIGHT
-//    ldr     s0, [x0]
-//    ldr     x1, =LEFT
-//    ldrb    w1, [x1]
-//    bl      coolNumber
-
     mov     w8, #SYS_WRITE
     ldr     x1, =buf
     mov     x0, x20        // fd
