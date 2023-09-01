@@ -36,9 +36,7 @@
     #define SYS_CLOSE       0x2000006
                             // O_TRUNC | O_CREAT | O_WRONLY
     #define OPEN_FLAGS      0x601
-//    #define O_WRONLY        0x1
-//    #define O_CREAT         0x200
-//    #define O_TRUNC         0x400
+
     .globl  _processMatrix
     _processMatrix:
 #else
@@ -55,14 +53,12 @@
     #endif
                             // O_TRUNC | O_CREAT | O_WRONLY
     #define OPEN_FLAGS      0x241
-    #define O_WRONLY        0x1
-    #define O_CREAT         0100
-    #define O_TRUNC         01000
     #define FREAD           fread
     #define STATUS          checkFileStatus
     #define FERROR          ferror
     #define FEOF            feof
     #define PERROR          perror
+
     .globl  processMatrix
     processMatrix:
 #endif

@@ -38,6 +38,10 @@ LEN = . - MSG
     mov     x0, x5         // fd
     mov     w2, #4         // size in bytes
     svc     #0
+
+    mov     w8, #SYS_CLOSE
+    mov     x0, x5          // fd
+    svc     #0
 end:
     ldr     x5, [sp], #16   // reload preserved regs
     ldr     x30, [sp], #16  // reload lr
