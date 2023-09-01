@@ -39,7 +39,6 @@ if (IS_NVIDIA)
 elseif(IS_INTEL)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -mavx256-split-unaligned-load -mavx256-split-unaligned-store")
 
     if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -diag-disable=10441")
@@ -48,9 +47,10 @@ elseif(IS_INTEL)
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} src/main.c ${SRCS} include/prototypes.h)
+    add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -mavx256-split-unaligned-load -mavx256-split-unaligned-store")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
     endif()
 elseif(IS_ARM)
@@ -74,7 +74,7 @@ else()
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "include/matrix.h" "include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)

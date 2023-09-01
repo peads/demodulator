@@ -45,10 +45,11 @@
     jz L7
     mov $SYS_OPEN, %eax
     mov %rdx, %rdi          // output stream
-    mov $O_WRONLY, %esi     // flags
-    or $O_CREAT, %esi
-    or $O_TRUNC, %esi
-    mov $0x180, %edx        // mode, 600o = 0b110000000 = 0x180 = rw-------
+    mov $OPEN_FLAGS, %esi   // O_TRUNC | O_CREAT | O_WRONLY
+    //mov $O_WRONLY, %esi     // flags
+    //or $O_CREAT, %esi
+    //or $O_TRUNC, %esi
+    mov $OPEN_MODE, %edx        // rw-rw-r--
     syscall
     mov %rax, 16(%rsp)      // save the fd
 L7:
