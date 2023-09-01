@@ -26,7 +26,6 @@
     .comm dc_avg_iq, MATRIX_WIDTH << 2
     .comm squelch, MATRIX_WIDTH << 2
     .comm result, DEFAULT_BUF_SIZE << 3
-    .comm input_element_bytes, 1
 
     .data
 #ifndef __APPLE__
