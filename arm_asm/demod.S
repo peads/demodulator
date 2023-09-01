@@ -33,8 +33,7 @@ LEN = . - MSG
     bl      coolNumber
 
     mov     w8, #SYS_WRITE    
-    //fmov    w1, s0
-    str     w0, [sp, #1]
+    str     s0, [sp, #1]
     add     x1, sp, #0x1
 
     mov     x0, x5         // fd
