@@ -19,6 +19,10 @@ if(IS_INTEL)
     add_compile_definitions(IS_INTEL)
 endif()
 
+if(IS_ARM)
+    add_compile_definitions(IS_ARM)
+endif()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 
 if (IS_NVIDIA)
@@ -35,7 +39,7 @@ if (IS_NVIDIA)
 elseif(IS_INTEL)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -mavx256-split-unaligned-load -mavx256-split-unaligned-store")
 
     if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -diag-disable=10441")
@@ -52,11 +56,10 @@ elseif(IS_INTEL)
 elseif(IS_ARM)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
-    #    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma")
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/arm_asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} src/main.c include/prototypes.h ${SRCS})
+    add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
