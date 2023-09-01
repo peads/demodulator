@@ -23,8 +23,8 @@ LEN = . - MSG
     mov     w3, #OPEN_MODE      // rw-------
     svc     #0
     mov     x5, x0
-    //cmp     x0, #0      // if unable to open file end
-    //b.le    EXIT
+    cmp     x0, #0              // if unable to open file end
+    b.le    EXIT
     
 
 
