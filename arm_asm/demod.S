@@ -20,7 +20,6 @@
 #include "asm.h"
     .text
     str     x30, [sp, #-16]!        // store the link reg
-//    str     x21, [sp, #-16]!
     stp     x20, x19, [sp, #-32]!   // store callee-preserved regs
 
     mov     x19, x0                 // inFile
