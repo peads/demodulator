@@ -36,11 +36,6 @@
     b.le    fio_error           // if unable to open file end
     mov     x20, x0             // outFile
 
-//    adrp    x0, :pg_hi21:buf
-//    add     x0, x0, #:lo12:buf
-//    adrp x0, buf
-//    add	x0, x0, :lo12:buf
-//    ldr     x0, [x21, #88]
     ldr     x0, =buf
     ldr     x1, input_element_bytes
     mov     x2, #MATRIX_WIDTH
