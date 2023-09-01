@@ -20,32 +20,29 @@ LEN = . - MSG
     mov     w0, #AT_FDCWD
     mov     x1, x2              // fd
     mov     w2, #OPEN_FLAGS     // O_TRUNC | O_CREAT | O_WRONLY
-    mov     w3, #OPEN_MODE      // rw-------
+    mov     w3, #OPEN_MODE      // rw-rw-r--
     svc     #0
     mov     x5, x0
     cmp     x0, #0              // if unable to open file end
-    b.le    EXIT
+    b.le    end
     
-
-
     ldr     x0, =RIGHT
     ldr     s0, [x0]
     ldr     x1, =LEFT
     ldrb    w1, [x1]
     bl      coolNumber
 
-    mov     w8, #SYS_WRITE
-    
-    //fmov    s1, s0          // data
-    //mov     x1, x0
-    //mov     x29, sp
-    //mov     x29, sp
+    mov     w8, #SYS_WRITE    
+    fmov    w1, s0
+    str     w1, [sp, #1]
+    add x1, sp, #0x1
 
     mov     x0, x5         // fd
-    ldr     x1, =MSG
-    ldr     x2, =LEN          // size in bytes
+    mov     w2, #4
+    //ldr     x1, =MSG
+    //ldr     x2, =LEN          // size in bytes
     svc     #0
-EXIT:
+end:
     ldr     x5, [sp], #16   // reload preserved regs
     ldr     x30, [sp], #16  // reload lr
     ret

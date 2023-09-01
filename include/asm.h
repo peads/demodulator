@@ -51,8 +51,8 @@
         #define SYS_OPEN 0x2
         #define SYS_CLOSE 0x3
     #endif
-    // TODO reuse this in the x64 asm
-    #define OPEN_MODE 0x180 
+    // TODO reuse this in the x64 asm?
+    #define OPEN_MODE 0x1b4 
     #define O_WRONLY 0x1
     #define O_CREAT 0100
     #define O_TRUNC 01000

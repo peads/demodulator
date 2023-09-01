@@ -80,6 +80,14 @@ int main(int argc, char **argv) {
     if (!ret) {
         ret = processMatrix(inFile, mode, outFile);
 #if defined(IS_INTEL) || defined(IS_ARM)
+        union {
+            int i;
+            uint32_t u;
+            float f;
+        } foo = {ret};
+
+        printf("%d, %x, %f\n", foo.i, foo.u, foo.f);
+
     }
 #else
         ret = ret != EOF;
