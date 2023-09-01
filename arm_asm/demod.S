@@ -9,7 +9,7 @@ LEFT:
     .byte 0x46
 
 MSG:
-    .asciz "Nice.\n"
+    .asciz "FUCK.\n"
 LEN = . - MSG
 
     .text
@@ -18,13 +18,13 @@ LEN = . - MSG
  
     mov     x8, #SYS_OPEN
     mov     w0, #AT_FDCWD
-    mov     x1, x2              // fd
+    mov     x1, x2              // file name
     mov     w2, #OPEN_FLAGS     // O_TRUNC | O_CREAT | O_WRONLY
     mov     w3, #OPEN_MODE      // rw-rw-r--
     svc     #0
     mov     x5, x0
     cmp     x0, #0              // if unable to open file end
-    b.le    end
+    b.le    fuck
     
     ldr     x0, =RIGHT
     ldr     s0, [x0]
@@ -32,21 +32,22 @@ LEN = . - MSG
     ldrb    w1, [x1]
     bl      coolNumber
 
-    mov     w8, #SYS_WRITE    
-    str     s0, [sp, #1]
+    mov     w8, #SYS_WRITE
+    str     s0, [sp, #1]   // buffer in the first byte of red zone
     add     x1, sp, #0x1
-
     mov     x0, x5         // fd
-    mov     w2, #4
-    //ldr     x1, =MSG
-    //ldr     x2, =LEN          // size in bytes
+    mov     w2, #4         // size in bytes
     svc     #0
 end:
     ldr     x5, [sp], #16   // reload preserved regs
     ldr     x30, [sp], #16  // reload lr
     ret
-
-    .global coolNumber
+fuck:
+    mov     w8, #SYS_WRITE
+    mov     x0, #1
+    ldr     x1, =MSG
+    ldr     x2, =LEN
+    b       end
 coolNumber:
     //leaf functions do not need to push the lr
 
