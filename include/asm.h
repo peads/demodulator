@@ -22,6 +22,10 @@
 
 #include "definitions.h"
 
+// TODO reuse this in the x64 asm?
+                        // S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+#define OPEN_MODE       0x1b4
+ 
 #ifdef __APPLE__
     #define FREAD           _fread
     #define STATUS          _checkFileStatus
@@ -44,15 +48,14 @@
         #define SYS_OPEN    0x38
         #define SYS_CLOSE   0x39
         #define AT_FDCWD    0xffffff9c
-        // O_TRUNC | O_CREAT | O_WRONLY
-        #define OPEN_FLAGS  0x241
     #else 
         #define SYS_WRITE   0x1
         #define SYS_OPEN    0x2
         #define SYS_CLOSE   0x3
     #endif
     // TODO reuse this in the x64 asm?
-    #define OPEN_MODE       0x1b4 
+                            // O_TRUNC | O_CREAT | O_WRONLY
+    #define OPEN_FLAGS      0x241
     #define O_WRONLY        0x1
     #define O_CREAT         0100
     #define O_TRUNC         01000
