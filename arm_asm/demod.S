@@ -43,7 +43,7 @@
 //    ldr     x0, [x21, #88]
     ldr     x0, =buf
     ldr     x1, input_element_bytes
-    mov     x2, #4
+    mov     x2, #MATRIX_WIDTH
     mov     x3, x19
     bl      FREAD
 
@@ -58,10 +58,8 @@
 
     mov     w8, #SYS_WRITE
     ldr     x1, =buf
-//    str     s0, [sp, #1]   // buffer in the first byte of red zone
-//    add     x1, sp, #0x1
     mov     x0, x20        // fd
-    mov     w2, #4         // n * size bytes
+    mov     w2, #MATRIX_WIDTH         // n * size bytes
     svc     #0
     cmp     x0, #0;
     b.le    fio_error
@@ -72,7 +70,6 @@
 end:
 
     ldp     x20, x19, [sp], #32   // reload preserved regs
-//    ldr     x21, [sp], #16  // reload lr
     ldr     x30, [sp], #16  // reload lr
     ret
 fio_error:
