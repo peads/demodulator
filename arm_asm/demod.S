@@ -65,20 +65,6 @@ fio_error:
     ldr     x1, =MSG
     ldr     x2, =LEN
     b       end
-coolNumber:
-    //leaf functions do not need to push the lr
-
-    //and     w2, w2, #0xFFFF
-    //uxth    w2, w2
-    //ucvtf   s2, w2
-
-    //and     w3, w3, #0xFF
-    sxtb    w1, w1
-    ucvtf   s1, w1
-
-    fadd    s0, s1, s0
-
-    ret
 
 .data
 RIGHT:
