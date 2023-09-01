@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 SET(PROJECT_NAME demodulator)
 set(CMAKE_C_STANDARD 99)
+execute_process(COMMAND clang -dumpmachine OUTPUT_VARIABLE TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 #add_compile_options(-g)
-add_compile_options(-Ofast)
+if(IS_NVIDIA)
+    add_compile_options(-O3)
+else()
+    add_compile_options(-Ofast)
+endif()
 
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
@@ -14,7 +19,7 @@ if(IS_INTEL)
     add_compile_definitions(IS_INTEL)
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -march=native -mtune=native -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 
 if (IS_NVIDIA)
     set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75 80 86)
