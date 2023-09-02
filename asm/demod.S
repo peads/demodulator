@@ -46,16 +46,12 @@
     mov $SYS_OPEN, %eax
     mov %rdx, %rdi          // output stream
     mov $OPEN_FLAGS, %esi   // O_TRUNC | O_CREAT | O_WRONLY
-    //mov $O_WRONLY, %esi     // flags
-    //or $O_CREAT, %esi
-    //or $O_TRUNC, %esi
-    mov $OPEN_MODE, %edx        // rw-rw-r--
+    mov $OPEN_MODE, %edx    // rw-rw-r--
     syscall
     mov %rax, 16(%rsp)      // save the fd
 L7:
     xorq %r12, %r12         // i
     xorq %r13, %r13
-    vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
     movq input_element_bytes(%rip), %rsi
@@ -77,7 +73,6 @@ check:
     call FEOF
     testb %al, %al
     jz continue
-    movb $-1, %al
     jmp end
 continue:
     vmovdqa (%rbx), %xmm1

@@ -19,9 +19,9 @@
  */
 #include "asm.h"
     .text
-    str     x30, [sp, #-16]!        // store the link reg
-    stp     x20, x19, [sp, #-32]!   // store callee-preserved regs
-    stp     x22, x21, [sp, #-32]!   // store callee-preserved regs
+    str     x30, [sp, #-0x10]!        // store the link reg
+    stp     x20, x19, [sp, #-0x20]!   // store callee-preserved regs
+    stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
@@ -36,7 +36,7 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
-    eor     x22, x22, x22
+//    eor     x22, x22, x22 // TODO zero out loop variables for next iteration
 L6:
     ldr     x0, =buf
     mov     x1, x21             // input_element_bytes
@@ -72,7 +72,7 @@ continue:
     mov     x0, x20          // fd
     svc     #0
 end:
-    ldp     x22, x21, [sp], #32   // reload preserved regs
-    ldp     x20, x19, [sp], #32   // reload preserved regs
-    ldr     x30, [sp], #16  // reload lr
+    ldp     x22, x21, [sp], #0x20   // reload preserved regs
+    ldp     x20, x19, [sp], #0x20   // reload preserved regs
+    ldr     x30, [sp], #0x10  // reload lr
     ret
