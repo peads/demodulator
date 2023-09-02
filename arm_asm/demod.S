@@ -25,7 +25,9 @@
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
-    mov     x21, #1                 // input_element_bytes
+    mov     x21, #2                 // input_element_bytes
+    sub     x21, x21, x1            // substract mode from  input_element_bytes
+
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -36,11 +38,11 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
-//    eor     x22, x22, x22 // TODO zero out loop variables for next iteration
+// TODO zero out loop variables for next iteration
 L6:
     ldr     x0, =buf
     mov     x1, x21             // input_element_bytes
-    mov     x2, #MATRIX_WIDTH
+    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
     add     x22, x22, x0        // increment index
@@ -56,13 +58,12 @@ check:
     mov     x0, x19
     bl      FEOF
     cbz     x0, continue
-//    mov     x0, #-1
     b       end
 continue:
     mov     w8, #SYS_WRITE
     ldr     x1, =buf
-    mov     x0, x20        // fd
-    mov     w2, #MATRIX_WIDTH         // n * size bytes
+    mov     x0, x20             // fd
+    mov     w2, #8   // n * output_element_bytes
     svc     #0
     cbnz    x0, L7
 
