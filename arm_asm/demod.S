@@ -24,9 +24,12 @@
     stp     x22, x21, [sp, #-32]!   // store callee-preserved regs
 
     mov     x19, x0                 // inFile
+    mov     x20, #1
     mov     x21, #1                 // input_element_bytes
 // TODO cmp and jmp if filename is NULL remembering to set it to #1 for stdout
 
+    cmp     x2, #0;
+    b.eq    L7
     mov     x8, #SYS_OPEN
     mov     w0, #AT_FDCWD
     mov     x1, x2              // file name
@@ -34,7 +37,7 @@
     mov     w3, #OPEN_MODE      // rw-rw-r--
     svc     #0
     mov     x20, x0             // outFile
-
+L7:
     ldr     x0, =buf
     mov     x1, x21             // input_element_bytes
     mov     x2, #MATRIX_WIDTH
@@ -48,7 +51,6 @@
     mov     x0, x20        // fd
     mov     w2, #MATRIX_WIDTH         // n * size bytes
     svc     #0
-    cmp     x0, #0;
 
     mov     w8, #SYS_CLOSE
     mov     x0, x20          // fd
