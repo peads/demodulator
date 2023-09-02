@@ -21,8 +21,10 @@
     .text
     str     x30, [sp, #-16]!        // store the link reg
     stp     x20, x19, [sp, #-32]!   // store callee-preserved regs
+    stp     x22, x21, [sp, #-32]!   // store callee-preserved regs
 
     mov     x19, x0                 // inFile
+    mov     x21, #1                 // input_element_bytes
 // TODO cmp and jmp if filename is NULL remembering to set it to #1 for stdout
 
     mov     x8, #SYS_OPEN
@@ -31,12 +33,10 @@
     mov     w2, #OPEN_FLAGS     // O_TRUNC | O_CREAT | O_WRONLY
     mov     w3, #OPEN_MODE      // rw-rw-r--
     svc     #0
-    cmp     x0, #0;
-    b.le    fio_error           // if unable to open file end
     mov     x20, x0             // outFile
 
     ldr     x0, =buf
-    ldr     x1, input_element_bytes
+    mov     x1, x21             // input_element_bytes
     mov     x2, #MATRIX_WIDTH
     mov     x3, x19
     bl      FREAD
@@ -49,34 +49,13 @@
     mov     w2, #MATRIX_WIDTH         // n * size bytes
     svc     #0
     cmp     x0, #0;
-    b.le    fio_error
 
     mov     w8, #SYS_CLOSE
     mov     x0, x20          // fd
     svc     #0
 end:
 
+    ldp     x22, x21, [sp], #32   // reload preserved regs
     ldp     x20, x19, [sp], #32   // reload preserved regs
     ldr     x30, [sp], #16  // reload lr
     ret
-fio_error:
-    mov     w8, #SYS_WRITE
-    mov     x0, #1
-    ldr     x1, =MSG
-    ldr     x2, =LEN
-    b       end
-
-.data
-RIGHT:
-//    .hword 0x0045
-    .word 0xbf147ae1//0x3ed70a3d
-
-LEFT:
-    .byte 0x46
-
-MSG:
-    .asciz "FUCK.\n"
-LEN = . - MSG
-
-input_element_bytes:
-    .byte 1
