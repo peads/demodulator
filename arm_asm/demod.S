@@ -27,8 +27,7 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #1                 // input_element_bytes
 
-    cmp     x2, #0;
-    b.eq    L7
+    cbz     x2, L7
     mov     x8, #SYS_OPEN
     mov     w0, #AT_FDCWD
     mov     x1, x2              // file name
@@ -42,9 +41,21 @@ L7:
     mov     x2, #MATRIX_WIDTH
     mov     x3, x19
     bl      FREAD
-
-// TODO write calls to FERROR and FEOF
-
+// TODO increment buf array index
+    mov     x0, x19
+    bl      FERROR
+    cbz     x0, check
+    eor     x2, x2, x2
+    bl      PERROR
+    mov     x0, #1
+    b       end
+check:
+    mov     x0, x19
+    bl      FEOF
+    cbz     x0, continue
+    mov     x0, #-1
+    b       end
+continue:
     mov     w8, #SYS_WRITE
     ldr     x1, =buf
     mov     x0, x20        // fd
