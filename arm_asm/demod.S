@@ -36,12 +36,15 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
+    eor     x22, x22, x22
+L6:
     ldr     x0, =buf
     mov     x1, x21             // input_element_bytes
     mov     x2, #MATRIX_WIDTH
     mov     x3, x19
     bl      FREAD
-// TODO increment buf array index
+    add     x22, x22, x0        // increment index
+
     mov     x0, x19
     bl      FERROR
     cbz     x0, check
@@ -53,7 +56,7 @@ check:
     mov     x0, x19
     bl      FEOF
     cbz     x0, continue
-    mov     x0, #-1
+//    mov     x0, #-1
     b       end
 continue:
     mov     w8, #SYS_WRITE
@@ -61,6 +64,7 @@ continue:
     mov     x0, x20        // fd
     mov     w2, #MATRIX_WIDTH         // n * size bytes
     svc     #0
+    cbnz    x0, L7
 
     cmp     x20, #1
     b.eq    end
