@@ -24,6 +24,7 @@
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
     stp     x26, x25, [sp, #-0x20]!   // store callee-preserved regs
+    sub   sp, sp, #(8 * 16)
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
@@ -42,15 +43,17 @@
 L7:
     ldr     x23, =result
 L6:
-    ldr     x0, =buf
-    mov     x1, #1             // input_element_bytes
+//    ldr     x0, =buf
+    mov     x0, sp
+    mov     x1, x21             // input_element_bytes
     mov     x2, #2   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
-    ldr     x0, =buf
-    ld1     {v0.h}[0], [x0]
-    st1     {v0.h}[0], [x23], x21
+//    ldr     x0, =buf
+    mov     x26, #8
+    ld1     {v0.s}[0], [sp]
+    st1     {v0.s}[0], [x23], x26
 
 //    add     x23, x23, x0        // increment index
 
@@ -94,6 +97,7 @@ continue:
     mov     x0, x20                 // fd
     svc     #0
 end:
+    add   sp, sp, #(8 * 16)
     ldp     x26, x25, [sp], #0x20   // reload preserved regs
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
