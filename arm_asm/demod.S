@@ -24,15 +24,14 @@
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
     stp     x26, x25, [sp, #-0x20]!   // store callee-preserved regs
-    sub   sp, sp, #(8 * 16)
+    sub     sp, sp, #(8 * 16)
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes
-    ldr     x24, =(result + OUT_BUF_SIZE)
-    mov     x26, #MATRIX_WIDTH
-    mul     x26, x26, x21
+//    ldr     x24, =(result + OUT_BUF_SIZE)
+//    mov     x24, #(8 * 16)
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -43,18 +42,14 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
-    ldr     x23, =result
+//    eor     x23, x23, x23
+    mov x23, #(8 * 16)
 L6:
     mov     x0, sp
-    mov     x1, x21           // input_element_bytes
-    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
+    mov     x1, #2           // input_element_bytes
+    mov     x2, #8   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
-
-    ldr     x0, [sp]
-    str     x0, [x23] // input_element_bytes * width ?
-    ld1     {v0.h}[0], [x23]
-    st1     {v0.h}[0], [x23], x26
 
     mov     x0, x19
     bl      FERROR
@@ -69,24 +64,18 @@ check:
     cbz     x0, continue
     b       end
 continue:
-//    ldr     x0, buf
-//    str     x0, [x23]
-//    ldr     x0, =buf
-//    ld1     {v0.s}[0], [x0]
-//    sxtl    v0.4h, v0.8b //  TODO uint8 also use neg 127s for add
-//    sxtl    v0.4s, v0.4h    // == sshll v0.4s, v0.4h, #0
-//    scvtf   v0.4s, v0.4s
-//    scvtf   v0.4h, v0.4h
-//    st1     {v0.s}[0], [x23]
 
-//    add x23, x23, #OUTPUT_ELEMENT_BYTES
-    cmp     x23, x24
+    ld1     {v0.h}[0], [sp]
+    st1     {v0.h}[0], [sp]
+
+    adds     x23, x23, #-128
     b.ne    L6
+//    cbnz    x23, L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
-    ldr     x1, =result
-    mov     w2, #OUT_BUF_SIZE   // n * output_element_bytes
+    mov     x1, sp
+    mov     x2, #MATRIX_ELEMENT_BYTES   // n * output_element_bytes
     svc     #0
     cbnz    x0, L7
 
