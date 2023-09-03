@@ -46,14 +46,21 @@ L6:
 //    ldr     x0, =buf
     mov     x0, sp
     mov     x1, x21           // input_element_bytes
-    mov     x2, #1   // * WIDTH = total bytes read each iteration
+    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
 //    ldr     x0, =buf
-    mov     x26, #4
-    ld1     {v0.h}[0], [sp]
-    st1     {v0.h}[0], [x23], x21
+    ldr     x26, [sp]
+    str     x26, [x23], #8 //
+//    ld1     {v0.h}[0], [x26, #2]
+//    ld1     {v0.h}[1], [sp, #(8*2)]
+//    ld1     {v0.h}[2], [sp]
+//    ld1     {v0.h}[3], [sp]
+//    st1     {v0.h}[0], [x23], x21
+//    st1     {v0.h}[1], [x23], x26
+//    st1     {v0.h}[2], [x23], x26
+//    st1     {v0.h}[3], [x23], x26
 
 //    add     x23, x23, x0        // increment index
 
