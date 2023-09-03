@@ -30,8 +30,6 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes
-//    ldr     x24, =(result + OUT_BUF_SIZE)
-//    mov     x24, #(8 * 16)
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -43,7 +41,7 @@
     mov     x20, x0             // outFile
 L7:
 //    eor     x23, x23, x23
-    mov x23, #(8 * 16)
+    mov x23, #16
 L6:
     mov     x0, sp
     mov     x1, #2           // input_element_bytes
@@ -68,9 +66,8 @@ continue:
     ld1     {v0.h}[0], [sp]
     st1     {v0.h}[0], [sp]
 
-    adds     x23, x23, #-128
+    adds     x23, x23, #-16
     b.ne    L6
-//    cbnz    x23, L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
