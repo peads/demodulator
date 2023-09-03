@@ -31,8 +31,6 @@
 #ifndef DEFAULT_BUF_SIZE
 #define DEFAULT_BUF_SIZE 1048576
 #endif
-#define HALF_BUF_SIZE (DEFAULT_BUF_SIZE >> 1)
-#define QTR_BUF_SIZE (HALF_BUF_SIZE >> 1)
 #define OUT_BUF_SIZE DEFAULT_BUF_SIZE << MATRIX_WIDTH
 
 #if (defined(__AVX__) || defined(__AVX2__))

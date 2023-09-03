@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
             float f;
         } foo = {ret};
 
-        printf("\n\n%d, %x, %f\n", foo.i, foo.u, foo.f);
+        printf("\n\n%d, 0x%08X, %f\n", foo.i, foo.u, foo.f);
     }
 #else
         ret = ret != EOF;

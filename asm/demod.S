@@ -79,6 +79,7 @@ continue:
     movb (%rsp), %cl
     testb %cl, %cl
     jz int16
+// uint8:
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
@@ -105,7 +106,7 @@ int16:
     mov $SYS_WRITE, %eax
     mov 16(%rsp), %rdi       // fd
     lea result(%rip), %rsi   // data
-    mov $0x4000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
+    mov $OUT_BUF_SIZE, %edx
     syscall
     test %rax, %rax
     jnz L7

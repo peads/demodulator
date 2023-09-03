@@ -29,10 +29,6 @@
 #ifndef __APPLE__
     .section .rodata
 #endif
-all_hundredths:
-    .rept MATRIX_WIDTH
-    .single 0.01
-    .endr
 all_nonetwentysevens:
     .rept 2
     .quad -0x7f7f7f7f7f7f7f7f
@@ -54,10 +50,6 @@ all_41s:
     .p2align 5
 cnj_transform:
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
-dc_raw_const:
-    .rept MATRIX_WIDTH
-    .single 1e-05
-    .endr
 negate_b_im:
     .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
 
