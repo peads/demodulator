@@ -50,17 +50,11 @@ L6:
     mov     x3, x19
     bl      FREAD
 
-//    ldr     x0, =buf
-    ldr     x26, [sp]
-    str     x26, [x23], #8 //
-//    ld1     {v0.h}[0], [x26, #2]
-//    ld1     {v0.h}[1], [sp, #(8*2)]
-//    ld1     {v0.h}[2], [sp]
-//    ld1     {v0.h}[3], [sp]
-//    st1     {v0.h}[0], [x23], x21
-//    st1     {v0.h}[1], [x23], x26
-//    st1     {v0.h}[2], [x23], x26
-//    st1     {v0.h}[3], [x23], x26
+    mov     x1, #8
+    ldr     x0, [sp]
+    str     x0, [x23] // input_element_bytes * width ?
+    ld1     {v0.h}[0], [x23]
+    st1     {v0.h}[0], [x23], x1
 
 //    add     x23, x23, x0        // increment index
 
