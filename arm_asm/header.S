@@ -22,11 +22,8 @@
     .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
 
     .bss
-    .comm buf, MATRIX_WIDTH << 2
-    .p2align 5
-
+    .comm buf , MATRIX_WIDTH << 2
     .comm result, DEFAULT_BUF_SIZE << 4 // TODO revert this to 3!
-    .p2align 5
 
     .data
 #ifndef __APPLE__

@@ -56,6 +56,9 @@ elseif(IS_INTEL)
 elseif(IS_ARM)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a72
+    -mabi=lp64 -march=armv8-a+crc -mtune=cortex-a72 -mstrict-align")
+    set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}")
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/arm_asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
@@ -83,8 +86,10 @@ endif()
 
 message(CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
 message(CMAKE_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
+message(CMAKE_ASM_COMPILER_ID="${CMAKE_ASM_COMPILER_ID}")
 message(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
 message(CMAKE_C_FLAGS="${CMAKE_C_FLAGS}")
+message(CMAKE_ASM_FLAGS="${CMAKE_ASM_FLAGS}")
 
 add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD COMMAND rm ${CMAKE_BINARY_DIR}/out.dat ||:)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin COMPONENT Runtime LIBRARY DESTINATION lib COMPONENT Runtime)
