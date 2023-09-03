@@ -45,15 +45,15 @@ L7:
 L6:
 //    ldr     x0, =buf
     mov     x0, sp
-    mov     x1, x21             // input_element_bytes
-    mov     x2, #2   // * WIDTH = total bytes read each iteration
+    mov     x1, x21           // input_element_bytes
+    mov     x2, #1   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
 //    ldr     x0, =buf
-    mov     x26, #8
-    ld1     {v0.s}[0], [sp]
-    st1     {v0.s}[0], [x23], x26
+    mov     x26, #4
+    ld1     {v0.h}[0], [sp]
+    st1     {v0.h}[0], [x23], x21
 
 //    add     x23, x23, x0        // increment index
 
