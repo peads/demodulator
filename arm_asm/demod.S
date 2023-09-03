@@ -42,12 +42,14 @@
 L7:
 //    eor     x23, x23, x23
     mov x23, #16
+    mov x24, sp
 L6:
-    mov     x0, sp
-    mov     x1, #2           // input_element_bytes
-    mov     x2, #8   // * WIDTH = total bytes read each iteration
+    mov     x0, x24
+    mov     x1, x21           // input_element_bytes
+    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
+    add     x24, x24, #8
 
     mov     x0, x19
     bl      FERROR
@@ -63,10 +65,10 @@ check:
     b       end
 continue:
 
-    ld1     {v0.h}[0], [sp]
-    st1     {v0.h}[0], [sp]
+    ld1     {v0.h}[0], [x24]
+    st1     {v0.h}[0], [x24]
 
-    adds     x23, x23, #-16
+    adds     x23, x23, #-8
     b.ne    L6
 
     mov     w8, #SYS_WRITE
