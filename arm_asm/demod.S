@@ -62,15 +62,17 @@ check:
     cbz     x0, continue
     b       end
 continue:
-    ldr     x0, buf
-//    str     x0, [x23], #OUTPUT_ELEMENT_BYTES
-    ld1     {v0.h}[0], [x0]
+//    ldr     x0, buf
+//    str     x0, [x23]
+    ldr     x0, =buf
+    ld1     {v0.s}[0], [x0]
 //    sxtl    v0.4h, v0.8b //  TODO uint8 also use neg 127s for add
 //    sxtl    v0.4s, v0.4h    // == sshll v0.4s, v0.4h, #0
 //    scvtf   v0.4s, v0.4s
 //    scvtf   v0.4h, v0.4h
-    st1     {v0.h}[0], [x23]
+    st1     {v0.s}[0], [x23]
 
+    add x23, x23, #OUTPUT_ELEMENT_BYTES
     cmp     x23, x24
     b.ne    L6
 
