@@ -41,7 +41,7 @@
     mov     x20, x0             // outFile
 L7:
 //    eor     x23, x23, x23
-    mov x23, #16
+    mov x23, #(8 * 16)
     mov x24, sp
 L6:
     mov     x0, x24
@@ -49,7 +49,6 @@ L6:
     mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
-    add     x24, x24, #8
 
     mov     x0, x19
     bl      FERROR
@@ -68,13 +67,14 @@ continue:
     ld1     {v0.h}[0], [x24]
     st1     {v0.h}[0], [x24]
 
+    add     x24, x24, #8
     adds     x23, x23, #-8
     b.ne    L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
     mov     x1, sp
-    mov     x2, #MATRIX_ELEMENT_BYTES   // n * output_element_bytes
+    mov     x2, #(8 * 16)   // n * output_element_bytes
     svc     #0
     cbnz    x0, L7
 
