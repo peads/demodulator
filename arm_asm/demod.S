@@ -22,12 +22,14 @@
     str     x30, [sp, #-0x10]!        // store the link reg
     stp     x20, x19, [sp, #-0x20]!   // store callee-preserved regs
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
+    stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
+    stp     x26, x25, [sp, #-0x20]!   // store callee-preserved regs
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
-    sub     x21, x21, x1            // substract mode from  input_element_bytes
-
+    sub     x21, x21, x1            // subtract mode from input_element_bytes
+    ldr     x24, =(result + OUT_BUF_SIZE)
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -38,14 +40,14 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
-// TODO zero out loop variables for next iteration
+    ldr     x23, =result
 L6:
     ldr     x0, =buf
     mov     x1, x21             // input_element_bytes
     mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
-    add     x22, x22, x0        // increment index
+    add     x23, x23, x0        // increment index
 
     mov     x0, x19
     bl      FERROR
@@ -60,20 +62,32 @@ check:
     cbz     x0, continue
     b       end
 continue:
+    ldr     x0, =buf
+    ld1     {v0.h}[0], [x0]
+//    sxtl    v0.4h, v0.8b //  TODO uint8 also use neg 127s for add
+    sxtl    v0.4s, v0.4h    // == sshll v0.4s, v0.4h, #0
+    scvtf   v0.4s, v0.4s
+    st1     {v0.s}[0], [x23]
+
+    cmp     x23, x24
+    b.ne    L6
+
     mov     w8, #SYS_WRITE
-    ldr     x1, =buf
     mov     x0, x20             // fd
-    mov     w2, #8   // n * output_element_bytes
+    ldr     x1, =result
+    mov     w2, #OUT_BUF_SIZE   // n * output_element_bytes
     svc     #0
     cbnz    x0, L7
 
     cmp     x20, #1
     b.eq    end
     mov     w8, #SYS_CLOSE
-    mov     x0, x20          // fd
+    mov     x0, x20                 // fd
     svc     #0
 end:
+    ldp     x26, x25, [sp], #0x20   // reload preserved regs
+    ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
     ldp     x20, x19, [sp], #0x20   // reload preserved regs
-    ldr     x30, [sp], #0x10  // reload lr
+    ldr     x30, [sp], #0x10        // reload lr
     ret

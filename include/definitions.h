@@ -31,7 +31,7 @@
 #ifndef DEFAULT_BUF_SIZE
 #define DEFAULT_BUF_SIZE 1048576
 #endif
-#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << MATRIX_WIDTH
+#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
 
 #if (defined(__AVX__) || defined(__AVX2__))
 #define HAS_AVX

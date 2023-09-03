@@ -23,7 +23,10 @@
 
     .bss
     .comm buf, MATRIX_WIDTH << 2
-    .comm result, DEFAULT_BUF_SIZE << 3
+    .p2align 5
+
+    .comm result, DEFAULT_BUF_SIZE << 4 // TODO revert this to 3!
+    .p2align 5
 
     .data
 #ifndef __APPLE__
