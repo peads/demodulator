@@ -44,9 +44,14 @@ L7:
 L6:
     ldr     x0, =buf
     mov     x1, #1             // input_element_bytes
-    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
+    mov     x2, #2   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
+
+    ldr     x0, =buf
+    ld1     {v0.h}[0], [x0]
+    st1     {v0.h}[0], [x23], x21
+
 //    add     x23, x23, x0        // increment index
 
     mov     x0, x19
@@ -64,15 +69,15 @@ check:
 continue:
 //    ldr     x0, buf
 //    str     x0, [x23]
-    ldr     x0, =buf
-    ld1     {v0.s}[0], [x0]
+//    ldr     x0, =buf
+//    ld1     {v0.s}[0], [x0]
 //    sxtl    v0.4h, v0.8b //  TODO uint8 also use neg 127s for add
 //    sxtl    v0.4s, v0.4h    // == sshll v0.4s, v0.4h, #0
 //    scvtf   v0.4s, v0.4s
 //    scvtf   v0.4h, v0.4h
-    st1     {v0.s}[0], [x23]
+//    st1     {v0.s}[0], [x23]
 
-    add x23, x23, #OUTPUT_ELEMENT_BYTES
+//    add x23, x23, #OUTPUT_ELEMENT_BYTES
     cmp     x23, x24
     b.ne    L6
 
