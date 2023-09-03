@@ -31,6 +31,8 @@
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes
     ldr     x24, =(result + OUT_BUF_SIZE)
+    mov     x26, #MATRIX_WIDTH
+    mul     x26, x26, x21
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -43,20 +45,16 @@
 L7:
     ldr     x23, =result
 L6:
-//    ldr     x0, =buf
     mov     x0, sp
     mov     x1, x21           // input_element_bytes
     mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
-    mov     x1, #8
     ldr     x0, [sp]
     str     x0, [x23] // input_element_bytes * width ?
     ld1     {v0.h}[0], [x23]
-    st1     {v0.h}[0], [x23], x1
-
-//    add     x23, x23, x0        // increment index
+    st1     {v0.h}[0], [x23], x26
 
     mov     x0, x19
     bl      FERROR
