@@ -45,7 +45,7 @@ L7:
 L6:
     mov     x0, x24
     mov     x1, x21           // input_element_bytes
-    mov     x2, #MATRIX_WIDTH   // * WIDTH = total bytes read each iteration
+    mov     x2, #2   // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
@@ -63,17 +63,21 @@ check:
     b       end
 continue:
 
-    ld1     {v0.h}[0], [x24]
-    st1     {v0.h}[0], [x24]
+    ldr     s0, [x24]
+    dup     v1.4h, v0.h[1] // HIGH
+    dup     v0.4h, v0.h[0] // LOW
+    sshll   v0.4s, v0.4h, #0
+    sshll   v1.4s, v1.4h, #0
+    stp     s0, s1, [x24], #8
 
-    adds     x24, x24, #8
+
     cmp     x23, x24
     b.ne    L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
     mov     x1, sp
-    mov     x2, #(8 * 16)   // n * output_element_bytes
+    mov     x2, #(8 * 16)       // output_element_bytes
     svc     #0
     cbnz    x0, L7
 
