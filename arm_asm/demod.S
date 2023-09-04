@@ -31,9 +31,11 @@
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
     ldr     x4, =cnj_transform
-    ld1     {v26.4s}, [x4]
+    ld1     {v22.4s}, [x4]
     add     x23, sp, #STACK_SIZE    // end of buffer
     eor     v25.16b, v25.16b, v25.16b
+    ldr     x4, =negate_b_im
+    ld1     {v26.4s}, [x4]
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -69,7 +71,8 @@ continue:
     sshll   v0.4s, v0.4h, #0
     scvtf   v0.4s, v0.4s
     // conj
-    fmul    v0.4s, v25.4s, v0.4s // TODO  FCADD Vd.2S,Vn.2S,Vm.2S,#270 ??
+    fmul    v0.4s, v22.4s, v0.4s
+
     // swap
     umov    x0, v0.d[1]
     umov    x1, v0.d[0]
@@ -77,12 +80,20 @@ continue:
     ins     v1.d[1], x1
     // boxcar
     fadd    v1.4s, v1.4s, v0.4s
+    
+    // it's a surprise tool that will help us later
+    mov     v0.16b, v25.16b
+    mov     v25.16b, v1.16b
+    umov    x0, v0.d[1]
+    ins     v1.d[1], x0
 
     // arg
+    fmul    v1.4s, v26.4s, v1.4s
+    fmul    v0.4s, v26.4s, v0.4s
 
-    mov     v25.16b, v1.16b
+    // store the result
     st1     {v0.4s}, [x24]
-    add    x24, x24, #16
+    add     x24, x24, #16
 
     cmp     x23, x24
     b.ne    L6
