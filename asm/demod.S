@@ -26,6 +26,8 @@
     pushq %r14
     pushq %r15
 
+    vxorpd %ymm5, %ymm5, %ymm5
+
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
