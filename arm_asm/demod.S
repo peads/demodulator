@@ -68,8 +68,10 @@ continue:
     dup     v0.4h, v0.h[0] // LOW
     sshll   v0.4s, v0.4h, #0
     sshll   v1.4s, v1.4h, #0
+    scvtf   v0.4s, v0.4s
+    scvtf   v1.4s, v1.4s
     stp     s0, s1, [x24], #8
-
+    // TODO bump the read back up to 4 elements and unroll once?
 
     cmp     x23, x24
     b.ne    L6

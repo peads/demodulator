@@ -56,9 +56,9 @@ elseif(IS_INTEL)
 elseif(IS_ARM)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
-#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a72
-#    -mabi=lp64 -march=armv8-a+crc -mtune=cortex-a72 -mstrict-align")
-#    set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a72
+    -mabi=lp64 -march=armv8-a+crc -mtune=cortex-a72 -mstrict-align")
+    set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}")
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/arm_asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
