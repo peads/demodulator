@@ -67,41 +67,17 @@ continue:
     sshll   v0.4s, v0.4h, #0
     scvtf   v0.4s, v0.4s
     ld1     {v1.4s}, [x22]
+    // conj
     fmul    v0.4s, v1.4s, v0.4s
+    // swap
     umov    x0, v0.d[1]
     umov    x1, v0.d[0]
-    fmov    d0, x0
-    ins     v0.d[1], x1
+    fmov    d1, x0
+    ins     v1.d[1], x1
+    // boxcar
+    fadd    v1.4s, v1.4s, v0.4s
 
-    //ins     v0.d[1], v0.d[0]
-    //ext v0.16b, v0.16b, v0.16b, #0
-
-    //trn1    v1.4s, v0.4s, v0.4s
-    //trn2    v2.4s, v0.4s, v0.4s
-   
-    //rev64   v1.4s, v0.4s
-    //trn2    v1.4s, v1.4s, v2.4s
-    //ld2     {v0.4h, v1.4h}, [x24]
-    
-    //ldr     s0, [x24]
-    //dup     v1.4h, v0.h[1] // HIGH
-    //dup     v0.4h, v0.h[0] // LOW
-    //sshll   v0.4s, v0.4h, #0
-    //sshll   v1.4s, v1.4h, #0
-    //scvtf   v0.4s, v0.4s
-    //scvtf   v1.4s, v1.4s
-    //mov     w4, #0x3f800000 // TODO these might be backwards. oh and move it to
-    //                        // outside the loops
-    //fmov    s3, #-1
-    //mov     v3.s[1], w4
-    //fmul    v0.4s, v0.4s, v3.4s
-    //fmul    v1.4s, v1.4s, v3.4s
-    //rev32   v2.4h, v0.4h
-    //rev32   v3.4h, v1.4h
-    //fadd    v0.4s, v0.4s, v2.4s
-    //fadd    v1.4s, v1.4s, v3.4s
-    //// TODO bump the read back up to 4 elements and unroll once?
-    st1     {v0.4s}, [x24]
+    st1     {v1.4s}, [x24]
     adds    x24, x24, #16
     
 
