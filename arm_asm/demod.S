@@ -30,8 +30,10 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
-    ldr     x22, =cnj_transform
+    ldr     x4, =cnj_transform
+    ld1     {v26.4s}, [x4]
     add     x23, sp, #STACK_SIZE    // end of buffer
+    eor     v25.16b, v25.16b, v25.16b
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -66,9 +68,8 @@ continue:
     ld1     {v0.4h}, [x24]
     sshll   v0.4s, v0.4h, #0
     scvtf   v0.4s, v0.4s
-    ld1     {v1.4s}, [x22]
     // conj
-    fmul    v0.4s, v1.4s, v0.4s
+    fmul    v0.4s, v25.4s, v0.4s // TODO  FCADD Vd.2S,Vn.2S,Vm.2S,#270 ??
     // swap
     umov    x0, v0.d[1]
     umov    x1, v0.d[0]
@@ -77,10 +78,11 @@ continue:
     // boxcar
     fadd    v1.4s, v1.4s, v0.4s
 
-    st1     {v1.4s}, [x24]
-    adds    x24, x24, #16
-    
+    // arg
 
+    mov     v25.16b, v1.16b
+    st1     {v0.4s}, [x24]
+    add    x24, x24, #16
 
     cmp     x23, x24
     b.ne    L6
