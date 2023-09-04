@@ -70,8 +70,19 @@ continue:
     sshll   v1.4s, v1.4h, #0
     scvtf   v0.4s, v0.4s
     scvtf   v1.4s, v1.4s
-    stp     s0, s1, [x24], #8
+    mov     w4, #0x3f800000 // TODO these might be backwards. oh and move it to
+                            // outside the loops
+    fmov    s3, #-1
+    mov     v3.s[1], w4
+    fmul    v0.4s, v0.4s, v3.4s
+    fmul    v1.4s, v1.4s, v3.4s
+    rev32   v2.4h, v0.4h
+    rev32   v3.4h, v1.4h
+    fadd    v0.4s, v0.4s, v2.4s
+    fadd    v1.4s, v1.4s, v3.4s
     // TODO bump the read back up to 4 elements and unroll once?
+    stp     s0, s1, [x24], #8
+
 
     cmp     x23, x24
     b.ne    L6
@@ -89,7 +100,7 @@ continue:
     mov     x0, x20                 // fd
     svc     #0
 end:
-    add   sp, sp, #(8 * 16)
+    add     sp, sp, #(8 * 16)
     ldp     x26, x25, [sp], #0x20   // reload preserved regs
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
