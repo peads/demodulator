@@ -23,7 +23,7 @@
 #include "definitions.h"
                         // S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
 #define OPEN_MODE       0x1b4
- 
+#define STACK_SIZE      DEFAULT_BUF_SIZE
 #ifdef __APPLE__
     #define FREAD           _fread
     #define STATUS          _checkFileStatus

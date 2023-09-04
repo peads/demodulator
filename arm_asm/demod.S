@@ -24,13 +24,14 @@
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
     stp     x26, x25, [sp, #-0x20]!   // store callee-preserved regs
-    sub     sp, sp, #(8 * 16)
+    sub     sp, sp, #STACK_SIZE
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
-    sub     x21, x21, x1            // subtract mode from input_element_bytes
-    add x23, sp, #(8 * 16)          // end of buffer
+    sub     x21, x21, x1            // subtract mode from input_element_bytes 
+    ldr     x22, =cnj_transform
+    add     x23, sp, #STACK_SIZE    // end of buffer
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -45,7 +46,7 @@ L7:
 L6:
     mov     x0, x24
     mov     x1, x21           // input_element_bytes
-    mov     x2, #2   // * WIDTH = total bytes read each iteration
+    mov     x2, #MATRIX_WIDTH // * WIDTH = total bytes read each iteration
     mov     x3, x19
     bl      FREAD
 
@@ -62,26 +63,47 @@ check:
     cbz     x0, continue
     b       end
 continue:
-
-    ldr     s0, [x24]
-    dup     v1.4h, v0.h[1] // HIGH
-    dup     v0.4h, v0.h[0] // LOW
+    ld1     {v0.4h}, [x24]
     sshll   v0.4s, v0.4h, #0
-    sshll   v1.4s, v1.4h, #0
     scvtf   v0.4s, v0.4s
-    scvtf   v1.4s, v1.4s
-    mov     w4, #0x3f800000 // TODO these might be backwards. oh and move it to
-                            // outside the loops
-    fmov    s3, #-1
-    mov     v3.s[1], w4
-    fmul    v0.4s, v0.4s, v3.4s
-    fmul    v1.4s, v1.4s, v3.4s
-    rev32   v2.4h, v0.4h
-    rev32   v3.4h, v1.4h
-    fadd    v0.4s, v0.4s, v2.4s
-    fadd    v1.4s, v1.4s, v3.4s
-    // TODO bump the read back up to 4 elements and unroll once?
-    stp     s0, s1, [x24], #8
+    ld1     {v1.4s}, [x22]
+    fmul    v0.4s, v1.4s, v0.4s
+    umov    x0, v0.d[1]
+    umov    x1, v0.d[0]
+    fmov    d0, x0
+    ins     v0.d[1], x1
+
+    //ins     v0.d[1], v0.d[0]
+    //ext v0.16b, v0.16b, v0.16b, #0
+
+    //trn1    v1.4s, v0.4s, v0.4s
+    //trn2    v2.4s, v0.4s, v0.4s
+   
+    //rev64   v1.4s, v0.4s
+    //trn2    v1.4s, v1.4s, v2.4s
+    //ld2     {v0.4h, v1.4h}, [x24]
+    
+    //ldr     s0, [x24]
+    //dup     v1.4h, v0.h[1] // HIGH
+    //dup     v0.4h, v0.h[0] // LOW
+    //sshll   v0.4s, v0.4h, #0
+    //sshll   v1.4s, v1.4h, #0
+    //scvtf   v0.4s, v0.4s
+    //scvtf   v1.4s, v1.4s
+    //mov     w4, #0x3f800000 // TODO these might be backwards. oh and move it to
+    //                        // outside the loops
+    //fmov    s3, #-1
+    //mov     v3.s[1], w4
+    //fmul    v0.4s, v0.4s, v3.4s
+    //fmul    v1.4s, v1.4s, v3.4s
+    //rev32   v2.4h, v0.4h
+    //rev32   v3.4h, v1.4h
+    //fadd    v0.4s, v0.4s, v2.4s
+    //fadd    v1.4s, v1.4s, v3.4s
+    //// TODO bump the read back up to 4 elements and unroll once?
+    st1     {v0.4s}, [x24]
+    adds    x24, x24, #16
+    
 
 
     cmp     x23, x24
@@ -90,7 +112,7 @@ continue:
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
     mov     x1, sp
-    mov     x2, #(8 * 16)       // output_element_bytes
+    mov     x2, #STACK_SIZE       // output_element_bytes
     svc     #0
     cbnz    x0, L7
 
@@ -100,7 +122,7 @@ continue:
     mov     x0, x20                 // fd
     svc     #0
 end:
-    add     sp, sp, #(8 * 16)
+    add     sp, sp, #STACK_SIZE
     ldp     x26, x25, [sp], #0x20   // reload preserved regs
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs

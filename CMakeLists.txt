@@ -3,6 +3,7 @@ SET(PROJECT_NAME demodulator)
 set(CMAKE_C_STANDARD 99)
 execute_process(COMMAND clang -dumpmachine OUTPUT_VARIABLE TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+option(IS_NATIVE OFF)
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_INTEL OFF)
@@ -14,6 +15,10 @@ endif()
 
 if(IS_ARM)
     add_compile_definitions(IS_ARM)
+endif()
+
+if (IS_NATIVE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native -mcpu=native") 
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
