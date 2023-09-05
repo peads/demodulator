@@ -210,6 +210,10 @@ continue:
     fmul    v6.4s, v6.4s, v1.4s
     fmul    v7.4s, v7.4s, v2.4s
 
+    umov    x0, v6.d[0]
+    fmov    d0, x0
+    mov     v0.s[0], v7.s[1]     
+    
     // v2 = extract top half of v1
 
     // v1 = move second element in each lane of v1 to first position
