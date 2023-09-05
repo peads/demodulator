@@ -19,7 +19,7 @@
  */
 #include "asm.h"
     .text
-    str     x30, [sp, #-0x10]!        // store the link reg
+    stp     x30, x27, [sp, #-0x20]!        // store the link reg
     stp     x20, x19, [sp, #-0x20]!   // store callee-preserved regs
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
@@ -36,6 +36,8 @@
     eor     v25.16b, v25.16b, v25.16b
     ldr     x4, =negate_b_im
     ld1     {v26.4s}, [x4]
+    ldr     x4, =addsub
+    ld1     {v27.4s}, [x4]
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -123,11 +125,14 @@ continue:
     mov     v7.s[2], v5.s[0]
     mov     v7.s[3], v5.s[2] 
     
-    // TODO  
+    // TODO swizzle the vector in v6 
     // u = {-, +, -, +}
     // = {abjj + abjr, abjr - abrj, abrr + abjj, abrj - abrr},
     //      {dbjj + dbjr, dbjr - dbrj, dbrr + dbjj, dbrj - dbrr} 
     // = {-14, 2, 11, -1}, {-42, -2, 39, -5}
+    fmul v7.4s, v27.4s, v7.4s
+    fadd v7.4s, v5.4s, v7.4s
+    // TODO addaub v6 and v8
 
     // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
     // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
@@ -186,5 +191,5 @@ end:
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
     ldp     x20, x19, [sp], #0x20   // reload preserved regs
-    ldr     x30, [sp], #0x10        // reload lr
+    ldp     x30, x27, [sp], #0x20        // reload lr
     ret

@@ -19,7 +19,7 @@
  */
 #include "definitions.h"
 
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
+    .globl addsub, all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
 
     .bss
     .comm result, DEFAULT_BUF_SIZE << 4 // TODO revert this to 3!
@@ -51,4 +51,6 @@ cnj_transform:
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
 negate_b_im:
     .single 1.0, 1.0, 1.0, -1.0//, 1.0, 1.0, 1.0, -1.0
+addsub:
+    .single -1.0, 1.0, -1.0, 1.0//, 1.0, -1.0, 1.0, -1.0
 
