@@ -30,6 +30,13 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
+
+    ldr     x4, =all_41s
+    ld1     {v19.4s}, [x4]
+    ldr     x4, =all_23s
+    ld1     {v20.4s}, [x4]
+    ldr     x4, =all_64s
+    ld1     {v21.4s}, [x4]
     ldr     x4, =cnj_transform
     ld1     {v22.4s}, [x4]
     add     x23, sp, #STACK_SIZE    // end of buffer
@@ -172,22 +179,17 @@ continue:
     // u = 64*u/sqrt(v2)
     // {-63.8339844, 11.4472656, 62.9599609, -4.55957031},
     // {-63.543457, -3.27734375, 63.9082031, -7.56469727}
-    ldr     x0, =all_64s
-    ld1     {v0.4s}, [x0]
-    fmul    v1.4s, v0.4s, v4.4s
-    fmul    v2.4s, v0.4s, v5.4s
+    fmul    v1.4s, v21.4s, v4.4s    // all_64s
+    fmul    v2.4s, v21.4s, v5.4s
 
     // v1 = 23*v1 + 41
     // {18.0596619, 45.1138611, 63.626236, 39.3614044},
     // {18.1640701, 39.8222046, 63.9670105, 38.2814369}
-    ldr     x0, =all_23s
-    ld1     {v0.4s}, [x0]
-    ldr     x0, =all_41s
-    ld1     {v8.4s}, [x0]
+    mov     v8.16b, v19.16b         // all_41s for the acc
     mov     v9.16b, v8.16b
 
-    fmla    v8.4s, v0.4s, v4.4s
-    fmla    v9.4s, v0.4s, v5.4s
+    fmla    v8.4s, v20.4s, v4.4s    // all_23s
+    fmla    v9.4s, v20.4s, v5.4s
 
     // v4 =  reverse v1
     mov     v6.d[0], v8.d[1] 
@@ -210,9 +212,9 @@ continue:
     fmul    v6.4s, v6.4s, v1.4s
     fmul    v7.4s, v7.4s, v2.4s
 
-    umov    x0, v6.d[0]
+    umov    x0, v7.d[0]
     fmov    d0, x0
-    mov     v0.s[0], v7.s[1]     
+    mov     v0.s[0], v6.s[1]     
     
     // v2 = extract top half of v1
 
