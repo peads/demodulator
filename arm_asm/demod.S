@@ -30,7 +30,7 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
-
+   
     ldr     x4, =all_41s
     ld1     {v19.4s}, [x4]
     ldr     x4, =all_23s
@@ -56,6 +56,7 @@
     mov     x20, x0             // outFile
 L7:
     mov x24, sp
+    add x22, sp, #(STACK_SIZE - 1)
 L6:
     mov     x0, x24
     mov     x1, x21           // input_element_bytes
@@ -212,24 +213,15 @@ continue:
     fmul    v6.4s, v6.4s, v1.4s
     fmul    v7.4s, v7.4s, v2.4s
 
+    // store the result
     umov    x0, v7.d[0]
     fmov    d0, x0
     mov     v0.s[0], v6.s[1]     
-    
-    // v2 = extract top half of v1
+    fcmeq   v1.4s, v0.4s, v0.4s
+    and     v0.16b, v0.16b, v1.16b
+    st1     {v0.4s}, [x22]
 
-    // v1 = move second element in each lane of v1 to first position
-
-    // v1 = insert first element of v1 into first position of v2
-
-    // v2 = compare v1 to itself for eqaulity (NaN check)
-
-    // v1 = and v1 with v2
-
-    // return first element of v1
-
-    // store the result
-    st1     {v0.2d}, [x24]
+    add     x22, x22, #8
     add     x24, x24, #16
 
     cmp     x23, x24
@@ -237,7 +229,8 @@ continue:
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
-    mov     x1, sp
+    //mov     x1, sp
+    add     x1, sp, #(STACK_SIZE - 1)
     mov     x2, #STACK_SIZE       // output_element_bytes
     svc     #0
     cbnz    x0, L7
