@@ -133,18 +133,31 @@ continue:
     // = {abjj + abjr, abjr - abrj, abrr + abjj, abrj - abrr},
     //      {dbjj + dbjr, dbjr - dbrj, dbrr + dbjj, dbrj - dbrr} 
     // = {-14, 2, 11, -1}, {-42, -2, 39, -5}
-    fmul v7.4s, v27.4s,v7.4s
-    fadd v7.4s, v5.4s, v7.4s
-    fmul v8.4s, v27.4s,v8.4s
-    fadd v8.4s, v6.4s, v8.4s
+    fmul    v7.4s, v27.4s,v7.4s
+    fadd    v7.4s, v5.4s, v7.4s
+    fmul    v8.4s, v27.4s,v8.4s
+    fadd    v8.4s, v6.4s, v8.4s
 ////////////
     // TODO
 ///////////
     // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
     // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
+    fmul    v7.4s, v7.4s, v7.4s
+    fmul    v8.4s, v8.4s, v8.4s
+
+    mov    v0.d[0], v7.d[1] 
+    mov    v0.d[1], v7.d[0]
+    
+    mov    v1.d[0], v8.d[1] 
+    mov    v1.d[1], v8.d[0]
+
+    rev64   v0.4s, v0.4s
+    rev64   v1.4s, v1.4s
 
     // v2 = v2 + u
     // {197, 125, 125, 197}, {1789, 1525, 1525, 1789}
+    fadd v2.4s, v7.4s, v0.4s
+    fadd v3.4s, v8.4s, v1.4s
 
     // v2 = 1/sqrt(v2)
 
