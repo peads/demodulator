@@ -102,14 +102,14 @@ continue:
     umov    x0, v2.d[0]
     ins     v3.d[1], x0
 
-    trn1    v4.4s, v1.4s, v1.4s
-    trn2    v5.4s, v1.4s, v1.4s
-    umov    x0, v4.d[0]
-    ins     v5.d[1], x0
+    trn1    v5.4s, v1.4s, v1.4s
+    trn2    v4.4s, v1.4s, v1.4s
+    umov    x0, v5.d[0]
+    ins     v4.d[1], x0
 
-    trn2    v7.2d, v0.2d, v0.2d    
-    rev64   v8.4s, v7.4s
-    trn2    v7.2d, v8.2d, v7.2d
+    trn2    v6.2d, v0.2d, v0.2d    
+    rev64   v7.4s, v6.4s
+    trn2    v6.2d, v7.2d, v6.2d
     // v1_1, v1_2 
     // = {aj*bj, aj*br, ar*br, ar*bj}, {dj*bj, dj*br, dr*br, dr*bj}
     // = {abjj, abjr, abrr, abrj}, {dbjj, dbjr, dbrr, dbrj}
