@@ -24,7 +24,7 @@
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
     stp     x26, x25, [sp, #-0x20]!   // store callee-preserved regs
-    sub     sp, sp, #STACK_SIZE
+    sub     sp, sp, #(STACK_SIZE << 1)
 
     mov     x19, x0                 // inFile
     mov     x20, #1                 // outFile is stdout if NULL is passed in
@@ -145,7 +145,7 @@ continue:
     fmul    v8.4s, v27.4s,v8.4s
     fadd    v8.4s, v6.4s, v8.4s
 ////////////
-    // TODO
+    // TODO unfuck everything's efficiency
 ///////////
     // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
     // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
@@ -229,7 +229,7 @@ continue:
     // return first element of v1
 
     // store the result
-    st1     {v0.4s}, [x24]
+    st1     {v0.2d}, [x24]
     add     x24, x24, #16
 
     cmp     x23, x24
@@ -248,7 +248,7 @@ continue:
     mov     x0, x20                 // fd
     svc     #0
 end:
-    add     sp, sp, #STACK_SIZE
+    add     sp, sp, #(STACK_SIZE << 1)
     ldp     x26, x25, [sp], #0x20   // reload preserved regs
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
