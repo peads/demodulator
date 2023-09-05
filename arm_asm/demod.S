@@ -84,12 +84,63 @@ continue:
     // it's a surprise tool that will help us later
     mov     v0.16b, v25.16b
     mov     v25.16b, v1.16b
-    umov    x0, v0.d[1]
-    ins     v1.d[1], x0
 
     // arg
+    umov    x0, v0.d[1]
+    ins     v1.d[1], x0
     fmul    v1.4s, v26.4s, v1.4s
     fmul    v0.4s, v26.4s, v0.4s
+    // TODO
+    // v1 = {ar, aj, br, bj} = {1,2,3,-4}
+    // v2 = {dr, dj, br, bj} = {5,6,3,-4}
+
+    // v1_1, v1_2 = {aj, aj, ar, ar}, {dj, dj, dr, dr}
+    // v2_1, v2_2 = {bj, br, br, bj}, {bj, br, br, bj} 
+
+    // v1_1, v1_2 
+    // = {aj*bj, aj*br, ar*br, ar*bj}, {dj*bj, dj*br, dr*br, dr*bj}
+    // = {abjj, abjr, abrr, abrj}, {dbjj, dbjr, dbrr, dbrj}
+    // = {-8, 6, 3, -4}, {-24, 18, 15, -20}
+
+    // u = {abjr, abrj, abjj, abrr}, {dbjr, dbrj, dbjj, dbrr}
+    // = {6, -4, -8, 3, 18, -20, -24, 15}
+    
+    // u = {-, +, -, +}
+    // = {abjj + abjr, abjr - abrj, abrr + abjj, abrj - abrr},
+    //      {dbjj + dbjr, dbjr - dbrj, dbrr + dbjj, dbrj - dbrr} 
+    // = {-14, 2, 11, -1}, {-42, -2, 39, -5}
+
+    // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
+    // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
+
+    // v2 = v2 + u
+    // {197, 125, 125, 197}, {1789, 1525, 1525, 1789}
+
+    // v2 = 1/sqrt(v2)
+
+    // v1 = u/sqrt(v2)
+
+    // u = 64*u/sqrt(v2)
+
+    // v1 = 23*v1 + 41
+
+    // v4 =  reverse v1
+
+    // v4 = 1/v4
+
+    // v1 = u/v1
+
+    // v2 = extract top half of v1
+
+    // v1 = move second element in each lane of v1 to first position
+
+    // v1 = insert first element of v1 into first position of v2
+
+    // v2 = compare v1 to itself for eqaulity (NaN check)
+
+    // v1 = and v1 with v2
+
+    // return first element of v1
 
     // store the result
     st1     {v0.4s}, [x24]
