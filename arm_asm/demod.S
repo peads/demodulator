@@ -142,26 +142,32 @@ continue:
 ///////////
     // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
     // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
-    fmul    v7.4s, v7.4s, v7.4s
-    fmul    v8.4s, v8.4s, v8.4s
+    fmul    v2.4s, v7.4s, v7.4s
+    fmul    v3.4s, v8.4s, v8.4s
 
-    mov    v0.d[0], v7.d[1] 
-    mov    v0.d[1], v7.d[0]
+    mov    v0.d[0], v2.d[1] 
+    mov    v0.d[1], v2.d[0]
     
-    mov    v1.d[0], v8.d[1] 
-    mov    v1.d[1], v8.d[0]
+    mov    v1.d[0], v3.d[1] 
+    mov    v1.d[1], v3.d[0]
 
     rev64   v0.4s, v0.4s
     rev64   v1.4s, v1.4s
 
     // v2 = v2 + u
     // {197, 125, 125, 197}, {1789, 1525, 1525, 1789}
-    fadd v2.4s, v7.4s, v0.4s
-    fadd v3.4s, v8.4s, v1.4s
+    fadd    v2.4s, v2.4s, v0.4s
+    fadd    v3.4s, v3.4s, v1.4s
 
     // v2 = 1/sqrt(v2)
+    // {-0.997406006, 0.178863525, 0.98374939, -0.0712432861}, 
+    // {-0.992866516, -0.0512084961, 0.998565674, -0.118198395}
+    frsqrte v4.4s, v2.4s
+    frsqrte v5.4s, v3.4s
 
     // v1 = u/sqrt(v2)
+    fmul    v4.4s, v4.4s, v7.4s
+    fmul    v5.4s, v5.4s, v8.4s
 
     // u = 64*u/sqrt(v2)
 
