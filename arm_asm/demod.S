@@ -19,7 +19,7 @@
  */
 #include "asm.h"
     .text
-    str     x30, [sp, #-0x10]!        // store the link reg
+    stp     x30, x27, [sp, #-0x20]!        // store the link reg
     stp     x20, x19, [sp, #-0x20]!   // store callee-preserved regs
     stp     x22, x21, [sp, #-0x20]!   // store callee-preserved regs
     stp     x24, x23, [sp, #-0x20]!   // store callee-preserved regs
@@ -36,6 +36,8 @@
     eor     v25.16b, v25.16b, v25.16b
     ldr     x4, =negate_b_im
     ld1     {v26.4s}, [x4]
+    ldr     x4, =addsub
+    ld1     {v27.4s}, [x4]
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -84,12 +86,145 @@ continue:
     // it's a surprise tool that will help us later
     mov     v0.16b, v25.16b
     mov     v25.16b, v1.16b
-    umov    x0, v0.d[1]
-    ins     v1.d[1], x0
 
     // arg
+    // v1 = {ar, aj, br, bj} = {1,2,3,-4}
+    // v2 = {dr, dj, br, bj} = {5,6,3,-4}
+    umov    x0, v0.d[1]
+    ins     v1.d[1], x0
     fmul    v1.4s, v26.4s, v1.4s
     fmul    v0.4s, v26.4s, v0.4s
+
+    // v1_1, v1_2 = {aj, aj, ar, ar}, {dj, dj, dr, dr}
+    // v2_1, v2_2 = {bj, br, br, bj}, {bj, br, br, bj} 
+    trn1    v3.4s, v0.4s, v0.4s // => {ar, ar, br, br}
+    trn2    v2.4s, v0.4s, v0.4s // => {aj, aj, bj, bj}
+    umov    x0, v3.d[0]
+    ins     v2.d[1], x0         // {aj, aj, ar, ar}
+
+    trn1    v4.4s, v1.4s, v1.4s
+    trn2    v3.4s, v1.4s, v1.4s
+    umov    x0, v4.d[0]
+    ins     v3.d[1], x0         // {dj, dj, dr, dr}
+
+    trn2    v4.2d, v0.2d, v0.2d    
+    rev64   v5.4s, v4.4s
+    trn2    v4.2d, v5.2d, v4.2d // {bj, br, br, bj}
+
+    // v1_1, v1_2 
+    // = {aj*bj, aj*br, ar*br, ar*bj}, {dj*bj, dj*br, dr*br, dr*bj}
+    // = {abjj, abjr, abrr, abrj}, {dbjj, dbjr, dbrr, dbrj}
+    // = {-8, 6, 3, -4}, {-24, 18, 15, -20}
+    fmul    v5.4s, v2.4s, v4.4s
+    fmul    v6.4s, v3.4s, v4.4s
+
+    // u = {abjr, abrj, abjj, abrr}, {dbjr, dbrj, dbjj, dbrr}
+    // = {6, -4, -8, 3, 18, -20, -24, 15}
+    mov     v7.s[0], v5.s[1]
+    mov     v7.s[1], v5.s[3]
+    mov     v7.s[2], v5.s[0]
+    mov     v7.s[3], v5.s[2] 
+    mov     v8.s[0], v6.s[1]
+    mov     v8.s[1], v6.s[3]
+    mov     v8.s[2], v6.s[0]
+    mov     v8.s[3], v6.s[2] 
+    
+    // u = {-, +, -, +}
+    // = {abjj + abjr, abjr - abrj, abrr + abjj, abrj - abrr},
+    //      {dbjj + dbjr, dbjr - dbrj, dbrr + dbjj, dbrj - dbrr} 
+    // = {-14, 2, 11, -1}, {-42, -2, 39, -5}
+    fmul    v7.4s, v27.4s,v7.4s
+    fadd    v7.4s, v5.4s, v7.4s
+    fmul    v8.4s, v27.4s,v8.4s
+    fadd    v8.4s, v6.4s, v8.4s
+////////////
+    // TODO
+///////////
+    // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
+    // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
+    fmul    v2.4s, v7.4s, v7.4s
+    fmul    v3.4s, v8.4s, v8.4s
+
+    mov    v0.d[0], v2.d[1] 
+    mov    v0.d[1], v2.d[0]
+    
+    mov    v1.d[0], v3.d[1] 
+    mov    v1.d[1], v3.d[0]
+
+    rev64   v0.4s, v0.4s
+    rev64   v1.4s, v1.4s
+
+    // v2 = v2 + u
+    // {197, 125, 125, 197}, {1789, 1525, 1525, 1789}
+    fadd    v2.4s, v2.4s, v0.4s
+    fadd    v3.4s, v3.4s, v1.4s
+
+    // v2 = 1/sqrt(v2)
+    frsqrte v4.4s, v2.4s
+    frsqrte v5.4s, v3.4s
+
+    // v1 = u/sqrt(v2)
+    // {-0.997406006, 0.178863525, 0.98374939, -0.0712432861}, 
+    // {-0.992866516, -0.0512084961, 0.998565674, -0.118198395}
+    fmul    v4.4s, v4.4s, v7.4s
+    fmul    v5.4s, v5.4s, v8.4s
+
+    // u = 64*u/sqrt(v2)
+    // {-63.8339844, 11.4472656, 62.9599609, -4.55957031},
+    // {-63.543457, -3.27734375, 63.9082031, -7.56469727}
+    ldr     x0, =all_64s
+    ld1     {v0.4s}, [x0]
+    fmul    v1.4s, v0.4s, v4.4s
+    fmul    v2.4s, v0.4s, v5.4s
+
+    // v1 = 23*v1 + 41
+    // {18.0596619, 45.1138611, 63.626236, 39.3614044},
+    // {18.1640701, 39.8222046, 63.9670105, 38.2814369}
+    ldr     x0, =all_23s
+    ld1     {v0.4s}, [x0]
+    ldr     x0, =all_41s
+    ld1     {v8.4s}, [x0]
+    mov     v9.16b, v8.16b
+
+    fmla    v8.4s, v0.4s, v4.4s
+    fmla    v9.4s, v0.4s, v5.4s
+
+    // v4 =  reverse v1
+    mov     v6.d[0], v8.d[1] 
+    mov     v6.d[1], v8.d[0]
+    
+    mov     v7.d[0], v9.d[1] 
+    mov     v7.d[1], v9.d[0]
+    
+    rev64   v7.4s, v7.4s
+    rev64   v6.4s, v6.4s
+
+    // v4 = 1/v4
+    // {0.0254020691, 0.0157165527, 0.0221633911, 0.0553741455}, 
+    // {0.0261154175, 0.0156364441, 0.0251121521, 0.0550384521}
+    // v1 = u/v1
+    // {18.0596619, 45.1138611, 63.626236, 39.3614044},
+    // {18.1640701, 39.8222046, 63.9670105, 38.2814369}
+    frecpe  v6.4s, v6.4s
+    frecpe  v7.4s, v7.4s
+    fmul    v6.4s, v6.4s, v1.4s
+    fmul    v7.4s, v7.4s, v2.4s
+
+    umov    x0, v6.d[0]
+    fmov    d0, x0
+    mov     v0.s[0], v7.s[1]     
+    
+    // v2 = extract top half of v1
+
+    // v1 = move second element in each lane of v1 to first position
+
+    // v1 = insert first element of v1 into first position of v2
+
+    // v2 = compare v1 to itself for eqaulity (NaN check)
+
+    // v1 = and v1 with v2
+
+    // return first element of v1
 
     // store the result
     st1     {v0.4s}, [x24]
@@ -116,5 +251,5 @@ end:
     ldp     x24, x23, [sp], #0x20   // reload preserved regs
     ldp     x22, x21, [sp], #0x20   // reload preserved regs
     ldp     x20, x19, [sp], #0x20   // reload preserved regs
-    ldr     x30, [sp], #0x10        // reload lr
+    ldp     x30, x27, [sp], #0x20        // reload lr
     ret
