@@ -18,41 +18,46 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "asm.h"
-    .text
+.text
     pushq %rbp
     pushq %rbx
     pushq %r12
     pushq %r13
     pushq %r14
     pushq %r15
-
+    
     vxorpd %ymm5, %ymm5, %ymm5
+    vmovaps cnj_transform(%rip), %ymm11
+    vmovaps negate_b_im(%rip), %ymm12
+    vmovaps all_64s(%rip), %ymm13
+    vmovaps all_23s(%rip), %ymm14
+    vmovaps all_41s(%rip), %ymm15
 
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
-
+    
     pushq %rdx
     pushq %rbp
     pushq %rsi
-
-    leaq buf(%rip), %rbx        // buf
-    leaq (%rdi), %r15           // *inFile
+    
+    leaq buf(%rip), %rbx // buf
+    leaq (%rdi), %r15 // *inFile
     leaq result(%rip), %r14
-
+    
     movq $2, input_element_bytes(%rip)
     subq %rsi, input_element_bytes(%rip)
-
+    
     movl $1, 16(%rsp)
     test %rdx, %rdx
     jz L7
     mov $SYS_OPEN, %eax
-    mov %rdx, %rdi          // output stream
-    mov $OPEN_FLAGS, %esi   // O_TRUNC | O_CREAT | O_WRONLY
-    mov $OPEN_MODE, %edx    // rw-rw-r--
+    mov %rdx, %rdi // output stream
+    mov $OPEN_FLAGS, %esi // O_TRUNC | O_CREAT | O_WRONLY
+    mov $OPEN_MODE, %edx // rw-rw-r--
     syscall
-    mov %rax, 16(%rsp)      // save the fd
+    mov %rax, 16(%rsp) // save the fd
 L7:
-    xorq %r12, %r12         // i
+    xorq %r12, %r12 // i
     xorq %r13, %r13
 L6:
     movq %rbx, %rdi
@@ -61,7 +66,7 @@ L6:
     movq %r15, %rcx
     call FREAD
     addq %rax, %r13
-
+    
     movq %r15, %rdi
     call FERROR
     testb %al, %al
@@ -85,29 +90,29 @@ continue:
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1                          // int16 to float
+    vpmovsxwd %xmm1, %xmm1 // int16 to float
     vcvtdq2ps %xmm1, %xmm1
-    vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
-    // boxcar filter
+    vmulps %xmm11, %xmm1, %xmm1 // ar, -aj, br, -bj
+// boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
     movq %r12, %rcx
     shrq $1, %rcx
-
+    
     vmovaps %xmm5, %xmm0
     vmovaps %xmm1, %xmm5
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r14, %rcx)
-
+    
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-
+    
     mov $SYS_WRITE, %eax
-    mov 16(%rsp), %rdi       // fd
-    lea result(%rip), %rsi   // data
+    mov 16(%rsp), %rdi // fd
+    lea result(%rip), %rsi // data
     mov $OUT_BUF_SIZE, %edx
     syscall
     test %rax, %rax
@@ -116,7 +121,7 @@ end:
     mov $SYS_CLOSE, %eax
     mov 16(%rsp), %rdi
     syscall
-
+    
     addq $24, %rsp
     popq %r15
     popq %r14
