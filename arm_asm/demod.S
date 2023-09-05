@@ -207,8 +207,8 @@ continue:
     // {18.1640701, 39.8222046, 63.9670105, 38.2814369}
     frecpe  v6.4s, v6.4s
     frecpe  v7.4s, v7.4s
-    fmul    v6.4s, v6.4s, v8.4s
-    fmul    v7.4s, v7.4s, v9.4s
+    fmul    v6.4s, v6.4s, v1.4s
+    fmul    v7.4s, v7.4s, v2.4s
 
     // v2 = extract top half of v1
 
