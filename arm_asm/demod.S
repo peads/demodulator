@@ -124,16 +124,22 @@ continue:
     mov     v7.s[1], v5.s[3]
     mov     v7.s[2], v5.s[0]
     mov     v7.s[3], v5.s[2] 
+    mov     v8.s[0], v6.s[1]
+    mov     v8.s[1], v6.s[3]
+    mov     v8.s[2], v6.s[0]
+    mov     v8.s[3], v6.s[2] 
     
-    // TODO swizzle the vector in v6 
     // u = {-, +, -, +}
     // = {abjj + abjr, abjr - abrj, abrr + abjj, abrj - abrr},
     //      {dbjj + dbjr, dbjr - dbrj, dbrr + dbjj, dbrj - dbrr} 
     // = {-14, 2, 11, -1}, {-42, -2, 39, -5}
-    fmul v7.4s, v27.4s, v7.4s
+    fmul v7.4s, v27.4s,v7.4s
     fadd v7.4s, v5.4s, v7.4s
-    // TODO addaub v6 and v8
-
+    fmul v8.4s, v27.4s,v8.4s
+    fadd v8.4s, v6.4s, v8.4s
+////////////
+    // TODO
+///////////
     // v2 = u*u = {196, 4, 121, 1}, {1764, 4, 1521, 25}
     // reverse u =  {1, 121, 4, 196}, {25, 1521, 4, 1764}
 
