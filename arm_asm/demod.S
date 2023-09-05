@@ -86,16 +86,23 @@ continue:
     mov     v25.16b, v1.16b
 
     // arg
+    // v1 = {ar, aj, br, bj} = {1,2,3,-4}
+    // v2 = {dr, dj, br, bj} = {5,6,3,-4}
     umov    x0, v0.d[1]
     ins     v1.d[1], x0
     fmul    v1.4s, v26.4s, v1.4s
     fmul    v0.4s, v26.4s, v0.4s
+
     // TODO
-    // v1 = {ar, aj, br, bj} = {1,2,3,-4}
-    // v2 = {dr, dj, br, bj} = {5,6,3,-4}
 
     // v1_1, v1_2 = {aj, aj, ar, ar}, {dj, dj, dr, dr}
     // v2_1, v2_2 = {bj, br, br, bj}, {bj, br, br, bj} 
+    trn1    v2.4s, v0.4s, v0.4s // => {ar, ar, br, br}
+    trn2    v3.4s, v0.4s, v0.4s // => {aj, aj, bj, bj}
+    umov    x0, v2.d[0]
+    ins     v3.d[1], x0
+
+    
 
     // v1_1, v1_2 
     // = {aj*bj, aj*br, ar*br, ar*bj}, {dj*bj, dj*br, dr*br, dr*bj}
