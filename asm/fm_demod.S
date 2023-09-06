@@ -46,16 +46,21 @@ _arg:
     vrsqrtps %ymm1, %ymm1             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
-    vmulps all_64s(%rip), %ymm0, %ymm2      // 64*zj
-    vfmadd132ps all_23s(%rip), %ymm4, %ymm0 // 23*zr + 41s
-    vpermilps $0x1B, %ymm0, %ymm3
-    vrcpps %ymm3, %ymm3
-    vmulps %ymm3, %ymm2, %ymm0
+    vmulps          all_64s(%rip), %ymm0, %ymm2      // 64*zj
+    vfmadd132ps     all_23s(%rip), %ymm4, %ymm0 // 23*zr + 41s
+    vpermilps       $0x1B, %ymm0, %ymm3
+    vrcpps          %ymm3, %ymm3
+    vmulps          %ymm3, %ymm2, %ymm0
 
-    vextractf128 $1, %ymm0, %xmm1
-    vpermilps $1, %ymm0, %ymm0
-    vblendps $1, %xmm0, %xmm1, %xmm0
-    vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
-    vandps %xmm1, %xmm0, %xmm0
-    vmovq %xmm0, %rax
+    vextractf128    $1, %ymm0, %xmm1
+    vpermilps       $1, %ymm0, %ymm0
+    vblendps        $1, %xmm0, %xmm1, %xmm0
+    vcmpps          $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
+    vandps          %xmm1, %xmm0, %xmm0
+    vmovaps         gain(%rip), %ymm1
+    vucomiss        %xmm1, %xmm1
+    jb              nogain
+    vmulps          %xmm1, %xmm0, %xmm0
+nogain:
+    vmovq           %xmm0, %rax
     jmpq *%rdx

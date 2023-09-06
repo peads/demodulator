@@ -31,23 +31,34 @@
 
     pushq %rdx
     pushq %rbp
-    pushq %rsi
+    pushq           %rsi
 
-    leaq buf(%rip), %rbx        // buf
-    leaq (%rdi), %r15           // *inFile
-    leaq result(%rip), %r14
+    leaq            buf(%rip), %rbx        // buf
+    leaq            (%rdi), %r15           // *inFile
+    leaq            result(%rip), %r14
 
-    movq $2, input_element_bytes(%rip)
-    subq %rsi, input_element_bytes(%rip)
+    movq            $2, input_element_bytes(%rip)
+    subq            %rsi, input_element_bytes(%rip)
 
+    vxorps          %ymm6, %ymm6, %ymm6
+    vxorps          %ymm7, %ymm7, %ymm7
+    vmovss          %xmm0, %xmm0, %xmm6        // gain
+    mov             $0x3f800000, %rax          // compare to 1.f
+    movq            %rax, %xmm7
+    vcomiss         %xmm7, %xmm6
+    jz              nogain
+    vbroadcastss    %xmm6, %ymm6
+    vmovaps         %ymm6, gain(%rip)
+nogain:
     // init vector registers
-    vxorps  %ymm6, %ymm6, %ymm6
-    vmovaps %xmm0, %xmm6        // gain
-    vxorps  %ymm0, %ymm0, %ymm0
-    vxorps  %ymm1, %ymm1, %ymm1
-    vxorps  %ymm2, %ymm2, %ymm2
-    vxorps  %ymm3, %ymm3, %ymm3
-    vxorps  %ymm4, %ymm4, %ymm4
+    vxorps          %ymm0, %ymm0, %ymm0
+    vxorps          %ymm1, %ymm1, %ymm1
+    vxorps          %ymm2, %ymm2, %ymm2
+    vxorps          %ymm3, %ymm3, %ymm3
+    vxorps          %ymm4, %ymm4, %ymm4
+    vxorps          %ymm7, %ymm7, %ymm7
+    vxorps          %ymm8, %ymm8, %ymm8
+    vxorps          %ymm9, %ymm9, %ymm9
 outfile:
     movl $1, 16(%rsp)
     test %rdx, %rdx
@@ -86,18 +97,18 @@ check:
     movb $-1, %al
     jmp end
 continue:
-    vmovdqa (%rbx), %xmm1
-    movb (%rsp), %cl
-    testb %cl, %cl
-    jz int16
+    vmovdqa     (%rbx), %xmm1
+    movb        (%rsp), %cl
+    testb       %cl, %cl
+    jz          int16
 // uint8:
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1  //convert uint8 to int16
-    vpmovsxbw %xmm1, %xmm1
+    vpaddb      all_nonetwentysevens(%rip), %xmm1, %xmm1    //convert uint8 to int16
+    vpmovsxbw   %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1                           //int16 to int32
+    vpmovsxwd   %xmm1, %xmm1                                //int16 to int32
 int32:
-    vcvtdq2ps %xmm1, %xmm1                          // int32 to float
-    vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
+    vcvtdq2ps   %xmm1, %xmm1                                // int32 to float
+    vmulps      cnj_transform(%rip), %xmm1, %xmm1
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
