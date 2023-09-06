@@ -37,7 +37,7 @@
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
-    movq $3, input_element_bytes(%rip)
+    movq $2, input_element_bytes(%rip)
     subq %rsi, input_element_bytes(%rip)
 
     // init vector registers
@@ -48,7 +48,6 @@
     vxorps  %ymm2, %ymm2, %ymm2
     vxorps  %ymm3, %ymm3, %ymm3
     vxorps  %ymm4, %ymm4, %ymm4
-    vxorps  %ymm5, %ymm5, %ymm5
 outfile:
     movl $1, 16(%rsp)
     test %rdx, %rdx
@@ -90,13 +89,12 @@ continue:
     vmovdqa (%rbx), %xmm1
     movb (%rsp), %cl
     testb %cl, %cl
-    jz int32
-    jpo int16
+    jz int16
 // uint8:
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
+    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1  //convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1                          // int16 to int32
+    vpmovsxwd %xmm1, %xmm1                           //int16 to int32
 int32:
     vcvtdq2ps %xmm1, %xmm1                          // int32 to float
     vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj

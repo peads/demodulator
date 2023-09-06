@@ -105,8 +105,10 @@ static void convertUint8ToFloat(
 
     out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
     out[1] = (float) (254 - buf[index + 1] - buf[index + 3]);   // aj
+//    out[1] = (float) (buf[index + 1] + buf[index + 3] - 254);
     out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
     out[3] = (float) (buf[index + 5] + buf[index + 7] - 254);   // bj
+//    out[3] = (float) (254 - buf[index + 5] - buf[index + 7]);
 }
 
 static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__restrict__ result) {
@@ -135,15 +137,12 @@ static int processMode(const uint8_t mode) {
         case 0:                             // default mode (input int32)
             convert = convertInt32ToFloat;
             break;
-//            return 4;
         case 1:                             // input int16
             convert = convertInt16ToFloat;
             break;
-//            return 2;
         case 2:                             // input uint8
             convert = convertUint8ToFloat;
             break;
-//            return 1;
         default:
             return -1;
     }
