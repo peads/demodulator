@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 SET(PROJECT_NAME demodulator)
 set(CMAKE_C_STANDARD 99)
+execute_process(COMMAND clang -dumpmachine OUTPUT_VARIABLE TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-#add_compile_options(-g)
-add_compile_options(-Ofast)
-
+option(IS_NATIVE OFF)
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_INTEL OFF)
@@ -13,7 +12,11 @@ if(IS_INTEL)
     add_compile_definitions(IS_INTEL)
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -march=native -mtune=native -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
+if (IS_NATIVE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 
 if (IS_NVIDIA)
     set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75 80 86)
@@ -29,7 +32,6 @@ if (IS_NVIDIA)
 elseif(IS_INTEL)
     add_compile_definitions(DEFAULT_BUF_SIZE=2048)
     project(${PROJECT_NAME} LANGUAGES C ASM)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma")
 
     if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -diag-disable=10441")
@@ -38,9 +40,10 @@ elseif(IS_INTEL)
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/asm/*.S" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} src/main.c ${SRCS} include/prototypes.h)
+    add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -mno-avx256-split-unaligned-load -mno-avx256-split-unaligned-store")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
     endif()
 else()
@@ -53,17 +56,19 @@ else()
 
     FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "include/matrix.h" "include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
     endif()
 endif()
 
-message(CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
-message(CMAKE_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
-message(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
-message(CMAKE_C_FLAGS="${CMAKE_C_FLAGS}")
-
-add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD COMMAND rm ${CMAKE_BINARY_DIR}/out.dat ||:)
+#add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD COMMAND rm ${CMAKE_BINARY_DIR}/out.dat ||:)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin COMPONENT Runtime LIBRARY DESTINATION lib COMPONENT Runtime)
+
+#message(CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
+#message(CMAKE_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
+#message(CMAKE_ASM_COMPILER_ID="${CMAKE_ASM_COMPILER_ID}")
+#message(CMAKE_BINARY_DIR="${CMAKE_BINARY_DIR}")
+#message(CMAKE_C_FLAGS="${CMAKE_C_FLAGS}")
+#message(CMAKE_ASM_FLAGS="${CMAKE_ASM_FLAGS}")

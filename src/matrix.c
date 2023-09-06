@@ -27,29 +27,41 @@ static size_t inputElementBytes;
 static uint32_t bufSize = DEFAULT_BUF_SIZE;
 static conversionFunction_t convert;
 
-#ifndef HAS_EITHER
 
-inline float rsqrt(float y) {
+#ifdef HAS_AARCH64
 
-    static union fastRsqrtPun pun;
-
-    pun.f = y;
-    pun.i = -(pun.i >> 1) + 0x5f3759df;
-    pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
-
-    return pun.f;
+static inline float rsqrt(float x) {
+    __asm__ (
+        "frsqrte %0.2s, %0.2s\n\t"
+        : "=w"(x) : "w"(x) :);
+    return x;
 }
-#else
+#elif defined(HAS_EITHER_AVX_OR_SSE)
 
-inline float rsqrt(float x) {
+static inline float rsqrt(float x) {
     __asm__ (
 #ifdef HAS_AVX
             "vrsqrtss %0, %0, %0\n\t"
 #else //if HAS_SSE
             "rsqrtss %0, %0\n\t"
 #endif
-            :"=x" (x): "0" (x));
+            : "=x" (x) : "0" (x));
     return x;
+}
+#else
+
+static inline float rsqrt(float y) {
+
+    static union {
+        uint32_t i;
+        float f;
+    } pun;
+
+    pun.f = y;
+    pun.i = -(pun.i >> 1) + 0x5f3759df;
+    pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
+
+    return pun.f;
 }
 #endif
 
@@ -107,7 +119,7 @@ static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__r
     }
 }
 
-static int processMode(uint8_t mode) {
+static int processMode(const uint8_t mode) {
 
     switch (mode & 0b11) {
         case 0: // default mode (input int16)
@@ -130,7 +142,7 @@ static int processMode(uint8_t mode) {
     return 0;
 }
 
-int processMatrix(FILE *inFile, uint8_t mode, void *outFile) {
+int processMatrix(FILE *inFile, const uint8_t mode, void *outFile) {
 
     int exitFlag = processMode(mode);
     const size_t shiftedSize = bufSize - 2;
