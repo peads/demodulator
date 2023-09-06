@@ -33,6 +33,7 @@ int printIfError(FILE *file) {
 
 int main(int argc, char **argv) {
 
+    float gain = 1.f;
     uint8_t mode = 0;
     int ret = 0;
     int opt;
@@ -46,8 +47,11 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:")) != -1) {
+        while ((opt = getopt(argc, argv, "g:i:o:r:")) != -1) {
             switch (opt) {
+                case 'g':
+                    gain = strtof(optarg, NULL);
+                    break;
                 case 'r' :
                     mode |= 0b11 & atoi(optarg);
                     break;
@@ -78,7 +82,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        ret = processMatrix(inFile, mode, outFile);
+        ret = processMatrix(inFile, mode, gain, outFile);
 #if defined(IS_INTEL) || defined(IS_ARM)
     }
 #else

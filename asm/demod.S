@@ -26,13 +26,6 @@
     pushq %r14
     pushq %r15
 
-    vxorps %xmm0, %xmm0, %xmm0
-    vxorps %xmm1, %xmm1, %xmm1
-    vxorps %xmm2, %xmm2, %xmm2
-    vxorps %xmm3, %xmm3, %xmm3
-    vxorps %xmm4, %xmm4, %xmm4
-    vxorps %xmm5, %xmm5, %xmm5
-
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -47,13 +40,23 @@
     movq $3, input_element_bytes(%rip)
     subq %rsi, input_element_bytes(%rip)
 
+    // init vector registers
+    vxorps  %ymm6, %ymm6, %ymm6
+    vmovaps %xmm0, %xmm6        // gain
+    vxorps  %ymm0, %ymm0, %ymm0
+    vxorps  %ymm1, %ymm1, %ymm1
+    vxorps  %ymm2, %ymm2, %ymm2
+    vxorps  %ymm3, %ymm3, %ymm3
+    vxorps  %ymm4, %ymm4, %ymm4
+    vxorps  %ymm5, %ymm5, %ymm5
+outfile:
     movl $1, 16(%rsp)
     test %rdx, %rdx
     jz L7
     mov $SYS_OPEN, %eax
     mov %rdx, %rdi              // output stream
-    mov $OPEN_FLAGS, %esi       // flags
-    mov $OPEN_MODE, %edx        // mode, 600o = 0b110000000 = 0x180 = rw-------
+    mov $OPEN_FLAGS, %esi       // O_TRUNC | O_CREAT | O_WRONLY
+    mov $OPEN_MODE, %edx        // rw-rw-r--
     syscall
     mov %rax, 16(%rsp)          // save the fd
 L7:
