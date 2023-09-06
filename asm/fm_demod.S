@@ -25,16 +25,13 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
-    .globl _arg
+    .globl _demodulateFmData, _arg
 _arg:
     .text
-    // negate_b_im in   ymm12
-    // all_64s in       ymm13
-    // all_23s in       ymm14
-    // all_41s in       ymm15
+    vmovaps all_41s(%rip), %ymm4
     vblendps $0b0011, %xmm1, %xmm0, %xmm1
     vinsertf128 $1, %xmm1, %ymm0, %ymm0
-    vmulps %ymm12, %ymm0, %ymm0       // (ar, aj, br, -bj)
+    vmulps negate_b_im(%rip), %ymm0, %ymm0 // (ar, aj, br, -bj)
 
     vpermilps $0xEB, %ymm0, %ymm1     // (ar, aj, br, bj) => (aj, aj, ar, ar)
     vpermilps $0x5, %ymm0, %ymm0      // and                 (bj, br, br, bj)
@@ -49,8 +46,8 @@ _arg:
     vrsqrtps %ymm1, %ymm1             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
     vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
-    vmulps %ymm13, %ymm0, %ymm2       // 64*zj
-    vfmadd132ps %ymm14, %ymm15, %ymm0 // 23*zr + 41
+    vmulps all_64s(%rip), %ymm0, %ymm2      // 64*zj
+    vfmadd132ps all_23s(%rip), %ymm4, %ymm0 // 23*zr + 41s
     vpermilps $0x1B, %ymm0, %ymm3
     vrcpps %ymm3, %ymm3
     vmulps %ymm3, %ymm2, %ymm0
