@@ -18,11 +18,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <string.h>
-#include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
-#include "prototypes.h"
 
 int printIfError(FILE *file) {
 
@@ -35,11 +33,12 @@ int printIfError(FILE *file) {
 
 int main(int argc, char **argv) {
 
+    float gain = 1.f;
     uint8_t mode = 0;
     int ret = 0;
     int opt;
     FILE *inFile = NULL;
-#ifdef IS_INTEL
+#if defined(IS_INTEL) || defined(IS_ARM)
     char *outFile = NULL;
 #else
     FILE *outFile = NULL;
@@ -48,8 +47,11 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:")) != -1) {
+        while ((opt = getopt(argc, argv, "g:i:o:r:")) != -1) {
             switch (opt) {
+                case 'g':
+                    gain = strtof(optarg, NULL);
+                    break;
                 case 'r' :
                     mode |= 0b11 & atoi(optarg);
                     break;
@@ -62,7 +64,7 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
-#ifdef IS_INTEL
+#if defined(IS_INTEL) || defined(IS_ARM)
                     outFile = !strstr(optarg, "-") ? optarg : NULL;
 #else
                     if (!strstr(optarg, "-")) {
@@ -80,8 +82,8 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        ret = processMatrix(inFile, mode, outFile);
-#ifdef IS_INTEL
+        ret = processMatrix(inFile, mode, gain, outFile);
+#if defined(IS_INTEL) || defined(IS_ARM)
     }
 #else
         ret = ret != EOF;

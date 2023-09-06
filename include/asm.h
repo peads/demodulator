@@ -21,34 +21,44 @@
 #define DEMODULATOR_ASM_H
 
 #include "definitions.h"
-
+                        // S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+#define OPEN_MODE       0x1b4
+#define STACK_SIZE      DEFAULT_BUF_SIZE
 #ifdef __APPLE__
-#define FREAD _fread
-#define STATUS _checkFileStatus
-#define FERROR _ferror
-#define FEOF _feof
-#define PERROR _perror
-//DARWIN x64 ONLY
-#define SYS_WRITE 0x2000004
-#define SYS_OPEN 0x2000005
-#define SYS_CLOSE 0x2000006
-#define O_WRONLY 0x1
-#define O_CREAT 0x200
-#define O_TRUNC 0x400
+    #define FREAD           _fread
+    #define STATUS          _checkFileStatus
+    #define FERROR          _ferror
+    #define FEOF            _feof
+    #define PERROR          _perror
+    //DARWIN x64 ONLY
+    #define SYS_WRITE       0x2000004
+    #define SYS_OPEN        0x2000005
+    #define SYS_CLOSE       0x2000006
+                            // O_TRUNC | O_CREAT | O_WRONLY
+    #define OPEN_FLAGS      0x601
+
     .globl  _processMatrix
     _processMatrix:
 #else
-#define SYS_WRITE 0x1
-#define SYS_OPEN 0x2
-#define SYS_CLOSE 0x3
-#define O_WRONLY 0x1
-#define O_CREAT 0100
-#define O_TRUNC 01000
-#define FREAD fread
-#define STATUS checkFileStatus
-#define FERROR ferror
-#define FEOF feof
-#define PERROR perror
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        #define SYS_WRITE   0x40
+        // this is actually openat(3), but whatever 
+        #define SYS_OPEN    0x38
+        #define SYS_CLOSE   0x39
+        #define AT_FDCWD    0xffffff9c
+    #else 
+        #define SYS_WRITE   0x1
+        #define SYS_OPEN    0x2
+        #define SYS_CLOSE   0x3
+    #endif
+                            // O_TRUNC | O_CREAT | O_WRONLY
+    #define OPEN_FLAGS      0x241
+    #define FREAD           fread
+    #define STATUS          checkFileStatus
+    #define FERROR          ferror
+    #define FEOF            feof
+    #define PERROR          perror
+
     .globl  processMatrix
     processMatrix:
 #endif

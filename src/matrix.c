@@ -27,11 +27,37 @@ static size_t inputElementBytes;
 static uint32_t bufSize = DEFAULT_BUF_SIZE;
 static conversionFunction_t convert;
 
-#ifndef HAS_EITHER
 
-inline float rsqrt(float y) {
+#ifdef HAS_AARCH64
 
-    static union fastRsqrtPun pun;
+static inline float rsqrt(float x) {
+    __asm__ (
+        "frsqrte %0.2s, %0.2s\n\t"
+        : "=w"(x) : "w"(x) :);
+    return x;
+}
+#elif defined(HAS_EITHER_AVX_OR_SSE)
+
+static inline float rsqrt(float x) {
+
+    __asm__ (
+#ifdef HAS_AVX
+            "vrsqrtss %0, %0, %0\n\t"
+#else //if HAS_SSE
+        "rsqrtss %0, %0\n\t"
+#endif
+            : "=x" (x) : "0" (x));
+    return x;
+}
+
+#else
+
+static inline float rsqrt(float y) {
+
+    static union {
+        uint32_t i;
+        float f;
+    } pun;
 
     pun.f = y;
     pun.i = -(pun.i >> 1) + 0x5f3759df;
@@ -39,23 +65,12 @@ inline float rsqrt(float y) {
 
     return pun.f;
 }
-#else
-
-inline float rsqrt(float x) {
-    __asm__ (
-#ifdef HAS_AVX
-            "vrsqrtss %0, %0, %0\n\t"
-#else //if HAS_SSE
-            "rsqrtss %0, %0\n\t"
-#endif
-            :"=x" (x): "0" (x));
-    return x;
-}
 #endif
 
 
 // this is buggy as shit
-static void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
+static void
+noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
 
     const float *buf = (float *) in;
 
@@ -66,7 +81,7 @@ static void noconversion(const void *__restrict__ in, const uint32_t index, floa
 }
 
 static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
-                         float *__restrict__ out) {
+                                float *__restrict__ out) {
 
     const int16_t *buf = (int16_t *) in;
 
@@ -77,7 +92,7 @@ static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t inde
 }
 
 static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
-                         float *__restrict__ out) {
+                                float *__restrict__ out) {
 
     const uint8_t *buf = (uint8_t *) in;
 
@@ -107,7 +122,7 @@ static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__r
     }
 }
 
-static int processMode(uint8_t mode) {
+static int processMode(const uint8_t mode) {
 
     switch (mode & 0b11) {
         case 0: // default mode (input int16)
@@ -130,12 +145,26 @@ static int processMode(uint8_t mode) {
     return 0;
 }
 
-int processMatrix(FILE *inFile, uint8_t mode, void *outFile) {
+static void applyGain(float gain, float *__restrict__ buf, size_t len) {
+
+    size_t i = 0;
+    for (; i < len; i += 4) {
+        buf[i] *= gain;
+        buf[i + 1] *= gain;
+        buf[i + 2] *= gain;
+        buf[i + 3] *= gain;
+    }
+}
+
+int processMatrix(FILE *inFile, const uint8_t mode, float gain, void *outFile) {
+
+    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const size_t shiftedSize = bufSize - 2;
 
     int exitFlag = processMode(mode);
-    const size_t shiftedSize = bufSize - 2;
     void *buf = calloc(bufSize, inputElementBytes);
-    size_t readBytes;
+
+    size_t readBytes, shiftedBytes;
     float result[bufSize >> 2];
 
     while (!exitFlag) {
@@ -150,8 +179,12 @@ int processMatrix(FILE *inFile, uint8_t mode, void *outFile) {
         }
 
         fmDemod(buf, readBytes, result);
+        shiftedBytes = readBytes >> 2;
+        if (isGain) {
+            applyGain(gain, result, shiftedBytes);
+        }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, shiftedBytes, outFile);
     }
     return exitFlag;
 }
