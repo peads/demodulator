@@ -44,7 +44,7 @@
     leaq (%rdi), %r15           // *inFile
     leaq result(%rip), %r14
 
-    movq $2, input_element_bytes(%rip)
+    movq $3, input_element_bytes(%rip)
     subq %rsi, input_element_bytes(%rip)
 
     movl $1, 16(%rsp)
@@ -87,9 +87,10 @@ continue:
     vmovdqa (%rbx), %xmm1
     movb (%rsp), %cl
     testb %cl, %cl
-    jz int16
-    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
+    jz int32
+    jpo int16
 // uint8:
+    vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
     vpmovsxwd %xmm1, %xmm1                          // int16 to int32
