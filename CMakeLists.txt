@@ -18,7 +18,7 @@ if(IS_ARM)
 endif()
 
 if (IS_NATIVE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native -mcpu=native") 
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")

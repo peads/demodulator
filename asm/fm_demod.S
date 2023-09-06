@@ -28,37 +28,37 @@
     .globl _arg
 _arg:
     .text
-    // negate_b_im in   ymm12
-    // all_64s in       ymm13
-    // all_23s in       ymm14
-    // all_41s in       ymm15
-    vblendps $0b0011, %xmm1, %xmm0, %xmm1
-    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-    vmulps %ymm12, %ymm0, %ymm0       // (ar, aj, br, -bj)
+    vblendps        $0b0011, %xmm1, %xmm0, %xmm1
+    vinsertf128     $1, %xmm1, %ymm0, %ymm0
+    vmulps          %ymm12, %ymm0, %ymm0 // (ar, aj, br, -bj)
 
-    vpermilps $0xEB, %ymm0, %ymm1     // (ar, aj, br, bj) => (aj, aj, ar, ar)
-    vpermilps $0x5, %ymm0, %ymm0      // and                 (bj, br, br, bj)
+    vpermilps       $0xEB, %ymm0, %ymm1     // (ar, aj, br, bj) => (aj, aj, ar, ar)
+    vpermilps       $0x5, %ymm0, %ymm0      // and                 (bj, br, br, bj)
 
-    vmulps %ymm1, %ymm0, %ymm0        // aj*bj, aj*br, ar*br, ar*bj
-    vpermilps $0x8D, %ymm0, %ymm2     // aj*br, aj*bj, ar*bj, ar*br
-    vaddsubps %ymm2, %ymm0, %ymm0     //  ... [don't care], ar*bj + aj*br, ar*br - aj*bj, [don't care] ...
-    vmulps %ymm0, %ymm0, %ymm1        // ... , (ar*bj + aj*br)^2, (ar*br - aj*bj)^2, ...
-    vpermilps $0x1B, %ymm1, %ymm2
-    vaddps %ymm2, %ymm1, %ymm1        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
+    vmulps          %ymm1, %ymm0, %ymm0        // aj*bj, aj*br, ar*br, ar*bj
+    vpermilps       $0x8D, %ymm0, %ymm2     // aj*br, aj*bj, ar*bj, ar*br
+    vaddsubps       %ymm2, %ymm0, %ymm0     //  ... [don't care], ar*bj + aj*br, ar*br - aj*bj, [don't care] ...
+    vmulps          %ymm0, %ymm0, %ymm1        // ... , (ar*bj + aj*br)^2, (ar*br - aj*bj)^2, ...
+    vpermilps       $0x1B, %ymm1, %ymm2
+    vaddps          %ymm2, %ymm1, %ymm1        // ..., (ar*br - aj*bj)^2 + (ar*bj + aj*br)^2, ...
 
-    vrsqrtps %ymm1, %ymm1             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
-    vmulps %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
+    vrsqrtps        %ymm1, %ymm1             // ..., 1/Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
+    vmulps          %ymm1, %ymm0, %ymm0        // ... , zj/||z|| , zr/||z|| = (ar*br - aj*bj) / Sqrt[(ar*br - aj*bj)^2 + (ar*bj + aj*br)^2], ...
 
-    vmulps %ymm13, %ymm0, %ymm2       // 64*zj
-    vfmadd132ps %ymm14, %ymm15, %ymm0 // 23*zr + 41
-    vpermilps $0x1B, %ymm0, %ymm3
-    vrcpps %ymm3, %ymm3
-    vmulps %ymm3, %ymm2, %ymm0
+    vmulps          %ymm8, %ymm0, %ymm2      // 64*zj
+    vfmadd132ps     %ymm9, %ymm10, %ymm0 // 23*zr + 41s
+    vpermilps       $0x1B, %ymm0, %ymm3
+    vrcpps          %ymm3, %ymm3
+    vmulps          %ymm3, %ymm2, %ymm0
 
-    vextractf128 $1, %ymm0, %xmm1
-    vpermilps $1, %ymm0, %ymm0
-    vblendps $1, %xmm0, %xmm1, %xmm0
-    vcmpps $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
-    vandps %xmm1, %xmm0, %xmm0
-    vmovq %xmm0, %rax
+    vextractf128    $1, %ymm0, %xmm1
+    vpermilps       $1, %ymm0, %ymm0
+    vblendps        $1, %xmm0, %xmm1, %xmm0
+    vcmpps          $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
+    vandps          %xmm1, %xmm0, %xmm0
+    vucomiss        %xmm1, %xmm13
+    jb              nogain
+    vmulps          %xmm13, %xmm0, %xmm0
+nogain:
+    vmovq           %xmm0, %rax
     jmpq *%rdx

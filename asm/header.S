@@ -19,38 +19,45 @@
  */
 #include "definitions.h"
 
-.globl all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, negate_b_im
-.bss
-    .comm buf, MATRIX_WIDTH << 2
-    .comm result, DEFAULT_BUF_SIZE << 3
-    .comm input_element_bytes, 1
-.data
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, gain, negate_b_im
+
+    .bss
+    .comm       buf, MATRIX_WIDTH << 2
+    .comm       result, DEFAULT_BUF_SIZE << 3
+    .comm       input_element_bytes, 1
+
+    .data
 #ifndef __APPLE__
-.section .rodata
+    .section    .rodata
 #endif
 all_nonetwentysevens:
-    .rept 2
-    .quad -0x7f7f7f7f7f7f7f7f
+    .rept       2
+    .quad       -0x7f7f7f7f7f7f7f7f
     .endr
-    .p2align 5
+    .p2align    5
 all_64s:
-    .rept MATRIX_WIDTH << 1
-    .single 64.0
+    .rept       MATRIX_WIDTH << 1
+    .single     64.0
     .endr
-    .p2align 5
+    .p2align    5
 all_23s:
-    .rept MATRIX_WIDTH << 1
-    .single 23.0
+    .rept       MATRIX_WIDTH << 1
+    .single     23.0
     .endr
-    .p2align 5
+    .p2align    5
 all_41s:
-    .rept MATRIX_WIDTH << 1
-    .single 41.0
+    .rept       MATRIX_WIDTH << 1
+    .single     41.0
     .endr
-    .p2align 5
+    .p2align    5
 cnj_transform:
-    .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
-    .p2align 5
+    .single     1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0
+    .p2align    5
 negate_b_im:
-    .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
-    .p2align 5
+    .single     1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
+    .p2align    5
+gain:
+    .rept       MATRIX_WIDTH << 1
+    .single     NAN
+    .endr
+    .p2align    5

@@ -22,7 +22,7 @@
     .globl addsub, all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, dc_raw_const, negate_b_im
 
     .bss
-    .comm result, DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
+    .comm result, DEFAULT_BUF_SIZE << 4 // TODO revert this to 3!
 
     .data
 #ifndef __APPLE__
