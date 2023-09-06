@@ -225,15 +225,15 @@ continue:
     st1     {v0.4s}, [x0]
 
     add     x22, x22, #16
-    adds    x0, x22, #-(STACK_SIZE >> 1) 
+    adds    x0, x22, #-STACK_SIZE
 endinner:
     b.ne    L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
     //mov     x1, sp
-    add     x1, sp, #(STACK_SIZE)
-    mov     x2, #STACK_SIZE       // output_element_bytes
+    add     x1, sp, #STACK_SIZE
+    mov     x2, #(STACK_SIZE >> 1)       // output_element_bytes
     svc     #0
     cbnz    x0, L7
 
