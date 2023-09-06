@@ -50,7 +50,6 @@
     vbroadcastss    %xmm6, %ymm6
     vmovaps         %ymm6, gain(%rip)
 nogain:
-    // init vector registers
     vxorps          %ymm0, %ymm0, %ymm0
     vxorps          %ymm1, %ymm1, %ymm1
     vxorps          %ymm2, %ymm2, %ymm2
@@ -59,6 +58,26 @@ nogain:
     vxorps          %ymm7, %ymm7, %ymm7
     vxorps          %ymm8, %ymm8, %ymm8
     vxorps          %ymm9, %ymm9, %ymm9
+    vxorps          %ymm10, %ymm10, %ymm10
+    vxorps          %ymm11, %ymm11, %ymm11
+    vxorps          %ymm12, %ymm12, %ymm12
+    vxorps          %ymm13, %ymm13, %ymm13
+
+    // init vector registers
+    // all_nonetwentysevens -> xmm7
+    // all_64s              -> xmm8
+    // all_23s              -> xmm9
+    // all_41s              -> xmm10
+    // cnj_transform        -> xmm11
+    // negate_b_im          -> xmm12
+    // gain                 -> xmm13
+    vmovaps         all_nonetwentysevens(%rip), %ymm7
+    vmovaps         all_64s(%rip), %ymm8
+    vmovaps         all_23s(%rip), %ymm9
+    vmovaps         all_41s(%rip), %ymm10
+    vmovaps         cnj_transform(%rip), %ymm11
+    vmovaps         negate_b_im(%rip), %ymm12
+    vmovaps         gain(%rip), %ymm13
 outfile:
     movl $1, 16(%rsp)
     test %rdx, %rdx
@@ -108,7 +127,7 @@ int16:
     vpmovsxwd   %xmm1, %xmm1                                //int16 to int32
 int32:
     vcvtdq2ps   %xmm1, %xmm1                                // int32 to float
-    vmulps      cnj_transform(%rip), %xmm1, %xmm1
+    vmulps      %xmm11, %xmm1, %xmm1
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
     vaddps %xmm2, %xmm1, %xmm1
