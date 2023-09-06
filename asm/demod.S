@@ -18,24 +18,17 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "asm.h"
-.text
+    .text
     pushq %rbp
     pushq %rbx
     pushq %r12
     pushq %r13
     pushq %r14
     pushq %r15
-    
-    vxorpd %ymm5, %ymm5, %ymm5
-    vmovaps cnj_transform(%rip), %ymm11
-    vmovaps negate_b_im(%rip), %ymm12
-    vmovaps all_64s(%rip), %ymm13
-    vmovaps all_23s(%rip), %ymm14
-    vmovaps all_41s(%rip), %ymm15
 
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
-    
+
     pushq %rdx
     pushq %rbp
     pushq           %rsi
@@ -98,6 +91,7 @@ outfile:
 L7:
     xorq %r12, %r12             // i
     xorq %r13, %r13
+    vxorps %ymm5, %ymm5, %ymm5
 L6:
     movq %rbx, %rdi
     movq input_element_bytes(%rip), %rsi
@@ -105,7 +99,7 @@ L6:
     movq %r15, %rcx
     call FREAD
     addq %rax, %r13
-    
+
     movq %r15, %rdi
     call FERROR
     testb %al, %al
@@ -119,6 +113,7 @@ check:
     call FEOF
     testb %al, %al
     jz continue
+    movb $-1, %al
     jmp end
 continue:
     vmovdqa     (%rbx), %xmm1
@@ -138,22 +133,22 @@ int32:
     vaddps %xmm2, %xmm1, %xmm1
     movq %r12, %rcx
     shrq $1, %rcx
-    
+
     vmovaps %xmm5, %xmm0
     vmovaps %xmm1, %xmm5
     leaq (%rip), %rdx
     addq $9, %rdx
     jmp _arg
     movq %rax, (%r14, %rcx)
-    
+
     addq $MATRIX_ELEMENT_BYTES, %r12
     test %r12, %rbp
     jz L6
-    
+
     mov $SYS_WRITE, %eax
-    mov 16(%rsp), %rdi // fd
-    lea result(%rip), %rsi // data
-    mov $OUT_BUF_SIZE, %edx
+    mov 16(%rsp), %rdi       // fd
+    lea result(%rip), %rsi   // data
+    mov $0x4000, %edx        // size = OUTPUT_ELEMENT_BYTES*QTR_BUF_SIZE
     syscall
     test %rax, %rax
     jnz L7
@@ -161,7 +156,7 @@ end:
     mov $SYS_CLOSE, %eax
     mov 16(%rsp), %rdi
     syscall
-    
+
     addq $24, %rsp
     popq %r15
     popq %r14

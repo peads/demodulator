@@ -25,7 +25,7 @@
  * as a--effectively--a packed float. Doesn't account for special
  * case x<0 && y==0, but this doesn't seem to negatively affect performance.
  */
-    .globl _arg
+    .globl _demodulateFmData, _arg
 _arg:
     .text
     vblendps        $0b0011, %xmm1, %xmm0, %xmm1
