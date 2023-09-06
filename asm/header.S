@@ -34,6 +34,7 @@ all_nonetwentysevens:
     .rept 2
     .quad -0x7f7f7f7f7f7f7f7f
     .endr
+    .p2align 5
 all_64s:
     .rept MATRIX_WIDTH << 1
     .single 64.0
@@ -51,5 +52,7 @@ all_41s:
     .p2align 5
 cnj_transform:
     .single 1.0, -1.0, 1.0, -1.0//, 1.0, -1.0, 1.0, -1.0
+    .p2align 5
 negate_b_im:
     .single 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
+    .p2align 5
