@@ -131,22 +131,26 @@ static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__r
 
 static int processMode(const uint8_t mode) {
 
-    switch (3 - (mode & 0b11)) {
-        case 1:                             // input uint8
-            convert = convertUint8ToFloat;
-            return 1;
-        case 2:                             // input int16
-            convert = convertInt16ToFloat;
-            return 2;
-        case 3:                             // default mode (input int32)
+    switch (mode) {
+        case 0:                             // default mode (input int32)
             convert = convertInt32ToFloat;
-            return 4;
+            break;
+//            return 4;
+        case 1:                             // input int16
+            convert = convertInt16ToFloat;
+            break;
+//            return 2;
+        case 2:                             // input uint8
+            convert = convertUint8ToFloat;
+            break;
+//            return 1;
         default:
             return -1;
     }
+    return 0;
 }
 
-static inline void applyGain(float gain, float *__restrict__ buf, size_t len) {
+static void applyGain(float gain, float *__restrict__ buf, size_t len) {
 
     size_t i = 0;
     for (; i < len; i += 4) {
@@ -159,16 +163,16 @@ static inline void applyGain(float gain, float *__restrict__ buf, size_t len) {
 
 int processMatrix(FILE *inFile, uint8_t mode, const float gain, void *outFile) {
 
-    int exitFlag = processMode(mode);
-    const size_t inputElementBytes = (size_t) exitFlag;
+    const int64_t inputElementBytes = 4 >> mode;
     const size_t shiftedSize = DEFAULT_BUF_SIZE - 2;
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
 
-    float result[DEFAULT_BUF_SIZE >> 2];
-    size_t readBytes, shiftedBytes;
+    int exitFlag = processMode(mode);
     void *buf = calloc(DEFAULT_BUF_SIZE, inputElementBytes);
 
-    exitFlag = exitFlag < 0;
+    float result[DEFAULT_BUF_SIZE >> 2];
+    size_t readBytes, shiftedBytes;
+
     while (!exitFlag) {
 
         readBytes = fread(buf + 2, inputElementBytes, shiftedSize, inFile);
