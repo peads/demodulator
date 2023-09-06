@@ -25,8 +25,7 @@
     pushq %r13
     pushq %r14
     pushq %r15
-    
-    vxorpd %ymm5, %ymm5, %ymm5
+
     vmovaps cnj_transform(%rip), %ymm11
     vmovaps negate_b_im(%rip), %ymm12
     vmovaps all_64s(%rip), %ymm13
@@ -43,8 +42,9 @@
     leaq buf(%rip), %rbx // buf
     leaq (%rdi), %r15 // *inFile
     leaq result(%rip), %r14
-    
-    movq $2, input_element_bytes(%rip)
+
+    // deal with mode
+    movq $3, input_element_bytes(%rip)  // TODO put in reg?
     subq %rsi, input_element_bytes(%rip)
     
     movl $1, 16(%rsp)
@@ -85,13 +85,15 @@ continue:
     vmovdqa (%rbx), %xmm1
     movb (%rsp), %cl
     testb %cl, %cl
-    jz int16
+    jz int32
+    jp int16
 // uint8:
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
     vpmovsxbw %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1 // int16 to float
-    vcvtdq2ps %xmm1, %xmm1
+    vpmovsxwd %xmm1, %xmm1 // int16 to int32
+int32:
+    vcvtdq2ps %xmm1, %xmm1 // int32 to float
     vmulps %xmm11, %xmm1, %xmm1 // ar, -aj, br, -bj
 // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
@@ -112,7 +114,7 @@ int16:
     
     mov $SYS_WRITE, %eax
     mov 16(%rsp), %rdi // fd
-    lea result(%rip), %rsi // data
+    lea result(%rip), %rsi // data  // TODO can mov r14->rsi here?
     mov $OUT_BUF_SIZE, %edx
     syscall
     test %rax, %rax
