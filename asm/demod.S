@@ -26,6 +26,13 @@
     pushq %r14
     pushq %r15
 
+    vxorps %xmm0, %xmm0, %xmm0
+    vxorps %xmm1, %xmm1, %xmm1
+    vxorps %xmm2, %xmm2, %xmm2
+    vxorps %xmm3, %xmm3, %xmm3
+    vxorps %xmm4, %xmm4, %xmm4
+    vxorps %xmm5, %xmm5, %xmm5
+
     movw $DEFAULT_BUF_SIZE, %bp
     shlw $4, %bp
 
@@ -82,10 +89,12 @@ continue:
     testb %cl, %cl
     jz int16
     vpaddb all_nonetwentysevens(%rip), %xmm1, %xmm1 // convert uint8 to int16
+// uint8:
     vpmovsxbw %xmm1, %xmm1
 int16:
-    vpmovsxwd %xmm1, %xmm1                          // int16 to float
-    vcvtdq2ps %xmm1, %xmm1
+    vpmovsxwd %xmm1, %xmm1                          // int16 to int32
+int32:
+    vcvtdq2ps %xmm1, %xmm1                          // int32 to float
     vmulps cnj_transform(%rip), %xmm1, %xmm1        // ar, -aj, br, -bj
     // boxcar filter
     vpermilps $0x4E, %xmm1, %xmm2
