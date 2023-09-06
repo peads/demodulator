@@ -23,7 +23,10 @@
 #include "definitions.h"
 #include "matrix.h"
 
+static size_t inputElementBytes;
+static uint32_t bufSize = DEFAULT_BUF_SIZE;
 static conversionFunction_t convert;
+
 
 #ifdef HAS_AARCH64
 
@@ -66,29 +69,19 @@ static inline float rsqrt(float y) {
 
 
 // this is buggy as shit
-//static void noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out)  {
-//
-//    const float *buf = (float *) in;
-//
-//    out[0] = (buf[index] + buf[index + 2]);
-//    out[1] = (buf[index + 1] + buf[index + 3]);
-//    out[2] = (buf[index + 4] + buf[index + 6]);
-//    out[3] = -(buf[index + 5] + buf[index + 7]);
-//}
+static void
+noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
 
-static void convertInt32ToFloat(
-        const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
+    const float *buf = (float *) in;
 
-    const int32_t *buf = (int32_t *) in;
-
-    out[0] = (float) (buf[index] + buf[index + 2]);
-    out[1] = (float) (buf[index + 1] + buf[index + 3]);
-    out[2] = (float) (buf[index + 4] + buf[index + 6]);
-    out[3] = (float) -(buf[index + 5] + buf[index + 7]);
+    out[0] = (buf[index] + buf[index + 2]);
+    out[1] = (buf[index + 1] + buf[index + 3]);
+    out[2] = (buf[index + 4] + buf[index + 6]);
+    out[3] = -(buf[index + 5] + buf[index + 7]);
 }
 
-static void convertInt16ToFloat(
-        const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
+static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
+                                float *__restrict__ out) {
 
     const int16_t *buf = (int16_t *) in;
 
@@ -98,8 +91,8 @@ static void convertInt16ToFloat(
     out[3] = (float) -(buf[index + 5] + buf[index + 7]);
 }
 
-static void convertUint8ToFloat(
-        const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
+static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
+                                float *__restrict__ out) {
 
     const uint8_t *buf = (uint8_t *) in;
 
@@ -131,19 +124,24 @@ static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__r
 
 static int processMode(const uint8_t mode) {
 
-    switch (mode) {
-        case 0:                             // default mode (input int32)
-            convert = convertInt32ToFloat;
-            break;
-        case 1:                             // input int16
+    switch (mode & 0b11) {
+        case 0: // default mode (input int16)
             convert = convertInt16ToFloat;
+            inputElementBytes = 2;
             break;
-        case 2:                             // input uint8
+        case 1: // input uint8
             convert = convertUint8ToFloat;
+            inputElementBytes = 1;
+            break;
+        case 2: // input float
+            convert = noconversion;
+            inputElementBytes = 4;
+            bufSize = 1024;
             break;
         default:
             return -1;
     }
+
     return 0;
 }
 
@@ -158,21 +156,20 @@ static void applyGain(float gain, float *__restrict__ buf, size_t len) {
     }
 }
 
-int processMatrix(FILE *inFile, uint8_t mode, const float gain, void *outFile) {
+int processMatrix(FILE *inFile, const uint8_t mode, float gain, void *outFile) {
 
-    const int64_t inputElementBytes = 4 >> mode;
-    const size_t shiftedSize = DEFAULT_BUF_SIZE - inputElementBytes;
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const size_t shiftedSize = bufSize - 2;
 
     int exitFlag = processMode(mode);
-    void *buf = calloc(DEFAULT_BUF_SIZE, inputElementBytes);
+    void *buf = calloc(bufSize, inputElementBytes);
 
-    float result[DEFAULT_BUF_SIZE >> 2];
     size_t readBytes, shiftedBytes;
+    float result[bufSize >> 2];
 
     while (!exitFlag) {
 
-        readBytes = fread(buf + inputElementBytes, inputElementBytes, shiftedSize, inFile);
+        readBytes = fread(buf + 2, inputElementBytes, shiftedSize, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -181,9 +178,8 @@ int processMatrix(FILE *inFile, uint8_t mode, const float gain, void *outFile) {
             exitFlag = EOF;
         }
 
-        shiftedBytes = readBytes >> 2;
         fmDemod(buf, readBytes, result);
-
+        shiftedBytes = readBytes >> 2;
         if (isGain) {
             applyGain(gain, result, shiftedBytes);
         }
