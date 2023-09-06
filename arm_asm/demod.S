@@ -30,7 +30,7 @@
     mov     x20, #1                 // outFile is stdout if NULL is passed in
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
-   
+    add     x23, sp, #STACK_SIZE
     ldr     x4, =all_41s
     ld1     {v19.4s}, [x4]
     ldr     x4, =all_23s
@@ -39,7 +39,6 @@
     ld1     {v21.4s}, [x4]
     ldr     x4, =cnj_transform
     ld1     {v22.4s}, [x4]
-    add     x23, sp, #STACK_SIZE    // end of buffer
     eor     v25.16b, v25.16b, v25.16b
     ldr     x4, =negate_b_im
     ld1     {v26.4s}, [x4]
@@ -55,8 +54,8 @@
     svc     #0
     mov     x20, x0             // outFile
 L7:
-    mov x24, sp
-    add x22, sp, #(STACK_SIZE - 1)
+    eor     x22, x22, x22
+    mov     x24, sp 
 L6:
     mov     x0, x24
     mov     x1, x21           // input_element_bytes
@@ -214,23 +213,26 @@ continue:
     fmul    v7.4s, v7.4s, v2.4s
 
     // store the result
-    umov    x0, v7.d[0]
-    fmov    d0, x0
-    mov     v0.s[0], v6.s[1]     
+    eor     v0.16b, v0.16b, v0.16b 
+    mov     v0.s[1], v7.s[1]
+    //mov     v0.s[0], v6.s[1]
+         
     fcmeq   v1.4s, v0.4s, v0.4s
     and     v0.16b, v0.16b, v1.16b
-    st1     {v0.4s}, [x22]
 
-    add     x22, x22, #8
-    add     x24, x24, #16
+    lsr     x0, x22, #1
+    add     x0, x23, x0
+    st1     {v0.4s}, [x0]
 
-    cmp     x23, x24
+    add     x22, x22, #16
+    adds    x0, x22, #-(STACK_SIZE >> 1) 
+endinner:
     b.ne    L6
 
     mov     w8, #SYS_WRITE
     mov     x0, x20             // fd
     //mov     x1, sp
-    add     x1, sp, #(STACK_SIZE - 1)
+    add     x1, sp, #(STACK_SIZE)
     mov     x2, #STACK_SIZE       // output_element_bytes
     svc     #0
     cbnz    x0, L7
