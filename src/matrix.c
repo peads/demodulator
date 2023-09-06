@@ -164,7 +164,7 @@ static void applyGain(float gain, float *__restrict__ buf, size_t len) {
 int processMatrix(FILE *inFile, uint8_t mode, const float gain, void *outFile) {
 
     const int64_t inputElementBytes = 4 >> mode;
-    const size_t shiftedSize = DEFAULT_BUF_SIZE - 2;
+    const size_t shiftedSize = DEFAULT_BUF_SIZE - inputElementBytes;
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
 
     int exitFlag = processMode(mode);
@@ -175,7 +175,7 @@ int processMatrix(FILE *inFile, uint8_t mode, const float gain, void *outFile) {
 
     while (!exitFlag) {
 
-        readBytes = fread(buf + 2, inputElementBytes, shiftedSize, inFile);
+        readBytes = fread(buf + inputElementBytes, inputElementBytes, shiftedSize, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
