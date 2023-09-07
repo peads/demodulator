@@ -104,10 +104,10 @@ int processMatrix(FILE *__restrict__ inFile,
 
     size_t readBytes, i;
     float ret;
-    float result[DEFAULT_BUF_SIZE >> 1];
+    float result[DEFAULT_BUF_SIZE >> 2];
 
     while (!exitFlag) {
-        for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; ++i) {
+        for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; i+=4) {
 
             readBytes += fread(x.arr, inputElementBytes, 4, inFile);
 
@@ -119,10 +119,10 @@ int processMatrix(FILE *__restrict__ inFile,
             }
 
             ret = fmDemod(boxcar(conju(convertToFloats(x.v))));
-            result[i>>1] = ret;
+            result[i>>2] = ret;
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes>>2, outFile);
     }
 
     return exitFlag;
