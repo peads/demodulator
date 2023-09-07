@@ -57,7 +57,7 @@ _arg:
     vcmpps          $0x0, %xmm0, %xmm0, %xmm1  // effectively the NAN check
     vandps          %xmm1, %xmm0, %xmm0
     vcomiss         %xmm13, %xmm13
-    jnz             nogain
+    jb              nogain
     vmulps          %xmm13, %xmm0, %xmm0
 nogain:
     vmovq           %xmm0, %rax

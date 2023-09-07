@@ -19,18 +19,18 @@
  */
 #include "asm.h"
     .text
-    pushq %rbp
-    pushq %rbx
-    pushq %r12
-    pushq %r13
-    pushq %r14
-    pushq %r15
+    pushq           %rbp
+    pushq           %rbx
+    pushq           %r12
+    pushq           %r13
+    pushq           %r14
+    pushq           %r15
 
-    movw $DEFAULT_BUF_SIZE, %bp
-    shlw $4, %bp
+    movw            $DEFAULT_BUF_SIZE, %bp
+    shlw            $4, %bp
 
-    pushq %rdx
-    pushq %rbp
+    pushq           %rdx
+    pushq           %rbp
     pushq           %rsi
 
     leaq            buf(%rip), %rbx        // buf
@@ -42,6 +42,7 @@
 checkgain:
     vxorps          %ymm13, %ymm13, %ymm13
     vxorps          %ymm7, %ymm7, %ymm7
+    vmovaps         gain(%rip), %xmm13
     mov             $0x3f800000, %rax          // compare to 1.f
     movq            %rax, %xmm7
     vcomiss         %xmm7, %xmm0
