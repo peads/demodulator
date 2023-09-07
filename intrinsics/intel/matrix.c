@@ -78,11 +78,14 @@ static float fmDemod(__m128 x) {
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
 
-    w = _mm256_mul_ps(u, all64s);// 64*zj
-    u = _mm256_fmadd_ps(all23s, u, all41s);// 23*zr + 41s
+    w = _mm256_mul_ps(u, all64s);                  // 64*zj
+    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41s
     y = _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B));
     u = _mm256_mul_ps(w, y);
-    // TODO NAN check
+
+    v = _mm256_cmp_ps(u, u, 0);                           // NAN check
+    u = _mm256_and_ps(u, v);
+
     ret.v = u;
     return ret.arr[5];
 }
@@ -122,7 +125,7 @@ int processMatrix(FILE *__restrict__ inFile,
             result[i>>2] = ret;
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes>>2, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
     }
 
     return exitFlag;
