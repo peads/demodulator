@@ -75,7 +75,7 @@ else()
     endif()
 
     if(IS_INTINT)
-        add_compile_definitions(DEFAULT_BUF_SIZE=4)
+        add_compile_definitions(DEFAULT_BUF_SIZE=2048)
         set(SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c" "${CMAKE_CURRENT_SOURCE_DIR}/intrinsics/intel/matrix.c")
     else()
         add_compile_definitions(DEFAULT_BUF_SIZE=2097152)

@@ -24,8 +24,6 @@
 #include "definitions.h"
 #include "matrix.h"
 
-size_t inputElementBytes;
-
 static inline __m128 convertToFloats(__m128i u) {
 
     static const __m128i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f};
@@ -45,15 +43,20 @@ static inline __m128 boxcar(__m128 u) {
     return _mm_add_ps(u, _mm_permute_ps(u, 0x4E));
 }
 
-static void fmDemod(__m128 x,
-                    const uint32_t len,
-                    float *__restrict__ result) {
+static float fmDemod(__m128 x) {
+
+    static union {
+        __m256 v;
+        float arr[8];
+    } ret;
 
     static const __m256 negateBIm = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+
     static __m128 prev = {0.f, 0.f, 0.f, 0.f};
+
     __m128 u0 = prev;
     __m128 v0 = prev = x;
     __m256 u, v, w, y;
@@ -75,44 +78,51 @@ static void fmDemod(__m128 x,
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
 
-    w = _mm256_mul_ps(u,all64s);// 64*zj
+    w = _mm256_mul_ps(u, all64s);// 64*zj
     u = _mm256_fmadd_ps(all23s, u, all41s);// 23*zr + 41s
     y = _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B));
     u = _mm256_mul_ps(w, y);
-
+    // TODO NAN check
+    ret.v = u;
+    return ret.arr[5];
 }
 
 int processMatrix(FILE *__restrict__ inFile,
                   uint8_t mode,
                   float gain,
                   void *__restrict__ outFile) {
-//    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
-    const size_t shiftedSize = DEFAULT_BUF_SIZE;// - 2;
-    inputElementBytes = 2 - mode;
 
-    int exitFlag = mode <= 0 || mode >= 3;
-
-    union {
-        uint8_t arr[DEFAULT_BUF_SIZE];
+    static union {
+        uint8_t arr[16];
         __m128i v;
     } x;
 
-    size_t readBytes, shiftedBytes = 0;
-    float result[DEFAULT_BUF_SIZE >> 2] __attribute__((aligned(32)));
+    const size_t inputElementBytes = 2 - mode;
+//    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+
+    int exitFlag = mode <= 0 || mode >= 3;
+
+    size_t readBytes, i;
+    float ret;
+    float result[DEFAULT_BUF_SIZE >> 1];
 
     while (!exitFlag) {
+        for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; ++i) {
 
-        readBytes = fread(x.arr, inputElementBytes, shiftedSize, inFile);
+            readBytes += fread(x.arr, inputElementBytes, 4, inFile);
 
-        if ((exitFlag = ferror(inFile))) {
-            perror(NULL);
-            break;
-        } else if (feof(inFile)) {
-            exitFlag = EOF;
+            if ((exitFlag = ferror(inFile))) {
+                perror(NULL);
+                break;
+            } else if (feof(inFile)) {
+                exitFlag = EOF;
+            }
+
+            ret = fmDemod(boxcar(conju(convertToFloats(x.v))));
+            result[i>>1] = ret;
         }
-        fmDemod(boxcar(conju(convertToFloats(x.v))), readBytes, result);
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, shiftedBytes, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes, outFile);
     }
 
     return exitFlag;
