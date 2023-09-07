@@ -56,7 +56,7 @@ static void fmDemod(__m128 x,
     static __m128 prev = {0.f, 0.f, 0.f, 0.f};
     __m128 u0 = prev;
     __m128 v0 = prev = x;
-    __m256 u, v, w;
+    __m256 u, v, w, y;
 
     v0 = _mm_blend_ps(u0, v0, 0b0011);
     u = _mm256_set_m128(v0, u0);
@@ -77,6 +77,8 @@ static void fmDemod(__m128 x,
 
     w = _mm256_mul_ps(u,all64s);// 64*zj
     u = _mm256_fmadd_ps(all23s, u, all41s);// 23*zr + 41s
+    y = _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B));
+    u = _mm256_mul_ps(w, y);
 
 }
 
