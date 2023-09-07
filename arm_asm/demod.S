@@ -31,6 +31,7 @@
     mov     x21, #2                 // input_element_bytes
     sub     x21, x21, x1            // subtract mode from input_element_bytes 
     add     x23, sp, #STACK_SIZE
+    mov     x25, x1
     ldr     x4, =all_41s
     ld1     {v19.4s}, [x4]
     ldr     x4, =all_23s
@@ -44,6 +45,8 @@
     ld1     {v26.4s}, [x4]
     ldr     x4, =addsub
     ld1     {v27.4s}, [x4]
+    ldr     x4, =all_nonetwentysevens
+    ld1     {v28.16b}, [x4]
 
     cbz     x2, L7
     mov     x8, #SYS_OPEN
@@ -77,6 +80,11 @@ check:
     b       end
 continue:
     ld1     {v0.4h}, [x24]
+    tst     x25, x25
+    b.eq    int16
+    add     v0.16b, v0.16b, v28.16b
+    sshll   v0.8h, v0.8b, #0
+int16:
     sshll   v0.4s, v0.4h, #0
     scvtf   v0.4s, v0.4s
     // conj
@@ -226,7 +234,6 @@ continue:
 
     add     x22, x22, #16
     adds    x0, x22, #-STACK_SIZE
-endinner:
     b.ne    L6
 
     mov     w8, #SYS_WRITE
