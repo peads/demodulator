@@ -19,7 +19,6 @@
  */
 #include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
 #include <immintrin.h>
 #include "definitions.h"
 #include "matrix.h"
@@ -101,14 +100,14 @@ int processMatrix(FILE *__restrict__ inFile,
     } x;
 
     const size_t inputElementBytes = 2 - mode;
-//    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
 
     int exitFlag = mode <= 0 || mode >= 3;
 
     size_t readBytes, i;
     float ret;
     float result[DEFAULT_BUF_SIZE >> 2];
-
+    // TODO change/add pre-demodulation gain, s.t. we leverage simd
     while (!exitFlag) {
         for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; i+=4) {
 
@@ -122,7 +121,7 @@ int processMatrix(FILE *__restrict__ inFile,
             }
 
             ret = fmDemod(boxcar(conju(convertToFloats(x.v))));
-            result[i>>2] = ret;
+            result[i>>2] = isGain ? ret * gain: ret;
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);

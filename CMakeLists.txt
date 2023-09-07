@@ -69,7 +69,6 @@ elseif(IS_ARM)
     endif()
 else()
     project(${PROJECT_NAME} LANGUAGES C)
-    add_compile_definitions(DEFAULT_BUF_SIZE=2097152)
 
     if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-disable=10441")
