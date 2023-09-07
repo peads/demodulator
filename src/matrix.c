@@ -23,10 +23,7 @@
 #include "definitions.h"
 #include "matrix.h"
 
-static size_t inputElementBytes;
-static uint32_t bufSize = DEFAULT_BUF_SIZE;
-static conversionFunction_t convert;
-
+conversionFunction_t convert;
 
 #ifdef HAS_AARCH64
 
@@ -67,18 +64,19 @@ static inline float rsqrt(float y) {
 }
 #endif
 
+static size_t inputElementBytes;
 
 // this is buggy as shit
-static void
-noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
-
-    const float *buf = (float *) in;
-
-    out[0] = (buf[index] + buf[index + 2]);
-    out[1] = (buf[index + 1] + buf[index + 3]);
-    out[2] = (buf[index + 4] + buf[index + 6]);
-    out[3] = -(buf[index + 5] + buf[index + 7]);
-}
+//static void
+//noconversion(const void *__restrict__ in, const uint32_t index, float *__restrict__ out) {
+//
+//    const float *buf = (float *) in;
+//
+//    out[0] = (buf[index] + buf[index + 2]);
+//    out[1] = (buf[index + 1] + buf[index + 3]);
+//    out[2] = (buf[index + 4] + buf[index + 6]);
+//    out[3] = -(buf[index + 5] + buf[index + 7]);
+//}
 
 static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
                                 float *__restrict__ out) {
@@ -122,6 +120,16 @@ static void fmDemod(const void *__restrict__ buf, const uint32_t len, float *__r
     }
 }
 
+static void applyGain(float gain, float *__restrict__ buf, size_t len) {
+
+    size_t i = 0;
+    for (; i < len; i += 4) {
+        buf[i] *= gain;
+        buf[i + 1] *= gain;
+        buf[i + 2] *= gain;
+        buf[i + 3] *= gain;
+    }
+}
 static int processMode(const uint8_t mode) {
 
     switch (mode & 0b11) {
@@ -133,11 +141,11 @@ static int processMode(const uint8_t mode) {
             convert = convertUint8ToFloat;
             inputElementBytes = 1;
             break;
-        case 2: // input float
-            convert = noconversion;
-            inputElementBytes = 4;
-            bufSize = 1024;
-            break;
+//        case 2: // input float
+//            convert = noconversion;
+//            inputElementBytes = 4;
+//            bufSize = 1024;
+//            break;
         default:
             return -1;
     }
@@ -145,27 +153,16 @@ static int processMode(const uint8_t mode) {
     return 0;
 }
 
-static void applyGain(float gain, float *__restrict__ buf, size_t len) {
-
-    size_t i = 0;
-    for (; i < len; i += 4) {
-        buf[i] *= gain;
-        buf[i + 1] *= gain;
-        buf[i + 2] *= gain;
-        buf[i + 3] *= gain;
-    }
-}
-
-int processMatrix(FILE *inFile, const uint8_t mode, float gain, void *outFile) {
+int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile) {
 
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
-    const size_t shiftedSize = bufSize - 2;
+    const size_t shiftedSize = DEFAULT_BUF_SIZE - 2;
 
     int exitFlag = processMode(mode);
-    void *buf = calloc(bufSize, inputElementBytes);
+    void *buf = calloc(DEFAULT_BUF_SIZE, inputElementBytes);
 
     size_t readBytes, shiftedBytes;
-    float result[bufSize >> 2];
+    float result[DEFAULT_BUF_SIZE >> 2];
 
     while (!exitFlag) {
 
