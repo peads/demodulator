@@ -19,18 +19,18 @@
  */
 #include "asm.h"
     .text
-    pushq %rbp
-    pushq %rbx
-    pushq %r12
-    pushq %r13
-    pushq %r14
-    pushq %r15
+    pushq           %rbp
+    pushq           %rbx
+    pushq           %r12
+    pushq           %r13
+    pushq           %r14
+    pushq           %r15
 
-    movw $DEFAULT_BUF_SIZE, %bp
-    shlw $4, %bp
+    movw            $DEFAULT_BUF_SIZE, %bp
+    shlw            $4, %bp
 
-    pushq %rdx
-    pushq %rbp
+    pushq           %rdx
+    pushq           %rbp
     pushq           %rsi
 
     leaq            buf(%rip), %rbx        // buf
@@ -39,29 +39,28 @@
 
     movq            $2, input_element_bytes(%rip)
     subq            %rsi, input_element_bytes(%rip)
-
-    vxorps          %ymm6, %ymm6, %ymm6
+checkgain:
+    vxorps          %ymm13, %ymm13, %ymm13
     vxorps          %ymm7, %ymm7, %ymm7
-    vmovss          %xmm0, %xmm0, %xmm6        // gain
+    vmovaps         gain(%rip), %xmm13
     mov             $0x3f800000, %rax          // compare to 1.f
     movq            %rax, %xmm7
-    vcomiss         %xmm7, %xmm6
+    vcomiss         %xmm7, %xmm0
     jz              nogain
-    vbroadcastss    %xmm6, %ymm6
-    vmovaps         %ymm6, gain(%rip)
+    vbroadcastss    %xmm0, %ymm13
 nogain:
     vxorps          %ymm0, %ymm0, %ymm0
     vxorps          %ymm1, %ymm1, %ymm1
     vxorps          %ymm2, %ymm2, %ymm2
     vxorps          %ymm3, %ymm3, %ymm3
     vxorps          %ymm4, %ymm4, %ymm4
+    vxorps          %ymm6, %ymm6, %ymm6
     vxorps          %ymm7, %ymm7, %ymm7
     vxorps          %ymm8, %ymm8, %ymm8
     vxorps          %ymm9, %ymm9, %ymm9
     vxorps          %ymm10, %ymm10, %ymm10
     vxorps          %ymm11, %ymm11, %ymm11
     vxorps          %ymm12, %ymm12, %ymm12
-    vxorps          %ymm13, %ymm13, %ymm13
 
     // init vector registers
     // all_nonetwentysevens -> xmm7
@@ -77,7 +76,7 @@ nogain:
     vmovaps         all_41s(%rip), %ymm10
     vmovaps         cnj_transform(%rip), %ymm11
     vmovaps         negate_b_im(%rip), %ymm12
-    vmovaps         gain(%rip), %ymm13
+    // gain is already in its reg
 outfile:
     movl $1, 16(%rsp)
     test %rdx, %rdx
