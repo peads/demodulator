@@ -11,10 +11,12 @@ option(IS_ARM OFF)
 
 if(IS_INTEL)
     add_compile_definitions(IS_INTEL)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstrict-aliasing")
 endif()
 
 if(IS_ARM)
     add_compile_definitions(IS_ARM)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mstrict-align")
 endif()
 
 if (IS_NATIVE)
