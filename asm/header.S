@@ -19,13 +19,12 @@
  */
 #include "definitions.h"
 
-    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, gain, negate_b_im
+    .globl all_hundredths, all_nonetwentysevens, all_64s, all_23s, all_41s, cnj_transform, negate_b_im
 
     .bss
     .comm       buf, MATRIX_WIDTH << 2
     .comm       result, DEFAULT_BUF_SIZE << 3
     .comm       input_element_bytes, 1
-
     .data
 #ifndef __APPLE__
     .section    .rodata
@@ -56,8 +55,4 @@ cnj_transform:
 negate_b_im:
     .single     1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, -1.0
     .p2align    5
-gain:
-    .rept       MATRIX_WIDTH << 1
-    .single     NAN
-    .endr
-    .p2align    5
+
