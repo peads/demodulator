@@ -50,6 +50,9 @@ static void fmDemod(__m128 x,
                     float *__restrict__ result) {
 
     static const __m256 negateBIm = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
+    static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
+    static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
+    static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
     static __m128 prev = {0.f, 0.f, 0.f, 0.f};
     __m128 u0 = prev;
     __m128 v0 = prev = x;
@@ -71,6 +74,9 @@ static void fmDemod(__m128 x,
 
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
+
+    w = _mm256_mul_ps(u,all64s);// 64*zj
+    u = _mm256_fmadd_ps(all23s, u, all41s);// 23*zr + 41s
 
 }
 
