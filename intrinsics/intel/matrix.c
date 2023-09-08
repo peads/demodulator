@@ -28,7 +28,7 @@ typedef __m128 (*mm_convert_fun_t)(__m128i u);
 static __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(
-        _mm_cvtepi16_epi32(u));
+            _mm_cvtepi16_epi32(u));
 }
 
 static __m128 convertUint8ToFloat(__m128i u) {
@@ -128,9 +128,9 @@ int processMatrix(FILE *__restrict__ inFile,
     float result[DEFAULT_BUF_SIZE >> 2];
     // TODO change/add pre-demodulation gain, s.t. we leverage simd
     while (!exitFlag) {
-        for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; i+=4) {
+        for (i = 0, readBytes = 0; i < DEFAULT_BUF_SIZE; i += OUTPUT_ELEMENT_BYTES) {
 
-            readBytes += fread(x.arr, inputElementBytes, 4, inFile);
+            readBytes += fread(x.arr, inputElementBytes, OUTPUT_ELEMENT_BYTES, inFile);
 
             if ((exitFlag = ferror(inFile))) {
                 perror(NULL);
@@ -140,7 +140,7 @@ int processMatrix(FILE *__restrict__ inFile,
             }
 
             ret = fmDemod(boxcar(conju(convert(x.v))));
-            result[i>>2] = isGain ? ret * gain: ret;
+            result[i >> 2] = isGain ? ret * gain : ret;
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
