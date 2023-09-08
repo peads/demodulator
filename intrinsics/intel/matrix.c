@@ -23,12 +23,19 @@
 #include "definitions.h"
 #include "matrix.h"
 
-static inline __m128 convertToFloats(__m128i u) {
+typedef __m128 (*mm_convert_fun_t)(__m128i u);
+
+static __m128 convertInt16ToFloat(__m128i u) {
+
+    return _mm_cvtepi32_ps(
+        _mm_cvtepi16_epi32(u));
+}
+
+static __m128 convertUint8ToFloat(__m128i u) {
 
     static const __m128i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f};
 
-    return _mm_cvtepi32_ps(
-        _mm_cvtepi16_epi32(_mm_cvtepi8_epi16(_mm_add_epi16(u, Z))));
+    return convertInt16ToFloat(_mm_cvtepi8_epi16(_mm_add_epi16(u, Z)));
 }
 
 static inline __m128 conju(__m128 u) {
@@ -89,6 +96,18 @@ static float fmDemod(__m128 x) {
     return ret.arr[5];
 }
 
+static inline mm_convert_fun_t processMode(const uint8_t mode) {
+
+    switch (mode) {
+        case 2: // default mode (input int16)
+            return convertInt16ToFloat;
+        case 1: // input uint8
+            return convertUint8ToFloat;
+        default:
+            return NULL;
+    }
+}
+
 int processMatrix(FILE *__restrict__ inFile,
                   uint8_t mode,
                   float gain,
@@ -101,9 +120,9 @@ int processMatrix(FILE *__restrict__ inFile,
 
     const size_t inputElementBytes = 2 - mode;
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const mm_convert_fun_t convert = processMode(inputElementBytes);
 
-    int exitFlag = mode <= 0 || mode >= 3;
-
+    int exitFlag = mode < 0 || mode > 2;
     size_t readBytes, i;
     float ret;
     float result[DEFAULT_BUF_SIZE >> 2];
@@ -120,7 +139,7 @@ int processMatrix(FILE *__restrict__ inFile,
                 exitFlag = EOF;
             }
 
-            ret = fmDemod(boxcar(conju(convertToFloats(x.v))));
+            ret = fmDemod(boxcar(conju(convert(x.v))));
             result[i>>2] = isGain ? ret * gain: ret;
         }
 
