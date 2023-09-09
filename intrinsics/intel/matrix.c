@@ -25,6 +25,16 @@
 
 typedef __m128 (*mm_convert_fun_t)(__m128i u);
 
+typedef union {
+    uint8_t arr[16];
+    __m128i v;
+} pun128u8;
+
+typedef union {
+    __m256 v;
+    float arr[8];
+} pun256f32;
+
 static __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(
@@ -49,14 +59,32 @@ static inline __m128 boxcar(__m128 u) {
     return _mm_add_ps(u, _mm_permute_ps(u, 0x4E));
 }
 
-static float fmDemod(__m128 x) {
-
-    static union {
-        __m256 v;
-        float arr[8];
-    } ret;
+static inline __m256 gather(__m128 u, __m128 v) {
 
     static const __m256 negateBIm = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f};
+
+    return _mm256_mul_ps(_mm256_set_m128(_mm_blend_ps(u, v, 0b0011), u), negateBIm);
+}
+
+static inline void preMultNorm(__m256 *u, __m256 *v) {
+    *v = _mm256_permute_ps(*u, 0xEB);                         //  {bj, br, br, bj, bj, br, br, bj} *
+//    u = _mm256_permute_ps(u, 0x5);                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
+    *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5), *v);  // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+}
+
+static inline void foo(__m256 *u, __m256 *v, __m256 *w) {
+    *w = _mm256_permute_ps(*u, 0x8D);         // {aj, bj, ar, br, cj, dj, cr, dr}
+    *u = _mm256_addsub_ps(*u, *w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+    *v = _mm256_mul_ps(*u, *u);        // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+    *w = _mm256_permute_ps(*v, 0x1B);        // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
+                                             // {bj^2, br^2, aj^2, ar^2, ... }
+    *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+}
+
+static float fmDemod(__m128 x) {
+
+    static pun256f32 ret;
+
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
@@ -67,20 +95,22 @@ static float fmDemod(__m128 x) {
     __m128 v0 = prev = x;
     __m256 u, v, w, y;
 
-    v0 = _mm_blend_ps(u0, v0, 0b0011);
-    u = _mm256_set_m128(v0, u0);
-    u = _mm256_mul_ps(u, negateBIm);
+    u = gather(u0, v0);           // {ar, aj, br, bj, cr, cj, br, bj}
 
-    v = _mm256_permute_ps(u, 0xEB);
-    u = _mm256_permute_ps(u, 0x5);
-
-    u = _mm256_mul_ps(u, v);
-    w = _mm256_permute_ps(u, 0x8D);
-    u = _mm256_addsub_ps(u, w);
-    v = _mm256_mul_ps(u, u);
-    w = _mm256_permute_ps(v, 0x1B);
-    v = _mm256_add_ps(v, w);
-
+    preMultNorm(&u, &v);
+//    v = _mm256_permute_ps(u, 0xEB);                         //  {bj, br, br, bj, bj, br, br, bj} *
+//    u = _mm256_permute_ps(u, 0x5);                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
+//    u = _mm256_mul_ps(u, v);  // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+                                            // {ar, aj, br, bj, cr, cj, dr, dj}
+//    w = _mm256_permute_ps(u, 0x8D);         // {aj, bj, ar, br, cj, dj, cr, dr}
+//    u = _mm256_addsub_ps(u, w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+//    v = _mm256_mul_ps(u, u);        // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2} 
+//    w = _mm256_permute_ps(v, 0x1B);         // reverse in-lane
+//                                            // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
+//                                            // {bj^2, br^2, aj^2, ar^2, ... }
+//    v = _mm256_add_ps(v, w);        // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+    foo(&u, &v, &w);
+    // TODO up until here could be done on the ints
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
 
@@ -99,7 +129,7 @@ static float fmDemod(__m128 x) {
 static inline mm_convert_fun_t processMode(const uint8_t mode) {
 
     switch (mode) {
-        case 2: // default mode (input int16)
+        case 0: // default mode (input int16)
             return convertInt16ToFloat;
         case 1: // input uint8
             return convertUint8ToFloat;
@@ -113,14 +143,11 @@ int processMatrix(FILE *__restrict__ inFile,
                   float gain,
                   void *__restrict__ outFile) {
 
-    static union {
-        uint8_t arr[16];
-        __m128i v;
-    } x;
+    static pun128u8 x;
 
     const size_t inputElementBytes = 2 - mode;
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
-    const mm_convert_fun_t convert = processMode(inputElementBytes);
+    const mm_convert_fun_t convert = processMode(mode);
 
     int exitFlag = mode < 0 || mode > 2;
     size_t readBytes, i;
