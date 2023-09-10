@@ -31,14 +31,10 @@
 #include "matrix.h"
 
 typedef union {
-    uint8_t arr[16];
-    __m128i v;
-} pun128u8;
-
-typedef union {
-    int8_t arr[16];
-    __m128i v;
-} pun128s8;
+    __m256i v;
+    uint8_t uint8Arr[32];
+    int16_t int16Arr[16];
+} pun256Int;
 
 typedef union {
     __m256 v;
@@ -46,19 +42,9 @@ typedef union {
 } pun256f32;
 
 typedef union {
+    float arr[4];
     __m128 v;
-    float arr[8];
 } pun128f32;
-
-typedef union {
-    uint8_t arr[32];
-    __m256i v;
-} pun256u8;
-
-typedef union {
-    int8_t arr[32];
-    __m256i v;
-} pun256s8;
 
 static __m128 convertInt16ToFloat(__m128i u) {
 
@@ -116,10 +102,10 @@ static inline __m256 gather(__m128 u, __m128 v) {
 
 static inline void preMultNorm(__m256 *u, __m256 *v) {
 
-    *v = _mm256_permute_ps(*u, 0xEB);                         //  {bj, br, br, bj, bj, br, br, bj} *
-//    u = _mm256_permute_ps(u, 0x5);                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
-    *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5),
-            *v);  // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    *v = _mm256_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
+                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
+                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5),*v);
 }
 
 static inline void foo(__m256 *u, __m256 *v, __m256 *w) {
@@ -144,9 +130,9 @@ static float fmDemod(__m128 x) {
     pun256f32 ret;
     __m128 u0 = prev;
     __m128 v0 = prev = x;
-    __m256 u, v, w, y;
+    __m256 v, w, y;
+    __m256 u = gather(u0, v0); // {ar, aj, br, bj, cr, cj, br, bj}
 
-    u = gather(u0, v0);           // {ar, aj, br, bj, cr, cj, br, bj}
     preMultNorm(&u, &v);
     foo(&u, &v, &w);
 
@@ -159,39 +145,29 @@ static float fmDemod(__m128 x) {
     u = _mm256_mul_ps(w, y);
 
     v = _mm256_cmp_ps(u, u, 0);                           // NAN check
-    u = _mm256_and_ps(u, v);
+    ret.v = _mm256_and_ps(u, v);
 
-    ret.v = u;
     return ret.arr[5];
 }
 
-void applyGain(float *__restrict__ buf, size_t len, float gain) {
-
-    int i = 0;
-    for (; i < len; i += 4) {
-        buf[i] *= gain;
-        buf[i + 1] *= gain;
-        buf[i + 2] *= gain;
-        buf[i + 3] *= gain;
-    }
-}
-
-int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain,
+int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                   void *__restrict__ outFile) {
 
     int exitFlag = mode < 0 || mode > 2;
     size_t readBytes = 0;
-    float result[MATRIX_WIDTH];
+    pun128f32 resultVector = {};
+    float *result = resultVector.arr;
     __m128i lo, hi;
     __m256i v;
-    pun256u8 z;
+    pun256Int z;
 
     const size_t inputElementBytes = 1;//2 - mode; // TODO
-    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
+    const __m128 gain = _mm_broadcast_ss(&inGain);
 
     while (!exitFlag) {
 
-        readBytes += fread(z.arr, inputElementBytes, 32, inFile);
+        readBytes += fread(z.uint8Arr, inputElementBytes, 32, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -212,7 +188,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain,
                 1))));
 
         if (isGain) {
-            applyGain(result, MATRIX_WIDTH, gain);
+            _mm_mul_ps(resultVector.v, gain);
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);

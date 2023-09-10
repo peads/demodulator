@@ -47,7 +47,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
+extern "C" int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
 
     int exitFlag = 0;
     uint8_t *hBuf, *dBuf;
