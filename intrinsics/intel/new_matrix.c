@@ -89,22 +89,7 @@ static __m256i boxcarUint8(__m256i u) {
 
 static __m256i boxcarInt16(__m256i u) {
 
-    union {
-        __m256i v;
-        int16_t arr[16];
-    } v = {u};
-
-    union {
-        __m256i v;
-        int16_t arr[16];
-    } w = {u};
-    u = w.v;
-
-    v.v = _mm256_shufflelo_epi16(u, 0x4E);
-    v.v = _mm256_add_epi16(u, v.v);
-
-    // TODO consider _mm256_shuffle(hi/lo)_epi16
-    return v.v;
+    return _mm256_add_epi16(u, _mm256_shufflelo_epi16(u, 0x4E));;
 }
 
 static __m256i conjInt16(__m256i u) {
