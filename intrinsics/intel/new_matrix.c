@@ -154,7 +154,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     __m128i lo, hi;
     __m256i v;
     pun256Int z;
-    pun128f32 result;
+    float result[4];
 
     const size_t inputElementBytes = 1;//2 - mode; // TODO
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
@@ -175,20 +175,18 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         lo = _mm256_castsi256_si128(v);
         hi = _mm256_extracti128_si256(v, 1);
 
-        result.arr[0]
-            = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&lo))));
-        result.arr[1]
-            = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(lo,1))));
-        result.arr[2]
-            = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&hi))));
-        result.arr[3]
-            = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(hi,1))));
+        result[0] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&lo))));
+        result[1] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(
+                (__m64) _mm_extract_epi64(lo,1))));
+        result[2] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&hi))));
+        result[3] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(
+                (__m64) _mm_extract_epi64(hi,1))));
 
         if (isGain) {
-            _mm_mul_ps(result.v, gain);
+            _mm_mul_ps(*(__m128 *)&result, gain);
         }
 
-        fwrite(result.arr, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
     }
 
     printf("Total bytes read: %lu\n", readBytes);
