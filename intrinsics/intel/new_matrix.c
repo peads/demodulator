@@ -18,9 +18,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
+
 #ifdef __GNUC__
+
 #include <stdint.h>
+
 #endif
+
 #include <immintrin.h>
 #include <math.h>
 #include "definitions.h"
@@ -146,7 +150,6 @@ static float fmDemod(__m128 x) {
     preMultNorm(&u, &v);
     foo(&u, &v, &w);
 
-    // TODO up until here could be done on the ints
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
 
@@ -162,18 +165,29 @@ static float fmDemod(__m128 x) {
     return ret.arr[5];
 }
 
+void applyGain(float *__restrict__ buf, size_t len, float gain) {
+
+    int i = 0;
+    for (; i < len; i += 4) {
+        buf[i] *= gain;
+        buf[i + 1] *= gain;
+        buf[i + 2] *= gain;
+        buf[i + 3] *= gain;
+    }
+}
+
 int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain,
                   void *__restrict__ outFile) {
 
     int exitFlag = mode < 0 || mode > 2;
     size_t readBytes = 0;
-    float result[4];
+    float result[MATRIX_WIDTH];
     __m128i lo, hi;
     __m256i v;
     pun256u8 z;
 
-    const size_t inputElementBytes = 1;//2 - mode;
-//    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    const size_t inputElementBytes = 1;//2 - mode; // TODO
+    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
 
     while (!exitFlag) {
 
@@ -191,9 +205,15 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain,
         hi = _mm256_extracti128_si256(v, 1);
 
         result[0] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&lo))));
-        result[1] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(lo, 1))));
+        result[1] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(lo,
+                1))));
         result[2] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64(*(__m64 *) (&hi))));
-        result[3] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(hi, 1))));
+        result[3] = fmDemod(convertInt8ToFloat(_mm_movpi64_epi64((__m64) _mm_extract_epi64(hi,
+                1))));
+
+        if (isGain) {
+            applyGain(result, MATRIX_WIDTH, gain);
+        }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
     }
