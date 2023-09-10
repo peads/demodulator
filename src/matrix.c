@@ -183,5 +183,6 @@ int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, voi
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, shiftedBytes, outFile);
     }
+    free(buf);
     return exitFlag;
 }

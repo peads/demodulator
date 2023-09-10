@@ -83,14 +83,13 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
 
 static float fmDemod(__m128 x) {
 
-    static pun256f32 ret;
+    static __m128 prev = {0.f, 0.f, 0.f, 0.f};
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    static __m128 prev = {0.f, 0.f, 0.f, 0.f};
-
+    pun256f32 ret;
     __m128 u0 = prev;
     __m128 v0 = prev = x;
     __m256 u, v, w, y;
@@ -98,7 +97,6 @@ static float fmDemod(__m128 x) {
     u = gather(u0, v0);
     preNormMult(&u, &v);
     preNormAddSubAdd(&u, &v, &w);
-    // TODO up until here could be done on the ints
 
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
