@@ -30,17 +30,6 @@
 #include "definitions.h"
 #include "matrix.h"
 
-typedef union {
-    __m256i v;
-    uint8_t uint8Arr[32];
-    int16_t int16Arr[16];
-} pun256Int;
-
-typedef union {
-    float arr[4];
-    __m128 v;
-} pun128f32;
-
 static __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
@@ -150,11 +139,14 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                   void *__restrict__ outFile) {
 
     int exitFlag = mode < 0 || mode > 2;
+    void *buf = NULL;
+    float *result = NULL;
     size_t readBytes = 0;
     __m128i lo, hi;
     __m256i v;
-    pun256Int z;
-    float result[4];
+
+    posix_memalign(&buf, 16, MATRIX_WIDTH << 3);
+    posix_memalign((void **) &result, 16, MATRIX_ELEMENT_BYTES);
 
     const size_t inputElementBytes = 1;//2 - mode; // TODO
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
@@ -162,7 +154,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     while (!exitFlag) {
 
-        readBytes += fread(z.uint8Arr, inputElementBytes, 32, inFile);
+        readBytes += fread(buf, inputElementBytes, MATRIX_WIDTH << 3, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -171,7 +163,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             exitFlag = EOF;
         }
 
-        v = boxcar(conju(convertUint8ToInt8(z.v)));
+        v = boxcar(conju(convertUint8ToInt8(*(__m256i *)buf)));
         lo = _mm256_castsi256_si128(v);
         hi = _mm256_extracti128_si256(v, 1);
 
