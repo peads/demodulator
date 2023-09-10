@@ -192,10 +192,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     int exitFlag = processMode(mode, funs);
     void *buf = malloc(MATRIX_WIDTH << 3);
     float result[MATRIX_WIDTH];
-
-    exitFlag += posix_memalign(&buf, 16, MATRIX_WIDTH << 3);
-    exitFlag += posix_memalign((void **) &result, 16, MATRIX_ELEMENT_BYTES);
-
     size_t readBytes = 0;
     __m128i lo, hi;
     __m256i v;
@@ -204,6 +200,9 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m128 gain = _mm_broadcast_ss(&inGain);
+
+    exitFlag += posix_memalign(&buf, 32, nItems);
+    exitFlag += posix_memalign((void **) &result, 32, MATRIX_ELEMENT_BYTES);
 
     while (!exitFlag) {
 

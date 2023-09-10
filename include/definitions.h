@@ -23,8 +23,6 @@
 
 //#define DEBUG
 
-// sizeof(char)
-#define INPUT_ELEMENT_BYTES 1
 // sizeof(float)
 #define OUTPUT_ELEMENT_BYTES 4
 // sizeof(__m128)
