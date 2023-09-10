@@ -33,12 +33,6 @@
 typedef __m256i (*vectorOp256_t)(__m256i);
 typedef __m128 (*vectorOp128_t)(__m128i);
 
-typedef union {
-    uint8_t buf[32];
-    int16_t buf1[16];
-    __m256i v;
-} pun;
-
 typedef struct {
     vectorOp256_t boxcar;
     vectorOp256_t conj;
@@ -170,7 +164,7 @@ static __m256i nonconversion(__m256i u) {
     return u;
 }
 
-static inline int processMode(const uint8_t mode, vectorOps_t *funs/*, pun *pun*/) {
+static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
 
     switch (mode) {
         case 0: // default mode (input int16)
@@ -178,14 +172,12 @@ static inline int processMode(const uint8_t mode, vectorOps_t *funs/*, pun *pun*
             funs->conj = conjInt16;
             funs->convertIn = nonconversion;
             funs->convertOut = convertInt16ToFloat;
-//            pun->buf = (int16_t *) calloc(MATRIX_WIDTH << 2, 2);
             break;
         case 1: // input uint8
             funs->boxcar = boxcarUint8;
             funs->conj = conjUint8;
             funs->convertIn = convertUint8ToInt8;
             funs->convertOut = convertInt8ToFloat;
-//            pun->buf = (uint8_t *) calloc(MATRIX_WIDTH << 3, 1);
             break;
         default:
             return -1;
@@ -198,22 +190,24 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
+    void *buf = NULL;
     float result[MATRIX_WIDTH];
-//    uint8_t buf[MATRIX_WIDTH << 3];
-    pun buf;
-//    exitFlag += posix_memalign((void **) &buf, 16, MATRIX_WIDTH << 3);
+
+    exitFlag += posix_memalign(&buf, 16, MATRIX_WIDTH << 3);
     exitFlag += posix_memalign((void **) &result, 16, MATRIX_ELEMENT_BYTES);
 
     size_t readBytes = 0;
     __m128i lo, hi;
     __m256i v;
 
+    const size_t size = 2 - mode;
+    const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m128 gain = _mm_broadcast_ss(&inGain);
 
     while (!exitFlag) {
 
-        readBytes += fread(buf.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH << 3, inFile);
+        readBytes += fread(buf, size, nItems, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -222,7 +216,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             exitFlag = EOF;
         }
 
-        v = funs->boxcar(funs->conj(funs->convertIn(buf.v)));
+        v = funs->boxcar(funs->conj(funs->convertIn(*(__m256i *) buf)));
         lo = _mm256_castsi256_si128(v);
         hi = _mm256_extracti128_si256(v, 1);
 
@@ -240,6 +234,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
     }
 
+    free(buf);
     free(funs);
 
     printf("Total bytes read: %lu\n", readBytes);
