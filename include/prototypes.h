@@ -6,5 +6,5 @@
 #define DEMODULATOR_PROTOTYPES_H
 #include <stdint.h>
 #include <stdio.h>
-int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain, void *__restrict__ outFile);
+int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float inGain, void *__restrict__ outFile);
 #endif //DEMODULATOR_PROTOTYPES_H
