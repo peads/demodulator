@@ -34,7 +34,8 @@ typedef __m256i (*vectorOp256_t)(__m256i);
 typedef __m128 (*vectorOp128_t)(__m128i);
 
 typedef union {
-    void *buf;
+    uint8_t buf[32];
+    int16_t buf1[16];
     __m256i v;
 } pun;
 
@@ -196,11 +197,11 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                   void *__restrict__ outFile) {
 
     vectorOps_t *funs = malloc(sizeof(*funs));
-    uint8_t buffer[MATRIX_WIDTH << 3];
-    pun buf = {buffer};
     int exitFlag = processMode(mode, funs);
     float result[MATRIX_WIDTH];
-
+//    uint8_t buf[MATRIX_WIDTH << 3];
+    pun buf;
+//    exitFlag += posix_memalign((void **) &buf, 16, MATRIX_WIDTH << 3);
     exitFlag += posix_memalign((void **) &result, 16, MATRIX_ELEMENT_BYTES);
 
     size_t readBytes = 0;
@@ -212,7 +213,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     while (!exitFlag) {
 
-        readBytes += fread(buf.buf, 1, MATRIX_WIDTH << 3, inFile);
+        readBytes += fread(buf.buf, INPUT_ELEMENT_BYTES, MATRIX_WIDTH << 3, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
