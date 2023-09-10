@@ -23,7 +23,7 @@
 
 //#define DEBUG
 
-// sizeof(float) >> 1
+// sizeof(float)
 #define OUTPUT_ELEMENT_BYTES 4
 // sizeof(__m128)
 #define MATRIX_ELEMENT_BYTES 16

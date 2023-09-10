@@ -190,23 +190,20 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
-    void *buf = NULL;
-    float result[MATRIX_WIDTH];
-
-    exitFlag += posix_memalign(&buf, 16, MATRIX_WIDTH << 3);
-    exitFlag += posix_memalign((void **) &result, 16, MATRIX_ELEMENT_BYTES);
-
+    void *buf = _mm_malloc(MATRIX_WIDTH << 3, 32);
+    float result[MATRIX_WIDTH] __attribute__((aligned(32)));
     size_t readBytes = 0;
     __m128i lo, hi;
     __m256i v;
 
-    const size_t inputElementBytes = 2 - mode;
+    const size_t size = 2 - mode;
+    const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m128 gain = _mm_broadcast_ss(&inGain);
 
     while (!exitFlag) {
 
-        readBytes += fread(buf, inputElementBytes, MATRIX_WIDTH << 3, inFile);
+        readBytes += fread(buf, size, nItems, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -233,7 +230,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
     }
 
-    free(buf);
+    _mm_free(buf);
     free(funs);
 
     printf("Total bytes read: %lu\n", readBytes);
