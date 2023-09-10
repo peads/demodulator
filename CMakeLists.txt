@@ -76,7 +76,7 @@ else()
 
     if(IS_INTINT)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -mno-avx256-split-unaligned-load -mno-avx256-split-unaligned-store -fstrict-aliasing")
-        set(SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c" "${CMAKE_CURRENT_SOURCE_DIR}/intrinsics/intel/new_matrix.c")
+        set(SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c" "${CMAKE_CURRENT_SOURCE_DIR}/intrinsics/intel/matrix.c")
     else()
         FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     endif()
