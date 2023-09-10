@@ -142,7 +142,7 @@ static int processMode(const uint8_t mode) {
             inputElementBytes = 1;
             break;
 //        case 2: // input float
-//            convertIn = noconversion;
+//            convert = noconversion;
 //            inputElementBytes = 4;
 //            bufSize = 1024;
 //            break;
