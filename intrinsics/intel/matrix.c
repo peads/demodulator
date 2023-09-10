@@ -190,7 +190,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
-    void *buf = NULL;
+    void *buf = malloc(MATRIX_WIDTH << 3);
     float result[MATRIX_WIDTH];
 
     exitFlag += posix_memalign(&buf, 16, MATRIX_WIDTH << 3);
