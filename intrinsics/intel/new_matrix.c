@@ -41,11 +41,6 @@ typedef union {
     __m128 v;
 } pun128f32;
 
-typedef union {
-    float arr[8];
-    __m256 v;
-} pun256f32;
-
 static __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
@@ -131,7 +126,6 @@ static float fmDemod(__m128 x) {
     __m128 v0 = prev = x;
     __m256 v, w, y;
     __m256 u = gather(u0, v0); // {ar, aj, br, bj, cr, cj, br, bj}
-    pun256f32 result;
 
     preNormMult(&u, &v);
     preNormAddSubAdd(&u, &v, &w);
@@ -147,9 +141,9 @@ static float fmDemod(__m128 x) {
     u = _mm256_mul_ps(w, y);
 
     v = _mm256_cmp_ps(u, u, 0);                           // NAN check
-    result.v = _mm256_and_ps(u, v);
+    u = _mm256_and_ps(u, v);
 
-    return result.arr[5];
+    return u[5];
 }
 
 int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
@@ -160,7 +154,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     __m128i lo, hi;
     __m256i v;
     pun256Int z;
-    pun128f32 result = {};
+    pun128f32 result;
 
     const size_t inputElementBytes = 1;//2 - mode; // TODO
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
