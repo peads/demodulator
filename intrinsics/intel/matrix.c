@@ -230,7 +230,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
     }
 
-    free(buf);
+    _mm_free(buf);
     free(funs);
 
     printf("Total bytes read: %lu\n", readBytes);
