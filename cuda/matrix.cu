@@ -56,8 +56,8 @@ extern "C" int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
 
     cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
-    cudaMallocHost(&hResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES);
-    cudaMalloc(&dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES);
+    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
+    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
 
     hBuf[0] = 0;
     hBuf[1] = 0;
@@ -77,16 +77,14 @@ extern "C" int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
 
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes, dResult);
 
-        cudaMemcpyAsync(hResult, dResult, QTR_BUF_SIZE * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, QTR_BUF_SIZE, (FILE *) outFile);
+        fwrite(hResult, OUTPUT_ELEMENT_BYTES, (DEFAULT_BUF_SIZE >> 2), (FILE *) outFile);
     }
 
     cudaFreeHost(hBuf);
     cudaFreeHost(hResult);
     cudaFree(dBuf);
     cudaFree(dResult);
-    fclose(inFile);
-    fclose((FILE *) outFile);
     return exitFlag;
 }
