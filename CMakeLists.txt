@@ -23,7 +23,7 @@ if (IS_NVIDIA)
     add_compile_definitions(IS_NVIDIA)
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -mfpmath=sse -mvzeroupper")
 
 if (IS_NVIDIA)
 #    set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75 80 86)
