@@ -35,7 +35,6 @@ typedef __m128 (*vectorOp128_t)(__m128i);
 
 typedef struct {
     vectorOp256_t boxcar;
-    vectorOp256_t conj;
     vectorOp256_t convertIn;
     vectorOp128_t convertOut;
 } vectorOps_t;
@@ -47,7 +46,12 @@ static __m128 convertInt16ToFloat(__m128i u) {
 
 static __m256i convertUint8ToInt8(__m256i u) {
 
-    static const __m256i Z = {-0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f, -0x7f7f7f7f7f7f7f7f};
+    static const __m256i Z = {
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f};
+
     return _mm256_add_epi8(u, Z);
 }
 
@@ -56,39 +60,30 @@ static __m128 convertInt8ToFloat(__m128i u) {
     return convertInt16ToFloat(_mm_cvtepi8_epi16(u));
 }
 
-static __m256i conjUint8(__m256i u) {
+static __m256i boxcarUint8(__m256i u) {
+
 
     static const __m256i Z = {
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01};
-
-    return _mm256_sign_epi8(u, Z);
-}
-
-static __m256i boxcarUint8(__m256i u) {
-
     static const __m256i mask = {
             0x0504070601000302, 0x0d0c0f0e09080b0a,
             0x0504070601000302, 0x0d0c0f0e09080b0a};
+    u = _mm256_sign_epi8(u, Z);
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
 static __m256i boxcarInt16(__m256i u) {
-
-    return _mm256_add_epi16(u, _mm256_shufflelo_epi16(u, 0x4E));;
-}
-
-static __m256i conjInt16(__m256i u) {
 
     static const __m256i Z = {
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001};
-
-    return _mm256_sign_epi16(u, Z);
+    u = _mm256_sign_epi16(u, Z);
+    return _mm256_add_epi16(u, _mm256_shufflelo_epi16(u, 0x4E));;
 }
 
 static inline __m256 gather(__m128 u, __m128 v) {
@@ -149,6 +144,7 @@ static float fmDemod(__m128 x) {
 }
 
 static __m256i nonconversion(__m256i u) {
+
     return u;
 }
 
@@ -157,13 +153,11 @@ static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
     switch (mode) {
         case 0: // default mode (input int16)
             funs->boxcar = boxcarInt16;
-            funs->conj = conjInt16;
             funs->convertIn = nonconversion;
             funs->convertOut = convertInt16ToFloat;
             break;
         case 1: // input uint8
             funs->boxcar = boxcarUint8;
-            funs->conj = conjUint8;
             funs->convertIn = convertUint8ToInt8;
             funs->convertOut = convertInt8ToFloat;
             break;
@@ -200,19 +194,19 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             exitFlag = EOF;
         }
 
-        v = funs->boxcar(funs->conj(funs->convertIn(*(__m256i *) buf)));
+        v = funs->boxcar(funs->convertIn(*(__m256i *) buf));
         lo = _mm256_castsi256_si128(v);
         hi = _mm256_extracti128_si256(v, 1);
 
         result[0] = fmDemod(funs->convertOut(_mm_movpi64_epi64(*(__m64 *) (&lo))));
         result[1] = fmDemod(funs->convertOut(_mm_movpi64_epi64(
-                (__m64) _mm_extract_epi64(lo,1))));
+                (__m64) _mm_extract_epi64(lo, 1))));
         result[2] = fmDemod(funs->convertOut(_mm_movpi64_epi64(*(__m64 *) (&hi))));
         result[3] = fmDemod(funs->convertOut(_mm_movpi64_epi64(
-                (__m64) _mm_extract_epi64(hi,1))));
+                (__m64) _mm_extract_epi64(hi, 1))));
 
         if (isGain) {
-            _mm_mul_ps(*(__m128 *)&result, gain);
+            _mm_mul_ps(*(__m128 *) &result, gain);
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
