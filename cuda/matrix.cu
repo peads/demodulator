@@ -47,26 +47,35 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     }
 }
 
-extern "C" int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
+extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile) {
 
-    int exitFlag = 0;
-    uint8_t *hBuf, *dBuf;
+    int exitFlag = mode > 1;
+    uint8_t *dBuf;
+    float *dResult;
+    uint8_t *hBuf;
+    float *hResult;
     size_t readBytes;
-    float *hResult, *dResult;
 
-    cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
-    cudaMalloc(&dBuf, DEFAULT_BUF_SIZE * INPUT_ELEMENT_BYTES);
+//    const size_t size = 2 - mode;
+//    const size_t nItems = MATRIX_WIDTH << (2 + mode);
+    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+
+
+//    uint8_t hBuf[DEFAULT_BUF_SIZE];
+//    float hResult[DEFAULT_BUF_SIZE >> 2];
+
+    cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE);
+    cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
     cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
     cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
+;
 
     hBuf[0] = 0;
     hBuf[1] = 0;
 
     while (!exitFlag) {
 
-        readBytes = fread(hBuf + 2, INPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE - 2, inFile);
-
-        cudaMemcpyAsync(dBuf, hBuf, readBytes, cudaMemcpyHostToDevice);
+        readBytes = fread(hBuf + 2, 1, DEFAULT_BUF_SIZE - 2, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(nullptr);
@@ -75,11 +84,13 @@ extern "C" int processMatrix(FILE *inFile, unsigned char mode, void *outFile) {
             exitFlag = EOF;
         }
 
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes, dResult);
+        cudaMemcpyAsync(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
 
-        cudaMemcpyAsync(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, dResult);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, (DEFAULT_BUF_SIZE >> 2), (FILE *) outFile);
+        cudaMemcpy(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+
+        fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, (FILE *) outFile);
     }
 
     cudaFreeHost(hBuf);
