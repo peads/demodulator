@@ -44,7 +44,7 @@ static __m128 convertInt16ToFloat(__m128i u) {
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
 }
 
-static __m256i convertUint8ToInt8(__m256i u) {
+static inline __m256i convertUint8ToInt8(__m256i u) {
 
     static const __m256i Z = {
             -0x7f7f7f7f7f7f7f7f,
@@ -60,7 +60,7 @@ static __m128 convertInt8ToFloat(__m128i u) {
     return convertInt16ToFloat(_mm_cvtepi8_epi16(u));
 }
 
-static __m256i boxcarUint8(__m256i u) {
+static inline __m256i boxcarUint8(__m256i u) {
 
 
     static const __m256i Z = {
@@ -75,7 +75,7 @@ static __m256i boxcarUint8(__m256i u) {
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
-static __m256i boxcarInt16(__m256i u) {
+static inline __m256i boxcarInt16(__m256i u) {
 
     static const __m256i Z = {
             (int64_t) 0xffff0001ffff0001,
@@ -146,7 +146,7 @@ static float fmDemod(__m128 x) {
     return u[5];
 }
 
-static __m256i nonconversion(__m256i u) {
+static inline __m256i nonconversion(__m256i u) {
 
     return u;
 }
