@@ -58,25 +58,13 @@ static __m128 convertInt8ToFloat(__m128i u) {
 
 static __m256i conjUint8(__m256i u) {
 
-    static const __m256i mask = {
-            0x0606040402020000, 0x0e0e0c0c0a0a0808,
-            0x0606040402020000, 0x0e0e0c0c0a0a0808};
-    static const __m256i mask2 = {
-            (int64_t) 0x8000800080008000, (int64_t) 0x8000800080008000,
-            (int64_t) 0x8000800080008000, (int64_t) 0x8000800080008000};
     static const __m256i Z = {
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01,
             (int64_t) 0xff01ff01ff01ff01};
 
-    __m256i v = u;
-    __asm__(
-            "VPMULHW %0, %1, %0\n\t"
-            : "+x" (v): "x" (Z)
-            );
-
-    return _mm256_blendv_epi8(u, _mm256_shuffle_epi8(v, mask), mask2);
+    return _mm256_sign_epi8(u, Z);
 }
 
 static __m256i boxcarUint8(__m256i u) {
@@ -100,7 +88,7 @@ static __m256i conjInt16(__m256i u) {
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001};
 
-    return _mm256_mullo_epi16(Z, u);
+    return _mm256_sign_epi16(u, Z);
 }
 
 static inline __m256 gather(__m128 u, __m128 v) {
