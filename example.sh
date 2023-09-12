@@ -2,6 +2,8 @@
 
 GCC=$(which gcc)
 CLANG=$(which clang)
+ICC=$(which icc)
+
 arr=()
 
 if ! command -v $GCC &>/dev/null; then
@@ -14,6 +16,12 @@ if ! command -v $CLANG &>/dev/null; then
   echo "clang could not be found"
 else
   arr[${#arr[@]}]=$CLANG
+fi
+
+if ! command -v $ICC &>/dev/null; then
+  echo "icc could not be found"
+else
+  arr[${#arr[@]}]=$ICC
 fi
 
 for compiler in ${arr[@]}; do

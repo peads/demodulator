@@ -20,9 +20,7 @@
 #include <stdio.h>
 
 #ifdef __GNUC__
-
 #include <stdint.h>
-
 #endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
@@ -42,7 +40,7 @@ typedef struct {
     vectorOp128_t convertOut;
 } vectorOps_t;
 
-static __m128 convertInt16ToFloat(__m128i u) {
+static inline __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
 }
@@ -58,7 +56,7 @@ static inline __m256i convertUint8ToInt8(__m256i u) {
     return _mm256_add_epi8(u, Z);
 }
 
-static __m128 convertInt8ToFloat(__m128i u) {
+static inline __m128 convertInt8ToFloat(__m128i u) {
 
     return convertInt16ToFloat(_mm_cvtepi8_epi16(u));
 }
@@ -208,11 +206,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         result[1] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lo, lo)));
         result[2] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(hi, hi)));
         result[3] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(hi, hi)));
-
-//        result[0] = fmDemod(funs->convertOut(_mm_movpi64_epi64(*(__m64 *) (&lo))));
-//        result[1] = fmDemod(funs->convertOut(_mm_movpi64_epi64((__m64) _mm_extract_epi64(lo, 1))));
-//        result[2] = fmDemod(funs->convertOut(_mm_movpi64_epi64(*(__m64 *) (&hi))));
-//        result[3] = fmDemod(funs->convertOut(_mm_movpi64_epi64((__m64) _mm_extract_epi64(hi, 1))));
 
         if (isGain) {
             _mm_mul_ps(*(__m128 *) &result, gain);
