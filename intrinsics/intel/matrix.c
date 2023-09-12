@@ -82,8 +82,11 @@ static __m256i boxcarInt16(__m256i u) {
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001};
+    static const __m256i mask = {
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c};
     u = _mm256_sign_epi16(u, Z);
-    return _mm256_add_epi16(u, _mm256_shufflelo_epi16(u, 0x4E));;
+    return _mm256_add_epi16(u, _mm256_shuffle_epi8(u, mask));
 }
 
 static inline __m256 gather(__m128 u, __m128 v) {
