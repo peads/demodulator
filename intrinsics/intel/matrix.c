@@ -177,7 +177,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     int exitFlag = processMode(mode, funs);
     void *buf = _mm_malloc(MATRIX_WIDTH << 3, 32);
     float result[MATRIX_WIDTH] __attribute__((aligned(32)));
-    size_t readBytes = 0;
     __m128i lo, hi;
     __m256i v;
 
@@ -188,7 +187,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     while (!exitFlag) {
 
-        readBytes += fread(buf, size, nItems, inFile);
+        fread(buf, size, nItems, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -218,6 +217,5 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     _mm_free(buf);
     free(funs);
 
-    printf("Total bytes read: %lu\n", readBytes);
     return exitFlag;
 }
