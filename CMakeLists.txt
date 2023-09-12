@@ -81,7 +81,7 @@ else()
     endif()
 
     if(IS_INTINT)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -mfma -fstrict-aliasing")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=unused-result -mavx2 -mfma -fstrict-aliasing")
         if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx256-split-unaligned-load -mno-avx256-split-unaligned-store")
         endif()
