@@ -5,8 +5,9 @@ Clone this repo, then use cmake to build.
 
 `mkdir build && cd build && cmake .. && make -j$(nproc)`
 #### CMake compile options 
-- `-DIS_INTEL` default: OFF
-- `-DIS_NVIDIA` default: OFF
+- `-DIS_ASSEMBLY` compiles assembly language versions, if available (x64 and aarch64 only), default: OFF
+- `-DIS_NVIDIA` compiles CUDA version, requires `nvcc`, default: OFF
+- `-DIS_INTRINSICS` compiles intrinsics version, if available (x64 only), default: OFF
 ## Usage
 The demodulator doesn't care about sampling rate; feed it some raw I/Q data, but depending on which flavor you compiled (the asm version does not affect sampling rate, the C and CUDA versions halve it) ymmv, and with some further pipe work with SoX you have wonderfully useful/-less audio.
  #### Converting and piping via SoX a pre-recorded file to the demodulator, and decoding the digital audio with DSD.
