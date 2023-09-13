@@ -51,7 +51,7 @@ endif()
 
 if (IS_NATIVE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
-    if (IS_VERBOSE AND UNIX AND NOT APPLE)
+    if (IS_VERBOSE AND UNIX AND NOT APPLE AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorizer-verbose=2")
     endif()
     if (TARGET_ARCH STREQUAL "aarch64")
