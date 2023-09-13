@@ -86,15 +86,13 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!ret) {
-        ret = processMatrix(inFile, mode, gain, outFile);
-#if defined(IS_INTEL) || defined(IS_ARM)
-        }
-#else
-        ret = ret != EOF;
-        fclose(outFile);
+        if (!ret) {
+		ret = processMatrix(inFile, mode, gain, outFile);
+#if !(defined(IS_INTEL) || defined(IS_ARM))
+		ret = ret != EOF;
+		fclose(outFile);
 #endif
-        fclose(inFile);
-    }
+		fclose(inFile);
+    	}
     return ret;
 }
