@@ -39,7 +39,7 @@ for compiler in ${arr[@]}; do
   time build/demodulator -i uint8.dat -o file -r1 && rm file
   time build/demodulator -i uint8.dat -o file -r1 && rm file
   time build/demodulator -i uint8.dat -o file -r1
-  sox -traw -b32 -ef -r256k file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file uint8.dat
+  sox -traw -b32 -ef -r128k file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file uint8.dat
   time build/demodulator -i int16.dat -o file && rm file
   time build/demodulator -i int16.dat -o file && rm file
   time build/demodulator -i int16.dat -o file
