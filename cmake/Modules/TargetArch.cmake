@@ -1,13 +1,15 @@
 # Based on the Qt 5 processor detection code, so should be very accurate
 # https://qt.gitorious.org/qt/qtbase/blobs/master/src/corelib/global/qprocessordetection.h
-# Currently handles arm (v5, v6, v7), x86 (32/64), ia64, and ppc (32/64)
+# Currently handles arm (v5, v6, v7, and now, v8), x86 (32/64), ia64, and ppc (32/64)
 
 # Regarding POWER/PowerPC, just as is noted in the Qt source,
 # "There are many more known variants/revisions that we do not handle/detect."
 
 set(archdetect_c_code "
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
-    #if defined(__ARM_ARCH_7__) \\
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        #error cmake_ARCH aarch64
+    #else if defined(__ARM_ARCH_7__) \\
         || defined(__ARM_ARCH_7A__) \\
         || defined(__ARM_ARCH_7R__) \\
         || defined(__ARM_ARCH_7M__) \\
@@ -131,5 +133,4 @@ function(target_architecture output_var)
     endif()
 
     set(${output_var} "${ARCH}" PARENT_SCOPE)
-    message("${ARCH}")
 endfunction()
