@@ -23,7 +23,7 @@ if (IS_NVIDIA)
     add_compile_definitions(IS_NVIDIA)
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -mfpmath=sse -mvzeroupper")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math")
 
 if (IS_NVIDIA)
 #    set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75 80 86)
@@ -75,7 +75,7 @@ else()
     endif()
 
     if(IS_INTINT)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=unused-result -mavx2 -mfma -fstrict-aliasing")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=unused-result -mavx2 -mfma -fstrict-aliasing -mfpmath=sse -mvzeroupper")
         if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mno-avx256-split-unaligned-load -mno-avx256-split-unaligned-store")
         endif()

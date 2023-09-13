@@ -22,6 +22,11 @@
 #include <stdlib.h>
 #include "matrix.h"
 
+#ifdef IS_NVIDIA
+
+extern int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile);
+#endif
+
 int printIfError(FILE *file) {
 
     if (!file) {

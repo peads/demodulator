@@ -6,5 +6,7 @@
 #define DEMODULATOR_PROTOTYPES_H
 #include <stdint.h>
 #include <stdio.h>
+#ifndef IS_NVIDIA
 int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float inGain, void *__restrict__ outFile);
+#endif
 #endif //DEMODULATOR_PROTOTYPES_H
