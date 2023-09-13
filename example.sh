@@ -30,7 +30,7 @@ set -e
 
 for compiler in ${arr[@]}; do
 
-  ./cmake_build.sh "-DIS_VERBOSE=ON -DIS_ASSEMBLY=ON -DCMAKE_C_COMPILER=$compiler"
+  ./cmake_build.sh "-DIS_VERBOSE=ON -DCMAKE_C_COMPILER=$compiler"
 
   sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -eunsigned-int -b8 -r512k - | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r256k - -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n
 
