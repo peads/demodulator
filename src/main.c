@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
                     gain = strtof(optarg, NULL);
                     break;
                 case 'r' :
-                    mode |= 0b11 & atoi(optarg);
+                    mode = strtol(optarg, NULL, 10);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -88,9 +88,7 @@ int main(int argc, char **argv) {
 
     if (!ret) {
         ret = processMatrix(inFile, mode, gain, outFile);
-#if defined(IS_INTEL) || defined(IS_ARM)
-        }
-#else
+#if !(defined(IS_INTEL) || defined(IS_ARM))
         ret = ret != EOF;
         fclose(outFile);
 #endif
