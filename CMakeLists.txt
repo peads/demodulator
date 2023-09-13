@@ -10,7 +10,7 @@ option(IS_INTRINSICS OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_VERBOSE OFF)
 
-if(IS_NVIDIA AND IS_INTRINSICS OR IS_NVIDIA AND IS_ASSEMBLY OR IS_INTRINSICS AND IS_ASSEMBLY)
+if(IS_NVIDIA AND (IS_INTRINSICS OR IS_ASSEMBLY) OR IS_INTRINSICS AND IS_ASSEMBLY)
     message(FATAL_ERROR "Multiple mutually exclusive options selected:\nIS_NVIDIA=${IS_NVIDIA}\nIS_INTRINSICS=${IS_INTRINSICS}\nIS_ASSEMBLY=${IS_ASSEMBLY}")
 endif()
 
@@ -19,7 +19,9 @@ include(TargetArch)
 target_architecture(TARGET_ARCH)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorize")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
+if(UNIX AND NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
+endif()
 
 #TODO this should be the main logic to elimnate vars, but I'm lazy
 if (TARGET_ARCH STREQUAL "x86_64")
@@ -49,8 +51,8 @@ endif()
 
 if (IS_NATIVE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
-    if (IS_VERBOSE)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorizer-verbose=2")
+    if (IS_VERBOSE AND UNIX AND NOT APPLE)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree--verbose=2")
     endif()
     if (TARGET_ARCH STREQUAL "aarch64")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=native")
