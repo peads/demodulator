@@ -27,7 +27,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-async
 
 if (IS_NVIDIA)
 #    set(CMAKE_CUDA_ARCHITECTURES 52 53 61 62 70 72 75 80 86)
-    set(CMAKE_CUDA_ARCHITECTURES native)
+#    set(CMAKE_CUDA_ARCHITECTURES native)
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
     add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA C)

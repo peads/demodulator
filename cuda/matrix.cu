@@ -49,26 +49,18 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
 extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile) {
 
-    int exitFlag = mode > 1;
+    int exitFlag = mode != 1;
     uint8_t *dBuf;
     float *dResult;
     uint8_t *hBuf;
     float *hResult;
     size_t readBytes;
-
-//    const size_t size = 2 - mode;
-//    const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
-
-
-//    uint8_t hBuf[DEFAULT_BUF_SIZE];
-//    float hResult[DEFAULT_BUF_SIZE >> 2];
 
     cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE);
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
     cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
     cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
-;
 
     hBuf[0] = 0;
     hBuf[1] = 0;
