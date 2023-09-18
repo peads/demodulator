@@ -207,6 +207,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
+    size_t elementsRead;
 //    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     float result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
 //    __m256i lo, hi;
@@ -223,13 +224,16 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     while (!exitFlag) {
 
-        fread(v.buf_epu8, 1, MATRIX_WIDTH << 4, inFile);
+        elementsRead = fread(v.buf_epu8, 1, MATRIX_WIDTH << 4, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
+        } else if (!elementsRead) {
+            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
+                            "fread. Stupid compiler.");
         }
 
         v.v = funs->boxcar(funs->convertIn(v.v));
