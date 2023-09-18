@@ -46,18 +46,23 @@ static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
     return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), _mm512_setzero_si512(), target);
 }
 
-static inline __m512i mm512_sign_epi8(__m512i u, __m256i Z) {
-    __m256i lo = _mm512_castsi512_si256(u);
-    __m256i hi = _mm512_extracti64x4_epi64(u, 1);
-
-    lo = _mm256_sign_epi8(lo, Z);
-    hi = _mm256_sign_epi8(hi, Z);
-
-    u = _mm512_castsi256_si512(lo);
-    u = _mm512_inserti64x4(u, hi, 1);
-
-    return u;
+static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
+    // vpsubw target{k1}, 0, target
+    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), _mm512_setzero_si512(), target);
 }
+
+//static inline __m512i mm512_sign_epi8(__m512i u, __m256i Z) {
+//    __m256i lo = _mm512_castsi512_si256(u);
+//    __m256i hi = _mm512_extracti64x4_epi64(u, 1);
+//
+//    lo = _mm256_sign_epi8(lo, Z);
+//    hi = _mm256_sign_epi8(hi, Z);
+//
+//    u = _mm512_castsi256_si512(lo);
+//    u = _mm512_inserti64x4(u, hi, 1);
+//
+//    return u;
+//}
 
 static inline __m128 convertInt16ToFloat(__m128i u) {
 
@@ -97,8 +102,8 @@ static inline __m512i boxcarUint8(__m512i u) {
         0x0504070601000302, 0x0d0c0f0e09080b0a,
         0x0504070601000302, 0x0d0c0f0e09080b0a};
 
-//    u = conditional_negate_epi8(u, Z);
-    u = mm512_sign_epi8(u, Z);
+    u = conditional_negate_epi8(u, _mm512_inserti64x4(_mm512_castsi256_si512(Z), Z, 1));
+//    u = mm512_sign_epi8(u, Z);
     return _mm512_add_epi8(u,  _mm512_shuffle_epi8(u, mask));
 }
 
@@ -143,7 +148,7 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
     *u = _mm256_addsub_ps(*u, *w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
     *v = _mm256_mul_ps(*u,*u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
     *w = _mm256_permute_ps(*v, 0x1B);        // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-    // {bj^2, br^2, aj^2, ar^2, ... }
+                                             // {bj^2, br^2, aj^2, ar^2, ... }
     *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
