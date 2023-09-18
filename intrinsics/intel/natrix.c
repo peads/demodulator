@@ -78,7 +78,11 @@ static inline __m128 convertInt8ToFloat(__m128i u) {
 
 static inline __m512i boxcarUint8(__m512i u) {
 
-    static const __m256i Z = {
+    static const __m512i Z = {
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01,
@@ -89,7 +93,7 @@ static inline __m512i boxcarUint8(__m512i u) {
         0x0504070601000302, 0x0d0c0f0e09080b0a,
         0x0504070601000302, 0x0d0c0f0e09080b0a};
 
-    u = conditional_negate_epi8(u, _mm512_inserti64x4(_mm512_castsi256_si512(Z), Z, 1));
+    u = conditional_negate_epi8(u, Z);
     return _mm512_add_epi8(u,  _mm512_shuffle_epi8(u, mask));
 }
 
