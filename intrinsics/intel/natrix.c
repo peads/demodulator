@@ -46,33 +46,10 @@ static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
     return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), _mm512_setzero_si512(), target);
 }
 
-static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
-//     vpsubw target{k1}, 0, target
-    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), _mm512_setzero_si512(), target);
-//    union {
-//        __m512i v;
-//        int8_t buf[64];
-//    }
-//    foo = {target};
-//    union {
-//        __m256i v;
-//        int8_t buf[32];
-//    }
-//    lo = {/*lo = */_mm512_castsi512_si256(foo.v)},
-//    hi = {_mm512_extracti64x4_epi64(foo.v, 1)};
-//
-//
-//    lo.v = _mm256_sign_epi16(lo.v, signs);
-//    hi.v = _mm256_sign_epi16(hi.v, signs);
-//    foo.v = _mm512_castsi256_si512(lo.v);
-//    foo.v = _mm512_inserti64x4(foo.v, hi.v, 1);
-//    return foo.v;
-}
-
 static inline __m512i mm512_sign_epi8(__m512i u, __m256i Z) {
     __m256i lo = _mm512_castsi512_si256(u);
     __m256i hi = _mm512_extracti64x4_epi64(u, 1);
-    
+
     lo = _mm256_sign_epi8(lo, Z);
     hi = _mm256_sign_epi8(hi, Z);
 
@@ -241,7 +218,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     float result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
     __m128i lolo, lohi, hilo, hihi;
     __m512i v;
-    union {__m512i v;uint64_t buf64[8];int8_t buf[64];}foo;
 
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m256 gain = _mm256_broadcast_ss(&inGain);
@@ -259,8 +235,8 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             fprintf(stderr, "This shouldn't happen, but I need to use the result of"
                             "fread. Stupid compiler.");
         }
-        foo=foo;
-        foo.v = v = funs->boxcar(funs->convertIn((*(__m512i *) buf)));
+
+        v = funs->boxcar(funs->convertIn((*(__m512i *) buf)));
 
         lolo = _mm512_castsi512_si128(v);
         lohi = _mm512_extracti64x2_epi64(v, 1);
