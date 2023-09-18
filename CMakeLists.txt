@@ -23,7 +23,7 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
     execute_process(COMMAND cat /proc/cpuinfo OUTPUT_VARIABLE PROCINFO)
 else()
-    set(PROCINFO "")
+    execute_process(COMMAND sysctl -a | grep machdep.cpu.feature | grep --color AVX OUTPUT_VARIABLE PROCINFO)
 endif()
 
 #TODO this should be the main logic to elimnate vars, but I'm lazy

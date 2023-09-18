@@ -42,16 +42,31 @@ typedef struct {
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
-    __mmask32 negmask = _mm512_movepi16_mask(signs);
     // vpsubw target{k1}, 0, target
-    __m512i neg = _mm512_mask_sub_epi16(target, negmask, _mm512_setzero_si512(), target);
-    return neg;
+    return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), _mm512_setzero_si512(), target);
 }
 
-static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
-    __mmask32 negmask = _mm512_movepi8_mask(signs);
+static inline __m512i conditional_negate_epi8(__m512i target, __m256i signs) {
     // vpsubw target{k1}, 0, target
-    return _mm512_mask_sub_epi8(target, negmask, _mm512_setzero_si512(), target);
+//    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), _mm512_setzero_si512(), target);
+    union {
+        __m512i v;
+        int8_t buf[64];
+    }
+    foo = {target};
+    union {
+        __m256i v;
+        int8_t buf[32];
+    }
+    lo = {/*lo = */_mm512_castsi512_si256(foo.v)},
+    hi = {_mm512_extracti64x4_epi64(foo.v, 1)};
+
+
+    lo.v = _mm256_sign_epi16(lo.v, signs);
+    hi.v = _mm256_sign_epi16(hi.v, signs);
+    foo.v = _mm512_castsi256_si512(lo.v);
+    foo.v = _mm512_inserti64x4(foo.v, hi.v, 1);
+    return foo.v;
 }
 
 static inline __m128 convertInt16ToFloat(__m128i u) {
@@ -81,15 +96,15 @@ static inline __m128 convertInt8ToFloat(__m128i u) {
 
 static inline __m512i boxcarUint8(__m512i u) {
 
-    static const __m512i Z = {
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
+    static const __m256i Z = {
         (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01,
         (int64_t) 0xff01ff01ff01ff01};
+//        (int64_t) 0xff01ff01ff01ff01,
+//        (int64_t) 0xff01ff01ff01ff01,
+//        (int64_t) 0xff01ff01ff01ff01,
+//        (int64_t) 0xff01ff01ff01ff01};
     static const __m512i mask = {
         0x0504070601000302, 0x0d0c0f0e09080b0a,
         0x0504070601000302, 0x0d0c0f0e09080b0a,
