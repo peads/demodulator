@@ -31,29 +31,47 @@
 #include "definitions.h"
 #include "matrix.h"
 
-typedef __m256i (*vectorOp256_t)(__m256i);
+typedef __m512i (*vectorOp512_t)(__m512i);
 typedef __m128 (*vectorOp128_t)(__m128i);
 
 typedef struct {
-    vectorOp256_t boxcar;
-    vectorOp256_t convertIn;
+    vectorOp512_t boxcar;
+    vectorOp512_t convertIn;
     vectorOp128_t convertOut;
 } vectorOps_t;
+
+// taken from https://stackoverflow.com/a/55745816
+static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
+    __mmask32 negmask = _mm512_movepi16_mask(signs);
+    // vpsubw target{k1}, 0, target
+    __m512i neg = _mm512_mask_sub_epi16(target, negmask, _mm512_setzero_si512(), target);
+    return neg;
+}
+
+static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
+    __mmask32 negmask = _mm512_movepi8_mask(signs);
+    // vpsubw target{k1}, 0, target
+    return _mm512_mask_sub_epi8(target, negmask, _mm512_setzero_si512(), target);
+}
 
 static inline __m128 convertInt16ToFloat(__m128i u) {
 
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
 }
 
-static inline __m256i convertUint8ToInt8(__m256i u) {
+static inline __m512i convertUint8ToInt8(__m512i u) {
 
-    static const __m256i Z = {
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f};
+    static const __m512i Z = {
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f,
+        -0x7f7f7f7f7f7f7f7f};
 
-    return _mm256_add_epi8(u, Z);
+    return _mm512_add_epi8(u, Z);
 }
 
 static inline __m128 convertInt8ToFloat(__m128i u) {
@@ -61,33 +79,45 @@ static inline __m128 convertInt8ToFloat(__m128i u) {
     return convertInt16ToFloat(_mm_cvtepi8_epi16(u));
 }
 
-static inline __m256i boxcarUint8(__m256i u) {
+static inline __m512i boxcarUint8(__m512i u) {
 
-    static const __m256i Z = {
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01};
-    static const __m256i mask = {
-            0x0504070601000302, 0x0d0c0f0e09080b0a,
-            0x0504070601000302, 0x0d0c0f0e09080b0a};
+    static const __m512i Z = {
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01,
+        (int64_t) 0xff01ff01ff01ff01};
+    static const __m512i mask = {
+        0x0504070601000302, 0x0d0c0f0e09080b0a,
+        0x0504070601000302, 0x0d0c0f0e09080b0a,
+        0x0504070601000302, 0x0d0c0f0e09080b0a,
+        0x0504070601000302, 0x0d0c0f0e09080b0a};
 
-    u = _mm256_sign_epi8(u, Z);
-    return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
+    u = conditional_negate_epi8(u, Z);
+    return _mm512_add_epi8(u,  _mm512_shuffle_epi8(u, mask));
 }
 
-static inline __m256i boxcarInt16(__m256i u) {
+static inline __m512i boxcarInt16(__m512i u) {
 
-    static const __m256i Z = {
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001};
-    static const __m256i mask = {
-            0x0302010007060504, 0x0b0a09080f0e0d0c,
-            0x0302010007060504, 0x0b0a09080f0e0d0c};
-    u = _mm256_sign_epi16(u, Z);
-    return _mm256_add_epi16(u, _mm256_shuffle_epi8(u, mask));
+    static const __m512i Z = {
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001};
+    static const __m512i mask = {
+        0x0302010007060504, 0x0b0a09080f0e0d0c,
+        0x0302010007060504, 0x0b0a09080f0e0d0c,
+        0x0302010007060504, 0x0b0a09080f0e0d0c,
+        0x0302010007060504, 0x0b0a09080f0e0d0c};
+    u = conditional_negate_epi16(u, Z);
+    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
 }
 
 static inline __m256 gather(__m128 u, __m128 v) {
@@ -110,7 +140,7 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
     *w = _mm256_permute_ps(*u, 0x8D);         // {aj, bj, ar, br, cj, dj, cr, dr}
     *u = _mm256_addsub_ps(*u, *w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
     *v = _mm256_mul_ps(*u,
-            *u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+        *u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
     *w = _mm256_permute_ps(*v, 0x1B);        // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
     // {bj^2, br^2, aj^2, ar^2, ... }
     *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
@@ -148,7 +178,7 @@ static float fmDemod(__m128 x) {
     return u[5];
 }
 
-static inline __m256i nonconversion(__m256i u) {
+static inline __m512i nonconversion(__m512i u) {
 
     return u;
 }
@@ -177,48 +207,58 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
-    size_t elementsRead;
-    void *buf = _mm_malloc(MATRIX_WIDTH << 3, 32);
-    float result[MATRIX_WIDTH] __attribute__((aligned(32)));
-    __m128i lo, hi;
-    __m256i v;
+//    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
+    float result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
+//    __m256i lo, hi;
+    __m128i lolo, lohi, hilo, hihi;
+//    __m512i v;
+    union {
+        uint8_t buf_epu8[64];
+        int8_t buf_epi8[64];
+       __m512i v;
+    } v;
 
-    const size_t size = 2 - mode;
-    const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
-    const __m128 gain = _mm_broadcast_ss(&inGain);
+    const __m256 gain = _mm256_broadcast_ss(&inGain);
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, size, nItems, inFile);
+        fread(v.buf_epu8, 1, MATRIX_WIDTH << 4, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
-        } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
-                            "fread. Stupid compiler.");
         }
 
-        v = funs->boxcar(funs->convertIn(*(__m256i *) buf));
-        lo = _mm256_castsi256_si128(v);
-        hi = _mm256_extracti128_si256(v, 1);
+        v.v = funs->boxcar(funs->convertIn(v.v));
 
-        result[0] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(lo, lo)));
-        result[1] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lo, lo)));
-        result[2] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(hi, hi)));
-        result[3] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(hi, hi)));
+//        lo  = _mm512_castsi512_si256(v);
+//        hi = _mm512_extracti64x4_epi64(v, 1);
+
+        lolo = _mm512_castsi512_si128(v.v);
+        lohi = _mm512_extracti64x2_epi64(v.v, 1);
+        hilo = _mm512_extracti64x2_epi64(v.v, 2);
+        hihi = _mm512_extracti64x2_epi64(v.v, 3);
+
+        result[0] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(lolo, lolo)));
+        result[1] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lolo, lolo)));
+        result[2] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(lohi, lohi)));
+        result[3] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lohi, lohi)));
+        result[4] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(hilo, hilo)));
+        result[5] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(hilo, hilo)));
+        result[6] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(hihi, hihi)));
+        result[7] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(hihi, hihi)));
 
         if (isGain) {
-            _mm_mul_ps(*(__m128 *) &result, gain);
+            _mm256_mul_ps(*(__m256 *) &result, gain);
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
     }
 
-    _mm_free(buf);
+//    _mm_free(buf);
     free(funs);
 
     return exitFlag;
