@@ -208,23 +208,17 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = processMode(mode, funs);
     size_t elementsRead;
-//    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
+    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     float result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
-//    __m256i lo, hi;
     __m128i lolo, lohi, hilo, hihi;
-//    __m512i v;
-    union {
-        uint8_t buf_epu8[64];
-        int8_t buf_epi8[64];
-       __m512i v;
-    } v;
+    __m512i v;
 
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m256 gain = _mm256_broadcast_ss(&inGain);
 
     while (!exitFlag) {
 
-        elementsRead = fread(v.buf_epu8, 1, MATRIX_WIDTH << 4, inFile);
+        elementsRead = fread(buf, 1, MATRIX_WIDTH << 4, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -236,15 +230,12 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                             "fread. Stupid compiler.");
         }
 
-        v.v = funs->boxcar(funs->convertIn(v.v));
+        v = funs->boxcar(funs->convertIn((*(__m512i *) buf)));
 
-//        lo  = _mm512_castsi512_si256(v);
-//        hi = _mm512_extracti64x4_epi64(v, 1);
-
-        lolo = _mm512_castsi512_si128(v.v);
-        lohi = _mm512_extracti64x2_epi64(v.v, 1);
-        hilo = _mm512_extracti64x2_epi64(v.v, 2);
-        hihi = _mm512_extracti64x2_epi64(v.v, 3);
+        lolo = _mm512_castsi512_si128(v);
+        lohi = _mm512_extracti64x2_epi64(v, 1);
+        hilo = _mm512_extracti64x2_epi64(v, 2);
+        hihi = _mm512_extracti64x2_epi64(v, 3);
 
         result[0] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(lolo, lolo)));
         result[1] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lolo, lolo)));
@@ -262,7 +253,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
     }
 
-//    _mm_free(buf);
+    _mm_free(buf);
     free(funs);
 
     return exitFlag;
