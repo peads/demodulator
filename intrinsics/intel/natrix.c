@@ -78,7 +78,7 @@ static inline void convertInt8ToFloat(__m512i u, void *out) {
     __m512i q0, q2, q1, q3;
 
     q0 = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
-    q2 = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(q2,1));
+    q2 = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u,1));
 
     q1 = q0;
     q0 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(q0));
@@ -137,6 +137,7 @@ static inline __m512i boxcarInt16(__m512i u) {
 
 static inline __m512 gather(__m512 b) {
 
+    // TODO it might be just the a-path in the if below with initially prev<-setzero_ps
     static __m512 *prev = NULL;
     static const __m512 negateBIm = {
         1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f,
@@ -180,7 +181,7 @@ static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
     *v = _mm512_add_ps(*v, *w);               // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
-static float fmDemod(__m512 x) {
+static __m128 fmDemod(__m512 x) {
 
     static const __m512 all64s = {  64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
                                     64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -208,7 +209,7 @@ static float fmDemod(__m512 x) {
     __mmask16 mask = _mm512_cmp_ps_mask(u, u, 0);
     u = _mm512_maskz_and_ps(mask, u, u);
 
-    return u[5];
+    return _mm_setr_ps(u[5],u[13],0.f,0.f);
 }
 
 static inline __m512i nonconversion(__m512i u) {
@@ -246,6 +247,11 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     float result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
     __m512i v;
     __m512 *u = _mm_malloc(sizeof(__m512) << 2, 64);
+    u[0] = _mm512_setzero_ps();
+    u[1] = _mm512_setzero_ps();
+    u[2] = _mm512_setzero_ps();
+    u[3] = _mm512_setzero_ps();
+    __m128 ret;
 
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
     const __m256 gain = _mm256_broadcast_ss(&inGain);
@@ -266,10 +272,16 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
         v = funs->boxcar(funs->convertIn((*(__m512i *) buf)));
         funs->convertOut(v, u);
-        result[0] = fmDemod(u[0]);
-        result[1] = fmDemod(u[1]);
-        result[2] = fmDemod(u[2]);
-        result[3] = fmDemod(u[3]);
+
+        for (int i = 0; i < 8; i+=2) {
+            ret = fmDemod(u[i>>1]);
+            result[i] = ret[0];
+            result[i+1] = ret[1];
+        }
+
+//        result[1] = fmDemod(u[1]);
+//        result[2] = fmDemod(u[2]);
+//        result[3] = fmDemod(u[3]);
 
         if (isGain) {
             _mm256_mul_ps(*(__m256 *) &result, gain);
