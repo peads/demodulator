@@ -75,9 +75,8 @@ static inline __m512i convertUint8ToInt8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convertInt8ToFloat(__m512i u, void *out) {
+static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
 
-    __m512 *ret = (__m512*)out;
     __m512i q0, q2, q1, q3;
     static __m512 prev = {
         0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,
@@ -243,7 +242,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     int exitFlag = 0;//processMode(mode, funs);
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
-//    __m64 result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
     __m512 *u = _mm_malloc(sizeof(*u) << 2, 64);
 
     size_t elementsRead;
@@ -251,7 +249,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     __m512 ret;
     int i;
 
-    const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
+    const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
     const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
 
     while (!exitFlag) {
