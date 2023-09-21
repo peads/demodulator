@@ -137,31 +137,34 @@ static inline __m512i boxcarInt16(__m512i u) {
 
 static inline __m512 gather(__m512 b) {
 
-    static __m512 prev = {
-        0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
-        0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    static __m512 *prev = NULL;
     static const __m512 negateBIm = {
         1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f,
         1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f}; //0x010101FF...
+    __m512 a;
+    if (prev) {
+        // _mm512_setr_epi32(0,1,2,3,4,5,2,3,4,5,6,7,8,9,6,7)
+        static const __m512i index = {
+            0x100000000,0x300000002,0x500000004,0x300000002,
+            0x500000004,0x700000006,0x900000008, 0x700000006};
+        a = _mm512_mask_permutex2var_ps(*prev, 0xFFF0, index, b);
+    } else {
+        prev = _mm_malloc(sizeof(prev), 64);
+        // _mm512_setr_epi32(0,0,0,0,2,3,0,0,0,1,2,3,4,5,2,3)
+        static const __m512i index = {0,0,0x300000002,0,0x100000000,0x300000002,0x500000004,0x300000002};
+        a = _mm512_maskz_permutexvar_ps(0xFF30, index, b);
+    }
+    *prev = b;
+    a = _mm512_mul_ps(negateBIm, a);
 
-    __m512 a = prev;
-    prev = b;
-
-    a = _mm512_mask_blend_ps(0b0000001100000011, a,b);
-//    w = _mm512_insertf32x4(w, _mm_blend_ps(_mm256_castps256_ps128(w),
-//        _mm256_castps256_ps128(b)/*_mm256_extractf128_ps(a, 1)*/, 0b0011), 1);
-//    u = _mm256_castps256_ps128(b);
-//    w = _mm512_insertf32x4(w, u, 2);
-//    w = _mm512_insertf32x4(w, _mm_blend_ps(u, _mm256_extractf128_ps(b, 1), 0b0011), 3);
-
-    return _mm512_mul_ps(a, negateBIm);
+    return a;
 }
 
 static inline void preNormMult(__m512 *u, __m512 *v) {
 
     *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
-    //  {aj, aj, ar, ar, cj, cj, cr, cr}
-    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
+                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
     *u = _mm512_permute_ps(*u, 0x5);
     *u = _mm512_mul_ps(*u, *v);
 }
@@ -169,11 +172,11 @@ static inline void preNormMult(__m512 *u, __m512 *v) {
 static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
 
     *w = _mm512_permute_ps(*u, 0x8D);                // {aj, bj, ar, br, cj, dj, cr, dr}
-    *u = _mm512_fmaddsub_ps(
+    *u = _mm512_fmaddsub_ps(//TODO consider looking for separate add/sub mask intrinsics
         _mm512_set1_ps(1.f), *u, *w);   // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
     *v = _mm512_mul_ps(*u,*u);                 // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
     *w = _mm512_permute_ps(*v, 0x1B);                // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-    // {bj^2, br^2, aj^2, ar^2, ... }
+                                                     // {bj^2, br^2, aj^2, ar^2, ... }
     *v = _mm512_add_ps(*v, *w);               // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
@@ -203,7 +206,7 @@ static float fmDemod(__m512 x) {
     u = _mm512_mul_ps(w, y);
 
     __mmask16 mask = _mm512_cmp_ps_mask(u, u, 0);
-    u = _mm512_mask_and_ps(_mm512_setzero_ps(), mask, u, u);
+    u = _mm512_maskz_and_ps(mask, u, u);
 
     return u[5];
 }
@@ -262,37 +265,11 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         }
 
         v = funs->boxcar(funs->convertIn((*(__m512i *) buf)));
-
-//        union {
-//            __m512i v;
-//            __m512 u;
-//            int8_t buf[64];
-//            int16_t buf16[32];
-//            int32_t buf32[16];
-//        } q0 =  {v},
-//        q2 = q0,
-//        q1, q3;
-//
-//        q0.v = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(q0.v));
-//        q2.v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(q2.v,1));
-//
-//        q1 = q0;
-//        q0.v = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(q0.v));
-//        q1.v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(q1.v, 1));
-//
-//        q3 = q2;
-//        q2.v = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(q2.v));
-//        q3.v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(q3.v, 1));
-
         funs->convertOut(v, u);
         result[0] = fmDemod(u[0]);
         result[1] = fmDemod(u[1]);
         result[2] = fmDemod(u[2]);
         result[3] = fmDemod(u[3]);
-//        result[0] = fmDemod(funs->convertOut(_mm256_unpacklo_epi64(lo, lo)));
-//        result[1] = fmDemod(funs->convertOut(_mm256_unpackhi_epi64(lo, lo)));
-//        result[2] = fmDemod(funs->convertOut(_mm256_unpacklo_epi64(hi, hi)));
-//        result[3] = fmDemod(funs->convertOut(_mm256_unpackhi_epi64(hi, hi)));
 
         if (isGain) {
             _mm256_mul_ps(*(__m256 *) &result, gain);
