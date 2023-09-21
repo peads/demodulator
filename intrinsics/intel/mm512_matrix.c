@@ -145,6 +145,72 @@ static inline __m512i boxcarUint8(__m512i u) {
 //    u = conditional_negate_epi16(u, Z);
 //    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
 //}
+typedef union {
+    __m512i v;
+    int8_t buf[64];
+} m512i_pun_t;
+static inline __m512i gather2(__m512i b) {
+
+    static const __m512i negateBIm = {
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101};
+//    static const __m512i index = {
+//        0x100000000, 0x300000002, 0x500000004, 0x300000002,
+//        0x500000004, 0x700000006, 0x900000008, 0x700000006};
+    const __m512i indexA = _mm512_set_epi8(
+        63,62,/*next 1*/-1,/*next 0*/-1, 63,62,61,60,
+        59,58,61,60, 59,58,57,56,
+        55,54,57,56, 55,54,53,52,
+        51,50,53,52, 51,50,49,48,
+        47,46,49,48, 47,46,45,44,
+        43,42,45,44, 43,42,41,40,
+        39,38,41,40, 39,38,37,36,
+        35,34,37,36, 35,34,33,32);
+    const __m512i indexB = _mm512_set_epi8(
+        31,30,33,32, 31,30,29,28,
+        27,26,29,28, 27,26,25,24,
+        23,22,25,24, 23,22,21,20,
+        19,18,21,20, 19,18,17,16,
+        15,14,17,16, 15,14,13,12,
+        11,10,13,12, 11,10, 9, 8,
+         7, 6, 9, 8,  7, 6, 5, 4,
+         3, 2, 5, 4,  3, 2, 1, 0);
+//    static __m512i *a = NULL;
+    static m512i_pun_t *a = NULL;
+    static __m512 ret[4];
+    m512i_pun_t punB = {b};
+    if (!a) {
+        a = _mm_malloc(sizeof(*a), 64);
+    } else {
+        // TODO insert positions b[0],b[1] into a[60],a[61] respectively and covert to float
+        a->buf[60] = punB.buf[0];
+        a->buf[61] = punB.buf[1];
+        convertInt8ToFloat(a->v, ret);
+    }
+
+    a->v = _mm512_permutexvar_epi8(indexA, b);
+
+    union {
+        __m512i v;
+        int8_t buf[64];
+    } bar;
+
+    b = _mm512_permutexvar_epi8(indexB, b);
+    bar.v = b;
+    bar=bar;
+    a->v = conditional_negate_epi8(a->v, negateBIm);
+    b = conditional_negate_epi8(b, negateBIm);
+
+    convertInt8ToFloat(b, ret);
+
+    return b;
+}
 
 static inline __m512 gather(__m512 b) {
 
@@ -267,6 +333,9 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         }
 
         v = boxcarUint8(convertUint8ToInt8((*(__m512i *) buf)));
+
+        __m512i foo = gather2(v);
+        foo=foo;
         convertInt8ToFloat(v, u);
 
         for (i = 0; i < 8; i++) {
