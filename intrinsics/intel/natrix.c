@@ -41,7 +41,7 @@
 //    matrixOp512_t convertOut;
 //} vectorOps_t;
 
-//static const __m512i ZEROS = {};
+static const __m512i ZEROS = {};
 //TODO
 // taken from https://stackoverflow.com/a/55745816
 //static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
@@ -51,10 +51,10 @@
 
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
     // vpsubw target{k1}, 0, target
-    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), _mm512_setzero_si512(), target);
+    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
 }
 
-//TODO_mm512_set1_ps(1.f)
+//TODO
 //static inline __m512* convertInt16ToFloat(__m256i u) {
 //
 //    return _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(u)));
@@ -167,14 +167,14 @@ static inline void preNormMult(__m512 *u, __m512 *v) {
     *u = _mm512_permute_ps(*u, 0x5);
     *u = _mm512_mul_ps(*u, *v);
 }
-//static const __m512 ONES = {
-//    1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
-//    1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
+static const __m512 ONES = {
+    1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
+    1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
 static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
 
     *w = _mm512_permute_ps(*u, 0x8D); // {aj, bj, ar, br, cj, dj, cr, dr}
     *u = _mm512_fmaddsub_ps(//TODO consider looking for separate add/sub mask intrinsics
-        _mm512_set1_ps(1.f), *u, *w);      // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+        ONES, *u, *w);      // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
     *v = _mm512_mul_ps(*u,*u); // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
     *w = _mm512_permute_ps(*v, 0x1B); // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
                                       // {bj^2, br^2, aj^2, ar^2, ... }
@@ -241,16 +241,18 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 //TODO
 //    vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = 0;//processMode(mode, funs);
-    size_t elementsRead;
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
-    __m512i v;
+//    __m64 result[MATRIX_WIDTH << 1] __attribute__((aligned(64)));
     __m512 *u = _mm_malloc(sizeof(*u) << 2, 64);
+
+    size_t elementsRead;
+    __m512i v;
     __m512 ret;
     int i;
 
     const uint8_t isGain = fabsf(1.f - inGain) > GAIN_THRESHOLD;
-    const __m256 gain = _mm256_broadcast_ss(&inGain);
+    const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
 
     while (!exitFlag) {
 
@@ -274,12 +276,8 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             result[i] = *(__m64*)&ret;
         }
 
-//        result[1] = fmDemod(u[1]);
-//        result[2] = fmDemod(u[2]);
-//        result[3] = fmDemod(u[3]);
-
         if (isGain) {
-            _mm256_mul_ps(*(__m256 *) &result, gain);
+            _mm512_mul_ps(*(__m512 *)result, gain);
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
