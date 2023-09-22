@@ -149,80 +149,18 @@ typedef union {
     __m512i v;
     int8_t buf[64];
 } m512i_pun_t;
-static inline __m512i gather2(__m512i b) {
 
-    static const __m512i negateBIm = {
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101};
+//static inline __m512 gather(__m512 b) {
+//
+//    static const __m512 negateBIm = {
+//        1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f,
+//        1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f}; //0x010101FF...
 //    static const __m512i index = {
 //        0x100000000, 0x300000002, 0x500000004, 0x300000002,
 //        0x500000004, 0x700000006, 0x900000008, 0x700000006};
-    const __m512i indexA = _mm512_set_epi8(
-        63,62,/*next 1*/-1,/*next 0*/-1, 63,62,61,60,
-        59,58,61,60, 59,58,57,56,
-        55,54,57,56, 55,54,53,52,
-        51,50,53,52, 51,50,49,48,
-        47,46,49,48, 47,46,45,44,
-        43,42,45,44, 43,42,41,40,
-        39,38,41,40, 39,38,37,36,
-        35,34,37,36, 35,34,33,32);
-    const __m512i indexB = _mm512_set_epi8(
-        31,30,33,32, 31,30,29,28,
-        27,26,29,28, 27,26,25,24,
-        23,22,25,24, 23,22,21,20,
-        19,18,21,20, 19,18,17,16,
-        15,14,17,16, 15,14,13,12,
-        11,10,13,12, 11,10, 9, 8,
-         7, 6, 9, 8,  7, 6, 5, 4,
-         3, 2, 5, 4,  3, 2, 1, 0);
-//    static __m512i *a = NULL;
-    static m512i_pun_t *a = NULL;
-    static __m512 ret[4];
-    m512i_pun_t punB = {b};
-    if (!a) {
-        a = _mm_malloc(sizeof(*a), 64);
-    } else {
-        // TODO insert positions b[0],b[1] into a[60],a[61] respectively and covert to float
-        a->buf[60] = punB.buf[0];
-        a->buf[61] = punB.buf[1];
-        convertInt8ToFloat(a->v, ret);
-    }
-
-    a->v = _mm512_permutexvar_epi8(indexA, b);
-
-    union {
-        __m512i v;
-        int8_t buf[64];
-    } bar;
-
-    b = _mm512_permutexvar_epi8(indexB, b);
-    bar.v = b;
-    bar=bar;
-    a->v = conditional_negate_epi8(a->v, negateBIm);
-    b = conditional_negate_epi8(b, negateBIm);
-
-    convertInt8ToFloat(b, ret);
-
-    return b;
-}
-
-static inline __m512 gather(__m512 b) {
-
-    static const __m512 negateBIm = {
-        1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f,
-        1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f}; //0x010101FF...
-    static const __m512i index = {
-        0x100000000, 0x300000002, 0x500000004, 0x300000002,
-        0x500000004, 0x700000006, 0x900000008, 0x700000006};
-
-    return _mm512_mul_ps(negateBIm, _mm512_permutexvar_ps(index, b));
-}
+//
+//    return _mm512_mul_ps(negateBIm, _mm512_permutexvar_ps(index, b));
+//}
 
 static inline void preNormMult(__m512 *u, __m512 *v) {
 
@@ -232,6 +170,7 @@ static inline void preNormMult(__m512 *u, __m512 *v) {
     *u = _mm512_permute_ps(*u, 0x5);
     *u = _mm512_mul_ps(*u, *v);
 }
+
 static const __m512 ONES = {
     1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
     1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
@@ -246,7 +185,7 @@ static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
     *v = _mm512_add_ps(*v, *w);// = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
-static __m512 fmDemod(__m512 x) {
+static __m512 fmDemod(__m512 u) {
 
     //_mm512_setr_epi32(5,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
     static const __m512i index = {0xd00000005};
@@ -262,7 +201,7 @@ static __m512 fmDemod(__m512 x) {
         41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
     __m512 v, w, y;
-    __m512 u = gather(x); // {ar, aj, br, bj, cr, cj, br, bj}
+//    __m512 u = gather(x); // {ar, aj, br, bj, cr, cj, br, bj}
 
     preNormMult(&u, &v);
     preNormAddSubAdd(&u, &v, &w);
@@ -279,7 +218,71 @@ static __m512 fmDemod(__m512 x) {
     // NAN check
     return _mm512_permutexvar_ps(index, _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u));
 }
+static inline uint8_t gather2(__m512i b, __m64 *result) {
 
+    static const __m512i negateBIm = {
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101};
+
+    const __m512i indexA = _mm512_set_epi8(
+        63,62,/*next 1*/-1,/*next 0*/-1, 63,62,61,60,
+        59,58,61,60, 59,58,57,56,
+        55,54,57,56, 55,54,53,52,
+        51,50,53,52, 51,50,49,48,
+        47,46,49,48, 47,46,45,44,
+        43,42,45,44, 43,42,41,40,
+        39,38,41,40, 39,38,37,36,
+        35,34,37,36, 35,34,33,32);
+    const __m512i indexB = _mm512_set_epi8(
+        31,30,33,32, 31,30,29,28,
+        27,26,29,28, 27,26,25,24,
+        23,22,25,24, 23,22,21,20,
+        19,18,21,20, 19,18,17,16,
+        15,14,17,16, 15,14,13,12,
+        11,10,13,12, 11,10, 9, 8,
+        7, 6, 9, 8,  7, 6, 5, 4,
+        3, 2, 5, 4,  3, 2, 1, 0);
+
+    static int i;
+    static m512i_pun_t *a = NULL;
+    static __m512 ret[4];
+    static uint8_t isFirst = 1;
+    static m512i_pun_t punB;
+
+    if (!a) {
+        a = _mm_malloc(sizeof(*a), 64);
+    } else {
+        punB.v = b;
+        a->buf[60] = punB.buf[0];
+        a->buf[61] = punB.buf[1];
+        convertInt8ToFloat(a->v, ret);
+        for (i = 0; i < 4; i++) {
+            __m512 u = fmDemod(ret[i]);
+            result[i] = *(__m64*)&u;
+        }
+        isFirst = 0;
+    }
+
+    a->v = _mm512_permutexvar_epi8(indexA, b);
+    b = _mm512_permutexvar_epi8(indexB, b);
+
+    a->v = conditional_negate_epi8(a->v, negateBIm);
+    b = conditional_negate_epi8(b, negateBIm);
+
+    convertInt8ToFloat(b, ret);
+    for (i = 0; i < 4; i++) {
+        __m512 u = fmDemod(ret[i]);
+        result[i+4] = *(__m64*)&u;
+    }
+
+    return isFirst;
+}
 // TODO
 //static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
 //
@@ -307,13 +310,12 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 //    vectorOps_t *funs = malloc(sizeof(*funs));
     int exitFlag = 0;//processMode(mode, funs);
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
-    __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
-    __m512 *u = _mm_malloc(sizeof(*u) << 2, 64);
+//    __m64 *result = _mm_malloc(MATRIX_WIDTH << 2, 64);
+    __m64 result[MATRIX_WIDTH << 1];
+//    __m512 *u = _mm_malloc(sizeof(*u) << 2, 64);
 
     size_t elementsRead;
     __m512i v;
-    __m512 ret;
-    int i;
 
     const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
     const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
@@ -333,25 +335,22 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         }
 
         v = boxcarUint8(convertUint8ToInt8((*(__m512i *) buf)));
-
-        __m512i foo = gather2(v);
-        foo=foo;
-        convertInt8ToFloat(v, u);
-
-        for (i = 0; i < 8; i++) {
-            ret = fmDemod(u[i]);
-            result[i] = *(__m64*)&ret;
-        }
+//        convertInt8ToFloat(v, u);
+        uint8_t isFirst = gather2(v, result);
 
         if (isGain) {
             _mm512_mul_ps(*(__m512 *)result, gain);
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
+        if (isFirst){
+            fwrite((result + (MATRIX_WIDTH)), OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
+        } else {
+            fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
+        }
     }
 
-    _mm_free(u);
-    _mm_free(result);
+//    _mm_free(u);
+//    _mm_free(result);
     _mm_free(buf);
 //    free(funs); //TODO
 
