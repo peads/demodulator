@@ -44,6 +44,7 @@
 typedef union {
     __m512i v;
     int8_t buf[64];
+    int16_t buf16[32];
 } m512i_pun_t;
 
 static m512i_pun_t *a = NULL;
@@ -82,16 +83,20 @@ static inline __m512i convertUint8ToInt8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
+static inline void convertInt8ToInt16(__m512i *u, __m512i *v) {
+
+    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u,1));
+    *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
+}
+
 static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
 
-    __m512i q0, q2, q1, q3;
+    __m512i q0 = u, q2 = {}, q1, q3;
     static __m512 prev = {
         0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,
         0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f};
 
-    q0 = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
-    q2 = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u,1));
-
+    convertInt8ToInt16(&q0, &q2);
     q1 = q0;
     q0 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(q0));
     q1 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(q1, 1));
@@ -226,7 +231,7 @@ static inline uint8_t demod(__m512i b, __m64 *result) {
         (int64_t) 0xff010101ff010101};
 
     const __m512i indexA = _mm512_set_epi8(
-        63,62,/*next 1*/-1,/*next 0*/-1, 63,62,61,60,
+        63,62,/*next_1*/-1,/*next_0*/-1, 63,62,61,60,
         59,58,61,60, 59,58,57,56,
         55,54,57,56, 55,54,53,52,
         51,50,53,52, 51,50,49,48,
@@ -234,6 +239,7 @@ static inline uint8_t demod(__m512i b, __m64 *result) {
         43,42,45,44, 43,42,41,40,
         39,38,41,40, 39,38,37,36,
         35,34,37,36, 35,34,33,32);
+
     const __m512i indexB = _mm512_set_epi8(
         31,30,33,32, 31,30,29,28,
         27,26,29,28, 27,26,25,24,
@@ -243,6 +249,43 @@ static inline uint8_t demod(__m512i b, __m64 *result) {
         11,10,13,12, 11,10, 9, 8,
         7, 6, 9, 8,  7, 6, 5, 4,
         3, 2, 5, 4,  3, 2, 1, 0);
+
+    const __m512i indexV = _mm512_set_epi8(
+        63,62,62,63,
+        59,58,58,59,
+        55,54,54,55,
+        51,50,50,51,
+        47,46,46,47,
+        43,42,42,43,
+        39,38,38,39,
+        35,34,34,35,
+        31,30,30,31,
+        27,26,26,27,
+        23,22,22,23,
+        19,18,18,19,
+        15,14,14,15,
+        11,10,10,11,
+        7, 6, 6, 7,
+        3, 2, 2, 3);
+
+    const __m512i indexU = _mm512_set_epi8(
+        62,62,61,61,
+        58,58,57,57,
+        54,54,53,53,
+        50,50,49,49,
+        46,46,45,45,
+        42,42,41,41,
+        38,38,37,37,
+        34,34,33,33,
+        30,30,29,29,
+        26,26,25,25,
+        20,20,21,21,
+        16,16,17,17,
+        12,12,13,13,
+        8,8,9,9,
+        4,4,5,5,
+        0,0,1,1
+    );
 
     static int i;
     static __m512 ret[4];
@@ -270,6 +313,24 @@ static inline uint8_t demod(__m512i b, __m64 *result) {
     b = conditional_negate_epi8(b, negateBIm);
 
     convertInt8ToFloat(b, ret);
+
+    //  {bj, br, br, bj, bj, br, br, bj} *
+    //  {aj, aj, ar, ar, cj, cj, cr, cr}
+    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    __m512i vLo16, vHi16,
+        v = _mm512_permutexvar_epi8(indexV, b); // _MM_SHUFFLE(3,2,2,3) = 0xEB
+    __m512i uLo16, uHi16,
+        u = _mm512_permutexvar_epi8(indexU, b); // _MM_SHUFFLE(0,0,1,1) = 0x5
+
+    uLo16=u;
+    vLo16=v;
+    convertInt8ToInt16(&uLo16, &uHi16);
+    convertInt8ToInt16(&vLo16, &vHi16);
+    u = _mm512_mullo_epi16(uLo16, vLo16);
+    v = _mm512_mullo_epi16(uHi16, vHi16);
+
+    uLo16=uLo16;vLo16=vLo16;uHi16=uHi16;vHi16=vHi16;
+
     for (i = 0; i < 4; i++) {
         __m512 u = fmDemod(ret[i]);
         result[i+4] = *(__m64*)&u;
