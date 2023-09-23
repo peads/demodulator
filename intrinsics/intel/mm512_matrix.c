@@ -244,9 +244,9 @@ static inline void demod(__m512i u, __m64 *result) {
 int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                   void *__restrict__ outFile) {
 
-    int exitFlag = 0;//processMode(mode, funs);
+    int exitFlag = 0;
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
-    __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
+    __m64 result[MATRIX_WIDTH << 1];
 
     size_t elementsRead;
     __m512i v;
@@ -278,8 +278,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
     }
 
-    _mm_free(result);
     _mm_free(buf);
-
     return exitFlag;
 }
