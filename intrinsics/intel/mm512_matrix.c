@@ -239,8 +239,7 @@ static inline void demodEpi16(__m512i u, __m64 *result) {
         0xb000a00090008,
         0xb000a000d000c,
         0xf000e000d000c,
-        0xf000e00110010
-    };
+        0xf000e00110010};
 
     static m512i_pun_t prev;
 
