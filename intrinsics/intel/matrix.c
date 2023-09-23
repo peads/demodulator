@@ -40,12 +40,12 @@ typedef struct {
     vectorOp128_t convertOut;
 } vectorOps_t;
 
-static inline __m128 convertInt16ToFloat(__m128i u) {
+static inline __m128 convert_epi16_ps(__m128i u) {
 
     return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
 }
 
-static inline __m256i convertUint8ToInt8(__m256i u) {
+static inline __m256i convert_epu8_epi8(__m256i u) {
 
     static const __m256i Z = {
             -0x7f7f7f7f7f7f7f7f,
@@ -56,12 +56,12 @@ static inline __m256i convertUint8ToInt8(__m256i u) {
     return _mm256_add_epi8(u, Z);
 }
 
-static inline __m128 convertInt8ToFloat(__m128i u) {
+static inline __m128 convert_epi8_ps(__m128i u) {
 
-    return convertInt16ToFloat(_mm_cvtepi8_epi16(u));
+    return convert_epi16_ps(_mm_cvtepi8_epi16(u));
 }
 
-static inline __m256i boxcarUint8(__m256i u) {
+static inline __m256i boxcarEpi8(__m256i u) {
 
     static const __m256i Z = {
             (int64_t) 0xff01ff01ff01ff01,
@@ -76,7 +76,7 @@ static inline __m256i boxcarUint8(__m256i u) {
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
-static inline __m256i boxcarInt16(__m256i u) {
+static inline __m256i boxcarEpi16(__m256i u) {
 
     static const __m256i Z = {
             (int64_t) 0xffff0001ffff0001,
@@ -156,14 +156,14 @@ static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
 
     switch (mode) {
         case 0: // default mode (input int16)
-            funs->boxcar = boxcarInt16;
+            funs->boxcar = boxcarEpi16;
             funs->convertIn = nonconversion;
-            funs->convertOut = convertInt16ToFloat;
+            funs->convertOut = convert_epi16_ps;
             break;
         case 1: // input uint8
-            funs->boxcar = boxcarUint8;
-            funs->convertIn = convertUint8ToInt8;
-            funs->convertOut = convertInt8ToFloat;
+            funs->boxcar = boxcarEpi8;
+            funs->convertIn = convert_epu8_epi8;
+            funs->convertOut = convert_epi8_ps;
             break;
         default:
             return -1;

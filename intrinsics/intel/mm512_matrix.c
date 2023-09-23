@@ -54,7 +54,7 @@ static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
     return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
 }
 
-static inline __m512i convertUint8ToInt8(__m512i u) {
+static inline __m512i convert_epu8_epi8(__m512i u) {
 
     static const __m512i Z = {
         -0x7f7f7f7f7f7f7f7f,
@@ -69,36 +69,36 @@ static inline __m512i convertUint8ToInt8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convertInt8ToInt16(__m512i *u, __m512i *v) {
+static inline void convert_epi8_epi16(__m512i *u, __m512i *v) {
 
     *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
 }
 
-static inline void convertInt16ToInt32(__m512i *u, __m512i *v) {
+static inline void convert_epi16_epi32(__m512i *u, __m512i *v) {
 
     *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
 }
 
-static inline void convertInt16ToFloat(__m512i u, __m512 *ret) {
+static inline void convert_epi16_ps(__m512i u, __m512 *ret) {
 
     __m512i q1;
 
-    convertInt16ToInt32(&u, &q1);
+    convert_epi16_epi32(&u, &q1);
     ret[0] = _mm512_cvtepi32_ps(u);
     ret[1] = _mm512_cvtepi32_ps(q1);
 }
 
-static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
+static inline void convert_epi8_ps(__m512i u, __m512 *ret) {
 
     __m512i v = {};
-    convertInt8ToInt16(&u, &v);
-    convertInt16ToFloat(u, ret);
-    convertInt16ToFloat(v, &(ret[2]));
+    convert_epi8_epi16(&u, &v);
+    convert_epi16_ps(u, ret);
+    convert_epi16_ps(v, &(ret[2]));
 }
 
-static inline __m512i boxcarUint8(__m512i u) {
+static inline __m512i boxcarEpi8(__m512i u) {
 
     static const __m512i Z = {
         (int64_t) 0xff01ff01ff01ff01,
@@ -119,7 +119,7 @@ static inline __m512i boxcarUint8(__m512i u) {
     return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
 }
 
-static inline __m512i boxcarInt16(__m512i u) {
+static inline __m512i boxcarEpi16(__m512i u) {
 
     static const __m512i Z = {
         (int64_t) 0xffff0001ffff0001,
@@ -249,17 +249,17 @@ static inline void demodEpi16(__m512i u, __m64 *result) {
 
     __m512 M[6];
 
-    u = boxcarInt16(u);
+    u = boxcarEpi16(u);
     hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
     lo.v = conditional_negate_epi16(_mm512_permutexvar_epi16(indexLo, u), negateBIm);
 
     prev.buf16[28] = lo.buf16[0];
     prev.buf16[29] = lo.buf16[1];
 
-    convertInt16ToFloat(prev.v, M);
+    convert_epi16_ps(prev.v, M);
     demod(M, result);
 
-    convertInt16ToFloat(lo.v, M);
+    convert_epi16_ps(lo.v, M);
     demod(M, &(result[2]));
 
     prev.v = hi;
@@ -305,14 +305,14 @@ static inline void demodEpi8(__m512i u, __m64 *result) {
     __m512 M[6];
     __m512 temp[2];
 
-    u = boxcarUint8(convertUint8ToInt8(u));
+    u = boxcarEpi8(convert_epu8_epi8(u));
     hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
     lo.v = conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm);
 
     prev.buf[60] = lo.buf[0];
     prev.buf[61] = lo.buf[1];
 
-    convertInt8ToFloat(prev.v, M);
+    convert_epi8_ps(prev.v, M);
     temp[0] = M[2];
     temp[1] = M[3];
 
@@ -321,7 +321,7 @@ static inline void demodEpi8(__m512i u, __m64 *result) {
     M[1] = temp[1];
     demod(M, &(result[2]));
 
-    convertInt8ToFloat(lo.v, M);
+    convert_epi8_ps(lo.v, M);
     temp[0] = M[2];
     temp[1] = M[3];
 
