@@ -30,7 +30,7 @@
 #include <math.h>
 #include "definitions.h"
 #include "matrix.h"
-typedef void (*matrixOp512_t)(__m512i, __m64*);
+typedef void (*matrixOp512_t)(__m512i, __m64*__restrict__);
 
 typedef union {
     __m512i v;
@@ -69,19 +69,19 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convert_epi8_epi16(__m512i *u, __m512i *v) {
+static inline void convert_epi8_epi16(__m512i *__restrict__ u, __m512i *__restrict__ v) {
 
     *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
 }
 
-static inline void convert_epi16_epi32(__m512i *u, __m512i *v) {
+static inline void convert_epi16_epi32(__m512i *__restrict__ u, __m512i *__restrict__ v) {
 
     *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
 }
 
-static inline void convert_epi16_ps(__m512i u, __m512 *ret) {
+static inline void convert_epi16_ps(__m512i u, __m512 *__restrict__ ret) {
 
     __m512i q1;
 
@@ -90,7 +90,7 @@ static inline void convert_epi16_ps(__m512i u, __m512 *ret) {
     ret[1] = _mm512_cvtepi32_ps(q1);
 }
 
-static inline void convert_epi8_ps(__m512i u, __m512 *ret) {
+static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 
     __m512i v = {};
     convert_epi8_epi16(&u, &v);
@@ -139,7 +139,7 @@ static inline __m512i boxcarEpi16(__m512i u) {
     return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
 }
 
-static inline void preNormMult(__m512 *u, __m512 *v) {
+static inline void preNormMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
 
     *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
                                         //  {aj, aj, ar, ar, cj, cj, cr, cr}
@@ -148,7 +148,7 @@ static inline void preNormMult(__m512 *u, __m512 *v) {
     *u = _mm512_mul_ps(*u, *v);
 }
 
-static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
+static inline void preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restrict__ w) {
 
     static const __m512 ONES = {
         1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
@@ -193,7 +193,7 @@ static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
     return _mm512_permutexvar_ps(index, _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u));
 }
 
-static void demod(__m512 *M, __m64 *result) {
+static void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
 
     __m512 res;
 
@@ -209,7 +209,7 @@ static void demod(__m512 *M, __m64 *result) {
     result[1] = *(__m64 *) &res;
 }
 
-static inline void demodEpi16(__m512i u, __m64 *result) {
+static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
         (int64_t) 0xffff000100010001,
@@ -264,7 +264,7 @@ static inline void demodEpi16(__m512i u, __m64 *result) {
     prev.v = hi;
 }
 
-static inline void demodEpi8(__m512i u, __m64 *result) {
+static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
         (int64_t) 0xff010101ff010101,
