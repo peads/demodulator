@@ -27,7 +27,6 @@ endif()
 
 if (NOT NO_AVX512 AND UNIX)
     if (NOT APPLE)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
         execute_process(COMMAND cat /proc/cpuinfo OUTPUT_VARIABLE PROCINFO)
         if ((${PROCINFO} MATCHES "avx512bw") AND (${PROCINFO} MATCHES "avx512f") AND (${PROCINFO} MATCHES "avx512dq"))
             set(HAS_AVX512 ON)
