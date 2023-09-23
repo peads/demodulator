@@ -172,26 +172,6 @@ static inline void demodEpi16(__m256i u, float *__restrict__ result) {
         (int64_t) 0xffff000100010001,
         (int64_t) 0xffff000100010001};
 
-//    static const __m256i indexHi = {
-//        0xb000a00090008,
-//        0xb000a000d000c,
-//        0xf000e000d000c,
-//        0xf000e00110010};
-
-//    static const __m256i indexLo = {
-//        0x3000200010000,
-//        0x3000200050004,
-//        0x7000600050004,
-//        0x7000600090008};
-
-    const __m256i indexLo = _mm256_setr_epi16(
-        0,1,2,3,4,5,2,3,
-        4,5,6,7,8,9,6,7);
-    const __m256i indexHi = _mm256_setr_epi16(
-        0x8,0x9,0xA,0xB,0xC,0xD,0xA,0xB,
-        0xC,0xD,0xE,0xF,-1,-1,0xE,0xF
-    );
-
     static m256i_pun_t prev;
 
     __m256i hi;
@@ -200,8 +180,20 @@ static inline void demodEpi16(__m256i u, float *__restrict__ result) {
     __m256 M[6];
 
     u = boxcarEpi16(u);
-    hi = _mm256_sign_epi16(_mm256_permutexvar_epi16(indexHi, u), negateBIm);
-    lo.v = _mm256_sign_epi16(_mm256_permutexvar_epi16(indexLo, u), negateBIm);
+
+    const __m256i indexLo = _mm256_setr_epi16(
+        0,0,1,1,2,2,1,1,
+        2,2,3,3,4,4,3,3
+    );
+    const __m256i indexHi = _mm256_setr_epi16(
+        4,4,5,5,6,6,5,5,
+        6,6,7,7,8,8,7,7
+    );
+
+    //_mm256_permutexvar_epi16(indexHi, u)
+    //_mm256_permutexvar_epi16(indexLo, u)
+    hi = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
+    lo.v = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
 
     prev.buf16[12] = lo.buf16[0];
     prev.buf16[13] = lo.buf16[1];
@@ -244,8 +236,12 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
     __m256 temp[2];
 
     u = boxcarEpi8(convert_epu8_epi8(u));
-    hi = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexHi, u), negateBIm);
-    lo.v = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexLo, u), negateBIm);
+
+
+    hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
+    lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
+//    hi = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexHi, u), negateBIm);
+//    lo.v = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexLo, u), negateBIm);
 
     prev.buf[28] = lo.buf[0];
     prev.buf[29] = lo.buf[1];
