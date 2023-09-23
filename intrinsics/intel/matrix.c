@@ -132,8 +132,6 @@ static float fmDemod(__m256 u, __m256 v, __m256 w) {
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-//    static __m128 prev = {0.f, 0.f, 0.f, 0.f};
-
     __m256 y;
 
     // Norm
@@ -190,8 +188,6 @@ static inline void demodEpi16(__m256i u, float *__restrict__ result) {
         6,6,7,7,8,8,7,7
     );
 
-    //_mm256_permutexvar_epi16(indexHi, u)
-    //_mm256_permutexvar_epi16(indexLo, u)
     hi = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
     lo.v = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
 
@@ -240,8 +236,6 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
 
     hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
     lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
-//    hi = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexHi, u), negateBIm);
-//    lo.v = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexLo, u), negateBIm);
 
     prev.buf[28] = lo.buf[0];
     prev.buf[29] = lo.buf[1];
