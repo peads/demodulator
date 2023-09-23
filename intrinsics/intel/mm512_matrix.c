@@ -60,12 +60,6 @@ static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
     return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
 }
 
-//TODO
-//static inline __m512* convertInt16ToFloat(__m256i u) {
-//
-//    return _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(u)));
-//}
-
 static inline __m512i convertUint8ToInt8(__m512i u) {
 
     static const __m512i Z = {
@@ -87,37 +81,28 @@ static inline void convertInt8ToInt16(__m512i *u, __m512i *v) {
     *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
 }
 
-static inline void convertInt16ToFloat(__m512i u, /*__m512i v,*/ __m512 *ret) {
-
-    __m512i q0, q1;//, q2, q3;
-
-    q0 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
-    q1 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
-
-//    q2 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(v));
-//    q3 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1));
-
-    ret[0] = _mm512_cvtepi32_ps(q0);
-    ret[1] = _mm512_cvtepi32_ps(q1);
-//    ret[2] = _mm512_cvtepi32_ps(q2);
-//    ret[3] = _mm512_cvtepi32_ps(q3);
+static inline void convertInt16ToInt32(__m512i *u, __m512i *v) {
+    *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
+    *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
 }
 
-//static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
-//
-//    static __m512 prev = {
-//        0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,
-//        0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f};
-//    __m512i v = {};
-//    convertInt8ToInt16(&u, &v);
-//    convertInt16ToFloat(u, v, ret);
-//}
+static inline void convertInt16ToFloat(__m512i u, __m512 *ret) {
 
-//TODO
-//static inline __m512i nonconversion(__m512i u) {
-//
-//    return u;
-//}
+    __m512i q0 = u, q1;
+
+    convertInt16ToInt32(&q0, &q1);
+    ret[0] = _mm512_cvtepi32_ps(q0);
+    ret[1] = _mm512_cvtepi32_ps(q1);
+}
+
+static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
+
+    __m512i v = {};
+    convertInt8ToInt16(&u, &v);
+//    convertInt16ToFloat(u, v, ret);
+    convertInt16ToFloat(u, ret);
+    convertInt16ToFloat(v, &(ret[2]));
+}
 
 static inline __m512i boxcarUint8(__m512i u) {
 
@@ -140,50 +125,28 @@ static inline __m512i boxcarUint8(__m512i u) {
     return _mm512_add_epi8(u,  _mm512_shuffle_epi8(u, mask));
 }
 
-// TODO
-//static inline __m512i boxcarInt16(__m512i u) {
-//
-//    static const __m512i Z = {
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001,
-//        (int64_t) 0xffff0001ffff0001};
-//    static const __m512i mask = {
-//        0x0302010007060504, 0x0b0a09080f0e0d0c,
-//        0x0302010007060504, 0x0b0a09080f0e0d0c,
-//        0x0302010007060504, 0x0b0a09080f0e0d0c,
-//        0x0302010007060504, 0x0b0a09080f0e0d0c};
-//    u = conditional_negate_epi16(u, Z);
-//    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
-//}
+static inline void preNormMult(__m512 *u, __m512 *v) {
 
-//static inline void preNormMult(__m512 *u, __m512 *v) {
-//
-//    *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
-//                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
-//                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
-//    *u = _mm512_permute_ps(*u, 0x5);
-//    *u = _mm512_mul_ps(*u, *v);
-//}
+    *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
+                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
+                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    *u = _mm512_permute_ps(*u, 0x5);
+    *u = _mm512_mul_ps(*u, *v);
+}
 
-//static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
-//
-//    static const __m512 ONES = {
-//        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
-//        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
-//
-//    *w = _mm512_permute_ps(*u, 0x8D); // {aj, bj, ar, br, cj, dj, cr, dr}
-//    *u = _mm512_fmaddsub_ps(//TODO consider looking for separate add/sub mask intrinsics
-//        ONES, *u, *w);      // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-//    *v = _mm512_mul_ps(*u,*u); // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-//    *w = _mm512_permute_ps(*v, 0x1B); // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-//                                      // {bj^2, br^2, aj^2, ar^2, ... }
-//    *v = _mm512_add_ps(*v, *w);// = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
-//}
+static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
+
+    static const __m512 ONES = {
+        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
+        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
+
+    *w = _mm512_permute_ps(*u, 0x8D); // {aj, bj, ar, br, cj, dj, cr, dr}
+    *u = _mm512_fmaddsub_ps(ONES, *u, *w);      // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+    *v = _mm512_mul_ps(*u,*u); // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+    *w = _mm512_permute_ps(*v, 0x1B); // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
+                                      // {bj^2, br^2, aj^2, ar^2, ... }
+    *v = _mm512_add_ps(*v, *w);// = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+}
 
 static __m512 fmDemod(__m512 u, __m512 v,  __m512 w) {
 
@@ -218,126 +181,39 @@ static __m512 fmDemod(__m512 u, __m512 v,  __m512 w) {
 
 static void demod2(__m512i b, __m64 *result) {
 
-    const __m512i indexV = _mm512_set_epi8( // _MM_SHUFFLE(3,2,2,3) = 0xEB
-        63,62,62,63,
-        59,58,58,59,
-        55,54,54,55,
-        51,50,50,51,
-        47,46,46,47,
-        43,42,42,43,
-        39,38,38,39,
-        35,34,34,35,
-        31,30,30,31,
-        27,26,26,27,
-        23,22,22,23,
-        19,18,18,19,
-        15,14,14,15,
-        11,10,10,11,
-        7, 6, 6, 7,
-        3, 2, 2, 3);
+    __m512 ret[6];
+    __m512 res, u[2];
 
-    const __m512i indexU = _mm512_set_epi8( // _MM_SHUFFLE(0,0,1,1) = 0x5
-        62,62,61,61,
-        58,58,57,57,
-        54,54,53,53,
-        50,50,49,49,
-        46,46,45,45,
-        42,42,41,41,
-        38,38,37,37,
-        34,34,33,33,
-        30,30,29,29,
-        26,26,25,25,
-        20,20,21,21,
-        16,16,17,17,
-        12,12,13,13,
-        8,8,9,9,
-        4,4,5,5,
-        0,0,1,1
-    );
+    convertInt8ToFloat(b, ret);
+    u[0] = ret[2];
+    u[1] = ret[3];
 
-    const __m512i indexW = _mm512_set_epi16(
-        30,28,31,29,
-        26,24,27,25,
-        22,20,23,21,
-        18,16,19,17,
-        14,12,15,13,
-        10,8,11,9,
-        6,4,7,5,
-        2,0,3,1
-    );
+    preNormMult(ret, &(ret[2]));
+    preNormMult(&(ret[1]), &(ret[3]));
 
-    const __m512i reverseIndex = _mm512_set_epi16(
-        0,1,2,3,4,5,6,7,8,9,
-        10,11,12,13,14,15,16,17,18,19,
-        20,21,22,23,24,25,26,27,28,29,
-        30,31);
+    preNormAddSubAdd(&ret[0], &ret[2], &ret[4]);
+    preNormAddSubAdd(&ret[1], &ret[3], &ret[5]);
 
-    __m512 ret[4];
-    __m512 retW[2];
-    __m512 res;
-    __m512i u, v, w, vLo16, vHi16, uLo16, uHi16;
-
-    //  {bj, br, br, bj, bj, br, br, bj} *
-    //  {aj, aj, ar, ar, cj, cj, cr, cr}
-    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
-    v = _mm512_permutexvar_epi8(indexV, b);
-    u = _mm512_permutexvar_epi8(indexU, b);
-
-    uLo16 = u;
-    vLo16 = v;
-    convertInt8ToInt16(&uLo16, &uHi16);
-    convertInt8ToInt16(&vLo16, &vHi16);
-    uLo16 = _mm512_mullo_epi16(uLo16, vLo16);
-    uHi16 = _mm512_mullo_epi16(uHi16, vHi16);
-
-    // {aj, bj, ar, br, cj, dj, cr, dr}
-    //
-    // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-    //
-    // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} + {bj^2, br^2, aj^2, ar^2, ... }
-    // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
-    u = uLo16;
-    w = _mm512_permutexvar_epi16(indexW, u);         // _MM_SHUFFLE(2,0,3,1) = 0x8D
-    u = _mm512_mask_add_epi16(u, 0xAAAAAAAA, u, w);
-    u = _mm512_mask_sub_epi16(u, 0x55555555, u, w);
-    v = _mm512_mullo_epi16(u,u);
-    w = _mm512_permutexvar_epi16(reverseIndex, v);    // _MM_SHUFFLE(0,1,2,3) = 0x1B
-    v = _mm512_add_epi16(v, w);
-    v = _mm512_mask_set1_epi16(v, _mm512_cmp_epi16_mask(_mm512_setzero_si512(), v, _MM_CMPINT_NLT), 0);
-//    v = _mm512_mask_set1_epi16(v, _mm512_cmp_epi16_mask(_mm512_setzero_si512(), v, _MM_CMPINT_NLT), INT16_MAX);
-
-
-    convertInt16ToFloat(u,ret);
-    convertInt16ToFloat(v,&(ret[2]));
-    convertInt16ToFloat(w, retW);
-
-    res = fmDemod(ret[0], ret[2], retW[0]);
+    res = fmDemod(ret[0], ret[2], ret[4]);
     result[0] = *(__m64*)&res;
-    res = fmDemod(ret[1], ret[3], retW[1]);
+    res = fmDemod(ret[1], ret[3], ret[5]);
     result[1] = *(__m64*)&res;
 
-    u = uHi16;
-    w = _mm512_permutexvar_epi16(indexW, u);         // _MM_SHUFFLE(2,0,3,1) = 0x8D
-    u = _mm512_mask_add_epi16(u, 0xAAAAAAAA, u, w);
-    u = _mm512_mask_sub_epi16(u, 0x55555555, u, w);
-    v = _mm512_mullo_epi16(u, u);
-    w = _mm512_permutexvar_epi16(reverseIndex, v);    // _MM_SHUFFLE(0,1,2,3) = 0x1B
-    v = _mm512_add_epi16(v, w);
-    v = _mm512_mask_set1_epi16(v,_mm512_cmp_epi16_mask(_mm512_setzero_si512(), v, _MM_CMPINT_NLT),0);
-//    v = _mm512_mask_set1_epi16(v, _mm512_cmp_epi16_mask(_mm512_setzero_si512(), v, _MM_CMPINT_NLT), INT16_MAX);
+    preNormMult(u, &(ret[2]));
+    preNormMult(&(u[1]), &(ret[3]));
 
-    convertInt16ToFloat(u,ret);
-    convertInt16ToFloat(v,&(ret[2]));
-    convertInt16ToFloat(w, retW);
+    preNormAddSubAdd(&u[0], &ret[2], &ret[4]);
+    preNormAddSubAdd(&u[1], &ret[3], &ret[5]);
 
-    res = fmDemod(ret[0], ret[2], retW[0]);
+    res = fmDemod(u[0], ret[2], ret[4]);
     result[2] = *(__m64*)&res;
-    res = fmDemod(ret[1], ret[3], retW[1]);
+    res = fmDemod(u[1], ret[3], ret[5]);
     result[3] = *(__m64*)&res;
 }
 
 static inline void demod(__m512i u, __m64 *result) {
+
+    static m512i_pun_t prev;
 
     static const __m512i negateBIm = {
         (int64_t) 0xff010101ff010101,
@@ -349,7 +225,7 @@ static inline void demod(__m512i u, __m64 *result) {
         (int64_t) 0xff010101ff010101,
         (int64_t) 0xff010101ff010101};
 
-    const __m512i indexA = _mm512_set_epi8(
+    const __m512i indexHi = _mm512_set_epi8(
         63,62,/*next_1*/-1,/*next_0*/-1, 63,62,61,60,
         59,58,61,60, 59,58,57,56,
         55,54,57,56, 55,54,53,52,
@@ -359,7 +235,7 @@ static inline void demod(__m512i u, __m64 *result) {
         39,38,41,40, 39,38,37,36,
         35,34,37,36, 35,34,33,32);
 
-    const __m512i indexB = _mm512_set_epi8(
+    const __m512i indexLo = _mm512_set_epi8(
         31,30,33,32, 31,30,29,28,
         27,26,29,28, 27,26,25,24,
         23,22,25,24, 23,22,21,20,
@@ -369,48 +245,23 @@ static inline void demod(__m512i u, __m64 *result) {
         7, 6, 9, 8,  7, 6, 5, 4,
         3, 2, 5, 4,  3, 2, 1, 0);
 
-    static m512i_pun_t prev;
-    __m512i a = conditional_negate_epi8(_mm512_permutexvar_epi8(indexA, u), negateBIm);
-    // TODO prev[60]=b[0], prev[61]=b[1]
-    m512i_pun_t b = {conditional_negate_epi8(_mm512_permutexvar_epi8(indexB, u), negateBIm)};
+    __m512i hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
+    m512i_pun_t lo = {conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm)};
 
-    prev.buf[60] = b.buf[0];
-    prev.buf[61] = b.buf[1];
+    prev.buf[60] = lo.buf[0];
+    prev.buf[61] = lo.buf[1];
 
     demod2(prev.v, result);
-    prev.v = a;
-    demod2(b.v, &(result[4]));
+    prev.v = hi;
+    demod2(lo.v, &(result[4]));
 }
-
-// TODO
-//static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
-//
-//    switch (mode) {
-//        //TODO
-////        case 0: // default mode (input int16)
-////            funs->boxcar = boxcarInt16;
-////            funs->convertIn = nonconversion;
-////            funs->convertOut = convertInt16ToFloat;
-////            break;
-//        case 1: // input uint8
-//            funs->boxcar = boxcarUint8;
-//            funs->convertIn = convertUint8ToInt8;
-//            funs->convertOut = convertInt8ToFloat;
-//            break;
-//        default:
-//            return -1;
-//    }
-//    return 0;
-//}
 
 int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                   void *__restrict__ outFile) {
-//TODO
-//    vectorOps_t *funs = malloc(sizeof(*funs));
+
     int exitFlag = 0;//processMode(mode, funs);
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
-//    __m64 result[MATRIX_WIDTH << 1];
 
 
     size_t elementsRead;
@@ -445,7 +296,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
 
     _mm_free(result);
     _mm_free(buf);
-//    free(funs); //TODO
 
     return exitFlag;
 }
