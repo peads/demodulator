@@ -144,8 +144,7 @@ static inline void preNormMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
     *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
                                         //  {aj, aj, ar, ar, cj, cj, cr, cr}
                                         // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
-    *u = _mm512_permute_ps(*u, 0x5);
-    *u = _mm512_mul_ps(*u, *v);
+    *u = _mm512_mul_ps(_mm512_permute_ps(*u, 0x5), *v);
 }
 
 static inline void preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restrict__ w) {
@@ -193,7 +192,7 @@ static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
     return _mm512_permutexvar_ps(index, _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u));
 }
 
-static void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
+static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
 
     __m512 res;
 
@@ -332,7 +331,9 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
+int processMatrix(FILE *__restrict__ inFile,
+                  const uint8_t mode,
+                  const float inGain,
                   void *__restrict__ outFile) {
 
     int exitFlag = 0;

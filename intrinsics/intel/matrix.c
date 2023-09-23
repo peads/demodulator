@@ -31,18 +31,27 @@
 #include "definitions.h"
 #include "matrix.h"
 
-typedef __m256i (*vectorOp256_t)(__m256i);
-typedef __m128 (*vectorOp128_t)(__m128i);
+typedef union {
+    __m256i v;
+    int8_t buf[32];
+    int16_t buf16[16];
+} m256i_pun_t;
 
-typedef struct {
-    vectorOp256_t boxcar;
-    vectorOp256_t convertIn;
-    vectorOp128_t convertOut;
-} vectorOps_t;
+typedef void (*matrixOp256_t)(__m256i, float *__restrict__);
 
-static inline __m128 convert_epi16_ps(__m128i u) {
+static inline void convert_epi16_epi32(__m256i *__restrict__ u, __m256i *__restrict__ v) {
 
-    return _mm_cvtepi32_ps(_mm_cvtepi16_epi32(u));
+    *v = _mm256_cvtepi16_epi32(_mm256_extractf128_si256(*u, 1));
+    *u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(*u));
+}
+
+static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
+
+    __m256i q1;
+
+    convert_epi16_epi32(&u, &q1);
+    ret[0] = _mm256_cvtepi32_ps(u);
+    ret[1] = _mm256_cvtepi32_ps(q1);
 }
 
 static inline __m256i convert_epu8_epi8(__m256i u) {
@@ -56,9 +65,18 @@ static inline __m256i convert_epu8_epi8(__m256i u) {
     return _mm256_add_epi8(u, Z);
 }
 
-static inline __m128 convert_epi8_ps(__m128i u) {
+static inline void convert_epi8_epi16(__m256i *__restrict__ u, __m256i *__restrict__ v) {
 
-    return convert_epi16_ps(_mm_cvtepi8_epi16(u));
+    *v = _mm256_cvtepi8_epi16(_mm256_extractf128_si256(*u, 1));
+    *u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(*u));
+}
+
+static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
+
+    __m256i v = {};
+    convert_epi8_epi16(&u, &v);
+    convert_epi16_ps(u, ret);
+    convert_epi16_ps(v, &(ret[2]));
 }
 
 static inline __m256i boxcarEpi8(__m256i u) {
@@ -79,22 +97,15 @@ static inline __m256i boxcarEpi8(__m256i u) {
 static inline __m256i boxcarEpi16(__m256i u) {
 
     static const __m256i Z = {
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001};
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001,
+        (int64_t) 0xffff0001ffff0001};
     static const __m256i mask = {
-            0x0302010007060504, 0x0b0a09080f0e0d0c,
-            0x0302010007060504, 0x0b0a09080f0e0d0c};
+        0x0302010007060504, 0x0b0a09080f0e0d0c,
+        0x0302010007060504, 0x0b0a09080f0e0d0c};
     u = _mm256_sign_epi16(u, Z);
     return _mm256_add_epi16(u, _mm256_shuffle_epi8(u, mask));
-}
-
-static inline __m256 gather(__m128 u, __m128 v) {
-
-    static const __m256 negateBIm = {1.f, 1.f, 1.f, -1.f, 1.f, 1.f, 1.f, -1.f}; //0x010101FF...
-
-    return _mm256_mul_ps(_mm256_set_m128(_mm_blend_ps(u, v, 0b0011), u), negateBIm);
 }
 
 static inline void preNormMult(__m256 *u, __m256 *v) {
@@ -115,21 +126,15 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
     *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
-static float fmDemod(__m128 x) {
+static float fmDemod(__m256 u, __m256 v, __m256 w) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    static __m128 prev = {0.f, 0.f, 0.f, 0.f};
+//    static __m128 prev = {0.f, 0.f, 0.f, 0.f};
 
-    __m128 u0 = prev;
-    __m128 v0 = prev = x;
-    __m256 v, w, y;
-    __m256 u = gather(u0, v0); // {ar, aj, br, bj, cr, cj, br, bj}
-
-    preNormMult(&u, &v);
-    preNormAddSubAdd(&u, &v, &w);
+    __m256 y;
 
     // Norm
     v = _mm256_rsqrt_ps(v);
@@ -147,49 +152,143 @@ static float fmDemod(__m128 x) {
     return u[5];
 }
 
-static inline __m256i nonconversion(__m256i u) {
+static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
 
-    return u;
+    preNormMult(M, &(M[2]));
+    preNormMult(&(M[1]), &(M[3]));
+
+    preNormAddSubAdd(&M[0], &M[2], &M[4]);
+    preNormAddSubAdd(&M[1], &M[3], &M[5]);
+
+    result[0] = fmDemod(M[0], M[2], M[4]);
+    result[1] = fmDemod(M[1], M[3], M[5]);
 }
 
-static inline int processMode(const uint8_t mode, vectorOps_t *funs) {
+static inline void demodEpi16(__m256i u, float *__restrict__ result) {
 
-    switch (mode) {
-        case 0: // default mode (input int16)
-            funs->boxcar = boxcarEpi16;
-            funs->convertIn = nonconversion;
-            funs->convertOut = convert_epi16_ps;
-            break;
-        case 1: // input uint8
-            funs->boxcar = boxcarEpi8;
-            funs->convertIn = convert_epu8_epi8;
-            funs->convertOut = convert_epi8_ps;
-            break;
-        default:
-            return -1;
-    }
-    return 0;
+    static const __m256i negateBIm = {
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001};
+
+//    static const __m256i indexHi = {
+//        0xb000a00090008,
+//        0xb000a000d000c,
+//        0xf000e000d000c,
+//        0xf000e00110010};
+
+//    static const __m256i indexLo = {
+//        0x3000200010000,
+//        0x3000200050004,
+//        0x7000600050004,
+//        0x7000600090008};
+
+    const __m256i indexLo = _mm256_setr_epi16(
+        0,1,2,3,4,5,2,3,
+        4,5,6,7,8,9,6,7);
+    const __m256i indexHi = _mm256_setr_epi16(
+        0x8,0x9,0xA,0xB,0xC,0xD,0xA,0xB,
+        0xC,0xD,0xE,0xF,-1,-1,0xE,0xF
+    );
+
+    static m256i_pun_t prev;
+
+    __m256i hi;
+    m256i_pun_t lo;
+
+    __m256 M[6];
+
+    u = boxcarEpi16(u);
+    hi = _mm256_sign_epi16(_mm256_permutexvar_epi16(indexHi, u), negateBIm);
+    lo.v = _mm256_sign_epi16(_mm256_permutexvar_epi16(indexLo, u), negateBIm);
+
+    prev.buf16[12] = lo.buf16[0];
+    prev.buf16[13] = lo.buf16[1];
+
+    convert_epi16_ps(prev.v, M);
+    demod(M, result);
+
+    convert_epi16_ps(lo.v, M);
+    demod(M, &(result[2]));
+
+    prev.v = hi;
 }
 
-int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
+static inline void demodEpi8(__m256i u, float *__restrict__ result) {
+
+    static const __m256i negateBIm = {
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101,
+        (int64_t) 0xff010101ff010101};
+
+    static const __m256i indexHi = {
+        0x1312151413121110,
+        0x1716191815161514,
+        0x1b1a1d1c1b1a1918,
+        0x1f1e21201f1e1d1c};
+
+    static const __m256i indexLo = {
+        0x302050403020100,
+        0x706090807060504,
+        0xb0a0d0c0b0a0908,
+        0xf0e11100f0e0d0c};
+
+    static m256i_pun_t prev;
+
+    __m256i hi;
+    m256i_pun_t lo;
+
+    __m256 M[6];
+    __m256 temp[2];
+
+    u = boxcarEpi8(convert_epu8_epi8(u));
+    hi = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexHi, u), negateBIm);
+    lo.v = _mm256_sign_epi8(_mm256_permutexvar_epi8(indexLo, u), negateBIm);
+
+    prev.buf[28] = lo.buf[0];
+    prev.buf[29] = lo.buf[1];
+
+    convert_epi8_ps(prev.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
+
+    demod(M, result);
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[2]));
+
+    convert_epi8_ps(lo.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
+
+    demod(M, &(result[4]));
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[6]));
+
+    prev.v = hi;
+}
+
+int processMatrix(FILE *__restrict__ inFile,
+                  const uint8_t mode,
+                  const float inGain,
                   void *__restrict__ outFile) {
 
-    vectorOps_t *funs = malloc(sizeof(*funs));
-    int exitFlag = processMode(mode, funs);
+    int exitFlag = 0;
     size_t elementsRead;
     void *buf = _mm_malloc(MATRIX_WIDTH << 3, 32);
-    float result[MATRIX_WIDTH] __attribute__((aligned(32)));
-    __m128i lo, hi;
-    __m256i v;
+    float result[MATRIX_WIDTH << 1];
 
-    const size_t size = 2 - mode;
-    const size_t nItems = MATRIX_WIDTH << (2 + mode);
     const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
-    const __m128 gain = _mm_broadcast_ss(&inGain);
+    const __m256 gain = _mm256_broadcast_ss(&inGain);
+    const matrixOp256_t demodulate = mode ? demodEpi8 : demodEpi16;
+
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, size, nItems, inFile);
+        elementsRead = fread(buf, 1, MATRIX_WIDTH << 3, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -201,24 +300,15 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                             "fread. Stupid compiler.");
         }
 
-        v = funs->boxcar(funs->convertIn(*(__m256i *) buf));
-        lo = _mm256_castsi256_si128(v);
-        hi = _mm256_extracti128_si256(v, 1);
-
-        result[0] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(lo, lo)));
-        result[1] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(lo, lo)));
-        result[2] = fmDemod(funs->convertOut(_mm_unpacklo_epi64(hi, hi)));
-        result[3] = fmDemod(funs->convertOut(_mm_unpackhi_epi64(hi, hi)));
+        demodulate(*(__m256i *) buf, result);
 
         if (isGain) {
-            _mm_mul_ps(*(__m128 *) &result, gain);
+            _mm256_mul_ps(*(__m256 *) &result, gain);
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH >> (1-mode), outFile);
     }
 
     _mm_free(buf);
-    free(funs);
-
     return exitFlag;
 }
