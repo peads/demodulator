@@ -30,14 +30,7 @@
 #include <math.h>
 #include "definitions.h"
 #include "matrix.h"
-typedef __m512i (*vectorOp512_t)(__m512i);
-typedef void (*matrixOp512_t)(__m512i, __m512*);
-
-typedef struct {
-    vectorOp512_t boxcar;
-    vectorOp512_t convertIn;
-    matrixOp512_t convertOut;
-} vectorOps_t;
+typedef void (*matrixOp512_t)(__m512i, __m64*);
 
 typedef union {
     __m512i v;
@@ -200,41 +193,92 @@ static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
     return _mm512_permutexvar_ps(index, _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u));
 }
 
-static void demod(__m512 *ret, __m64 *result) {
+static void demod(__m512 *M, __m64 *result) {
 
-//    __m512 ret[6];
-    __m512 res;//, u[2];
+    __m512 res;
 
-//    convertInt8ToFloat(b, ret);
-//    u[0] = ret[2];
-//    u[1] = ret[3];
+    preNormMult(M, &(M[2]));
+    preNormMult(&(M[1]), &(M[3]));
 
-    preNormMult(ret, &(ret[2]));
-    preNormMult(&(ret[1]), &(ret[3]));
+    preNormAddSubAdd(&M[0], &M[2], &M[4]);
+    preNormAddSubAdd(&M[1], &M[3], &M[5]);
 
-    preNormAddSubAdd(&ret[0], &ret[2], &ret[4]);
-    preNormAddSubAdd(&ret[1], &ret[3], &ret[5]);
-
-    res = fmDemod(ret[0], ret[2], ret[4]);
+    res = fmDemod(M[0], M[2], M[4]);
     result[0] = *(__m64 *) &res;
-    res = fmDemod(ret[1], ret[3], ret[5]);
+    res = fmDemod(M[1], M[3], M[5]);
     result[1] = *(__m64 *) &res;
+}
 
-//    preNormMult(u, &(ret[2]));
-//    preNormMult(&(u[1]), &(ret[3]));
-//
-//    preNormAddSubAdd(&u[0], &ret[2], &ret[4]);
-//    preNormAddSubAdd(&u[1], &ret[3], &ret[5]);
-//
-//    res = fmDemod(u[0], ret[2], ret[4]);
-//    result[2] = *(__m64 *) &res;
-//    res = fmDemod(u[1], ret[3], ret[5]);
-//    result[3] = *(__m64 *) &res;
+static inline void demodEpi16(__m512i u, __m64 *result) {
+
+    static const __m512i negateBIm = {
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001,
+        (int64_t) 0xffff000100010001};
+
+    const __m512i indexHi = _mm512_set_epi16(
+        0x1f,0x1e,0xFF,0xFF,0x1f,0x1e,0x1d,0x1c,
+        0x1b,0x1a,0x1d,0x1c,0x1b,0x1a,0x19,0x18,
+        0x17,0x16,0x19,0x18,0x17,0x16,0x15,0x14,
+        0x13,0x12,0x15,0x14,0x13,0x12,0x11,0x10
+//        0x33,0x32,0x35,0x34,0x33,0x32,0x31,0x30,
+//        0x37,0x36,0x39,0x38,0x37,0x36,0x35,0x34,
+//        0x3b,0x3a,0x3d,0x3c,0x3b,0x3a,0x39,0x38,
+//        0x3f,0x3e,0xff,0xff,0x3f,0x3e,0x3d,0x3c
+        );
+    const __m512i indexLo = _mm512_set_epi16(
+        0x0f,0x0e,0x11,0x10,0x0f,0x0e,0x0d,0x0c,
+        0x0b,0x0a,0x0d,0x0c,0x0b,0x0a,0x09,0x08,
+        0x07,0x06,0x09,0x08,0x07,0x06,0x05,0x04,
+        0x03,0x02,0x05,0x04,0x03,0x02,0x01,0x00
+//        0x13,0x12,0x15,0x14,0x13,0x12,0x11,0x10,
+//        0x17,0x16,0x19,0x18,0x15,0x16,0x15,0x14,
+//        0x1b,0x1a,0x1d,0x1c,0x1b,0x1a,0x19,0x18,
+//        0x1f,0x1e,0x21,0x20,0x1f,0x1e,0x1d,0x1c
+        );
+
+    static m512i_pun_t prev;
+
+    __m512i hi;
+    m512i_pun_t lo;
+
+    __m512 M[6];
+    __m512 temp[2];
+
+    u = boxcarInt16(u);
+    hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
+    lo.v = conditional_negate_epi16(_mm512_permutexvar_epi16(indexLo, u), negateBIm);
+
+    prev.buf16[28] = lo.buf16[0];
+    prev.buf16[29] = lo.buf16[1];
+
+    convertInt16ToFloat(prev.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
+
+    demod(M, result);
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[2]));
+
+    convertInt16ToFloat(lo.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
+
+    demod(M, &(result[4]));
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[6]));
+
+    prev.v = hi;
 }
 
 static inline void demodEpi8(__m512i u, __m64 *result) {
-
-    static m512i_pun_t prev;
 
     static const __m512i negateBIm = {
         (int64_t) 0xff010101ff010101,
@@ -266,34 +310,38 @@ static inline void demodEpi8(__m512i u, __m64 *result) {
         0x1b1a1d1c1b1a1918,
         0x1f1e21201f1e1d1c};
 
-    __m512 ret[6];
-    __m512 v[2];
-    __m512i hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
-    m512i_pun_t lo = {conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm)};
+    static m512i_pun_t prev;
+
+    __m512i hi;
+    m512i_pun_t lo;
+
+    __m512 M[6];
+    __m512 temp[2];
+
+    u = boxcarUint8(convertUint8ToInt8(u));
+    hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
+    lo.v = conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm);
 
     prev.buf[60] = lo.buf[0];
     prev.buf[61] = lo.buf[1];
 
-//    demod(prev.v, result);
-//    demod(lo.v, &(result[4]));
+    convertInt8ToFloat(prev.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
 
-    convertInt8ToFloat(prev.v, ret);
-    v[0] = ret[2];
-    v[1] = ret[3];
+    demod(M, result);
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[2]));
 
-    demod(ret, result);
-    ret[0] = v[0];
-    ret[1] = v[1];
-    demod(ret, &(result[2]));
+    convertInt8ToFloat(lo.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
 
-    convertInt8ToFloat(lo.v, ret);
-    v[0] = ret[2];
-    v[1] = ret[3];
-
-    demod(ret, &(result[4]));
-    ret[0] = v[0];
-    ret[1] = v[1];
-    demod(ret, &(result[6]));
+    demod(M, &(result[4]));
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[6]));
 
     prev.v = hi;
 }
@@ -304,12 +352,11 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     int exitFlag = 0;
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     __m64 result[MATRIX_WIDTH << 1];
-
     size_t elementsRead;
-    __m512i v;
 
     const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
     const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
+    const matrixOp512_t demodulate = mode ? demodEpi8 : demodEpi16;
 
     while (!exitFlag) {
 
@@ -325,8 +372,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
                             "fread. Stupid compiler.");
         }
 
-        v = boxcarUint8(convertUint8ToInt8((*(__m512i *) buf)));
-        demodEpi8(v, result);
+        demodulate(*(__m512i *) buf, result);
 
         if (isGain) {
             _mm512_mul_ps(*(__m512 *) result, gain);
