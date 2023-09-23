@@ -34,7 +34,7 @@ for compiler in ${arr[@]}; do
   ./cmake_build.sh "-DIS_VERBOSE=ON -DIS_INTRINSICS=ON -DCMAKE_C_COMPILER=$compiler"
 
   sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -eunsigned-int -b8 -r512k - | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r128k - -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n -w out.wav
-  sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -es -b16 -r512k - | tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r256k - -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n -w out16.wav
+  sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -es -b16 -r512k - | tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r128k - -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n -w out16.wav
 
   time build/demodulator -i uint8.dat -o file -r1 && rm file
   time build/demodulator -i uint8.dat -o file -r1 && rm file
@@ -43,5 +43,5 @@ for compiler in ${arr[@]}; do
   time build/demodulator -i int16.dat -o file && rm file
   time build/demodulator -i int16.dat -o file && rm file
   time build/demodulator -i int16.dat -o file
-  sox -traw -b32 -ef -r256k file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file int16.dat
+  sox -traw -b32 -ef -r128k file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file int16.dat
 done

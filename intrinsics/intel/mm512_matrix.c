@@ -248,7 +248,6 @@ static inline void demodEpi16(__m512i u, __m64 *result) {
     m512i_pun_t lo;
 
     __m512 M[6];
-    __m512 temp[2];
 
     u = boxcarInt16(u);
     hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
@@ -258,22 +257,10 @@ static inline void demodEpi16(__m512i u, __m64 *result) {
     prev.buf16[29] = lo.buf16[1];
 
     convertInt16ToFloat(prev.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
     demod(M, result);
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[2]));
 
     convertInt16ToFloat(lo.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
-    demod(M, &(result[4]));
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[6]));
+    demod(M, &(result[2]));
 
     prev.v = hi;
 }
@@ -378,7 +365,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
             _mm512_mul_ps(*(__m512 *) result, gain);
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
     }
 
     _mm_free(buf);
