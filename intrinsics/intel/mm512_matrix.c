@@ -20,7 +20,9 @@
 #include <stdio.h>
 
 #ifdef __GNUC__
+
 #include <stdint.h>
+
 #endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
@@ -55,6 +57,7 @@ typedef union {
 //}
 
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
+
     static const __m512i ZEROS = {};
     // vpsubw target{k1}, 0, target
     return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
@@ -77,11 +80,12 @@ static inline __m512i convertUint8ToInt8(__m512i u) {
 
 static inline void convertInt8ToInt16(__m512i *u, __m512i *v) {
 
-    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u,1));
+    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
 }
 
 static inline void convertInt16ToInt32(__m512i *u, __m512i *v) {
+
     *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
     *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
 }
@@ -99,7 +103,6 @@ static inline void convertInt8ToFloat(__m512i u, __m512 *ret) {
 
     __m512i v = {};
     convertInt8ToInt16(&u, &v);
-//    convertInt16ToFloat(u, v, ret);
     convertInt16ToFloat(u, ret);
     convertInt16ToFloat(v, &(ret[2]));
 }
@@ -122,7 +125,7 @@ static inline __m512i boxcarUint8(__m512i u) {
         0x0504070601000302, 0x0d0c0f0e09080b0a};
 
     u = conditional_negate_epi8(u, Z);
-    return _mm512_add_epi8(u,  _mm512_shuffle_epi8(u, mask));
+    return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
 }
 
 static inline void preNormMult(__m512 *u, __m512 *v) {
@@ -137,18 +140,18 @@ static inline void preNormMult(__m512 *u, __m512 *v) {
 static inline void preNormAddSubAdd(__m512 *u, __m512 *v, __m512 *w) {
 
     static const __m512 ONES = {
-        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,
-        1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
+        1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+        1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
 
-    *w = _mm512_permute_ps(*u, 0x8D); // {aj, bj, ar, br, cj, dj, cr, dr}
-    *u = _mm512_fmaddsub_ps(ONES, *u, *w);      // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    *v = _mm512_mul_ps(*u,*u); // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-    *w = _mm512_permute_ps(*v, 0x1B); // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-                                      // {bj^2, br^2, aj^2, ar^2, ... }
-    *v = _mm512_add_ps(*v, *w);// = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+    *w = _mm512_permute_ps(*u, 0x8D);                // {aj, bj, ar, br, cj, dj, cr, dr}
+    *u = _mm512_fmaddsub_ps(ONES,*u,*w);   // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+    *v = _mm512_mul_ps(*u,*u);                // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+    *w = _mm512_permute_ps(*v, 0x1B);               // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
+                                                    // {bj^2, br^2, aj^2, ar^2, ... }
+    *v = _mm512_add_ps(*v, *w);               // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
-static __m512 fmDemod(__m512 u, __m512 v,  __m512 w) {
+static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
 
     //_mm512_setr_epi32(5,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
     static const __m512i index = {0xd00000005};
@@ -195,9 +198,9 @@ static void demod2(__m512i b, __m64 *result) {
     preNormAddSubAdd(&ret[1], &ret[3], &ret[5]);
 
     res = fmDemod(ret[0], ret[2], ret[4]);
-    result[0] = *(__m64*)&res;
+    result[0] = *(__m64 *) &res;
     res = fmDemod(ret[1], ret[3], ret[5]);
-    result[1] = *(__m64*)&res;
+    result[1] = *(__m64 *) &res;
 
     preNormMult(u, &(ret[2]));
     preNormMult(&(u[1]), &(ret[3]));
@@ -206,9 +209,9 @@ static void demod2(__m512i b, __m64 *result) {
     preNormAddSubAdd(&u[1], &ret[3], &ret[5]);
 
     res = fmDemod(u[0], ret[2], ret[4]);
-    result[2] = *(__m64*)&res;
+    result[2] = *(__m64 *) &res;
     res = fmDemod(u[1], ret[3], ret[5]);
-    result[3] = *(__m64*)&res;
+    result[3] = *(__m64 *) &res;
 }
 
 static inline void demod(__m512i u, __m64 *result) {
@@ -226,24 +229,24 @@ static inline void demod(__m512i u, __m64 *result) {
         (int64_t) 0xff010101ff010101};
 
     const __m512i indexHi = _mm512_set_epi8(
-        63,62,/*next_1*/-1,/*next_0*/-1, 63,62,61,60,
-        59,58,61,60, 59,58,57,56,
-        55,54,57,56, 55,54,53,52,
-        51,50,53,52, 51,50,49,48,
-        47,46,49,48, 47,46,45,44,
-        43,42,45,44, 43,42,41,40,
-        39,38,41,40, 39,38,37,36,
-        35,34,37,36, 35,34,33,32);
+        63, 62,/*next_1*/-1,/*next_0*/-1, 63, 62, 61, 60,
+        59, 58, 61, 60, 59, 58, 57, 56,
+        55, 54, 57, 56, 55, 54, 53, 52,
+        51, 50, 53, 52, 51, 50, 49, 48,
+        47, 46, 49, 48, 47, 46, 45, 44,
+        43, 42, 45, 44, 43, 42, 41, 40,
+        39, 38, 41, 40, 39, 38, 37, 36,
+        35, 34, 37, 36, 35, 34, 33, 32);
 
     const __m512i indexLo = _mm512_set_epi8(
-        31,30,33,32, 31,30,29,28,
-        27,26,29,28, 27,26,25,24,
-        23,22,25,24, 23,22,21,20,
-        19,18,21,20, 19,18,17,16,
-        15,14,17,16, 15,14,13,12,
-        11,10,13,12, 11,10, 9, 8,
-        7, 6, 9, 8,  7, 6, 5, 4,
-        3, 2, 5, 4,  3, 2, 1, 0);
+        31, 30, 33, 32, 31, 30, 29, 28,
+        27, 26, 29, 28, 27, 26, 25, 24,
+        23, 22, 25, 24, 23, 22, 21, 20,
+        19, 18, 21, 20, 19, 18, 17, 16,
+        15, 14, 17, 16, 15, 14, 13, 12,
+        11, 10, 13, 12, 11, 10, 9, 8,
+        7, 6, 9, 8, 7, 6, 5, 4,
+        3, 2, 5, 4, 3, 2, 1, 0);
 
     __m512i hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
     m512i_pun_t lo = {conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm)};
@@ -262,7 +265,6 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
     int exitFlag = 0;//processMode(mode, funs);
     void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
     __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
-
 
     size_t elementsRead;
     __m512i v;
@@ -288,7 +290,7 @@ int processMatrix(FILE *__restrict__ inFile, uint8_t mode, const float inGain,
         demod(v, result);
 
         if (isGain) {
-            _mm512_mul_ps(*(__m512 *)result, gain);
+            _mm512_mul_ps(*(__m512 *) result, gain);
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
