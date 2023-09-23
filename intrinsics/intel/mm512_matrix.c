@@ -20,9 +20,7 @@
 #include <stdio.h>
 
 #ifdef __GNUC__
-
 #include <stdint.h>
-
 #endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
@@ -33,29 +31,13 @@
 #include "definitions.h"
 #include "matrix.h"
 
-//typedef __m512i (*vectorOp512_t)(__m512i);
-//typedef __m256 (*vectorOp256_t)(__m256i);
-//typedef void (*matrixOp512_t)(__m512i, void*);
-
-//typedef struct {
-//    vectorOp512_t boxcar;
-//    vectorOp512_t convertIn;
-//    matrixOp512_t convertOut;
-//} vectorOps_t;
-
 typedef union {
     __m512i v;
     int8_t buf[64];
     int16_t buf16[32];
 } m512i_pun_t;
 
-//TODO
 // taken from https://stackoverflow.com/a/55745816
-//static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
-//    // vpsubw target{k1}, 0, target
-//    return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), ZEROS, target);
-//}
-
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
 
     static const __m512i ZEROS = {};
@@ -228,25 +210,25 @@ static inline void demod(__m512i u, __m64 *result) {
         (int64_t) 0xff010101ff010101,
         (int64_t) 0xff010101ff010101};
 
-    const __m512i indexHi = _mm512_set_epi8(
-        63, 62,/*next_1*/-1,/*next_0*/-1, 63, 62, 61, 60,
-        59, 58, 61, 60, 59, 58, 57, 56,
-        55, 54, 57, 56, 55, 54, 53, 52,
-        51, 50, 53, 52, 51, 50, 49, 48,
-        47, 46, 49, 48, 47, 46, 45, 44,
-        43, 42, 45, 44, 43, 42, 41, 40,
-        39, 38, 41, 40, 39, 38, 37, 36,
-        35, 34, 37, 36, 35, 34, 33, 32);
+    static const __m512i indexHi = {
+        0x2322252423222120,
+        0x2726292827262524,
+        0x2b2a2d2c2b2a2928,
+        0x2f2e31302f2e2d2c,
+        0x3332353433323130,
+        0x3736393837363534,
+        0x3b3a3d3c3b3a3938,
+        0x3f3effff3f3e3d3c};
 
-    const __m512i indexLo = _mm512_set_epi8(
-        31, 30, 33, 32, 31, 30, 29, 28,
-        27, 26, 29, 28, 27, 26, 25, 24,
-        23, 22, 25, 24, 23, 22, 21, 20,
-        19, 18, 21, 20, 19, 18, 17, 16,
-        15, 14, 17, 16, 15, 14, 13, 12,
-        11, 10, 13, 12, 11, 10, 9, 8,
-        7, 6, 9, 8, 7, 6, 5, 4,
-        3, 2, 5, 4, 3, 2, 1, 0);
+    static const __m512i indexLo = {
+        0x302050403020100,
+        0x706090807060504,
+        0xb0a0d0c0b0a0908,
+        0xf0e11100f0e0d0c,
+        0x1312151413121110,
+        0x1716191815161514,
+        0x1b1a1d1c1b1a1918,
+        0x1f1e21201f1e1d1c};
 
     __m512i hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
     m512i_pun_t lo = {conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm)};
