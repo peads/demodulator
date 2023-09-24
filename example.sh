@@ -28,7 +28,6 @@ function gen() {
 
 function printRunInfo() {
 
-  echo ""
   echo ":: RUN INFO"
   echo ":: $2"
   echo ":: COMPILER OPTIONS=$1"
@@ -43,21 +42,34 @@ set -e
 
 for key in "${!arr[@]}"; do
 
-  rm -rf file int16.dat uint8.dat ||:
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
   printRunInfo "$key" "$compiler"
-  sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -eunsigned-int -b8 -r512k - | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
-  printRunInfo "$key" "$compiler"
-  sox -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -es -b16 -r512k - | tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
+  sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
 
-  time build/demodulator -i uint8.dat -o file -r1 && rm file
-  time build/demodulator -i uint8.dat -o file -r1 && rm file
+  printRunInfo "$key" "$compiler"
+  sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -es -b16 -r512k - 2>/dev/null| tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
+
+  echo ""
+  echo ":: Timing uint8"
+  printRunInfo "$key" "$compiler"
   time build/demodulator -i uint8.dat -o file -r1
-  sox -traw -b32 -ef -r${arr[$key]} file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file uint8.dat
-  time build/demodulator -i int16.dat -o file && rm file
-  time build/demodulator -i int16.dat -o file && rm file
+  rm file
+  time build/demodulator -i uint8.dat -o file -r1
+  rm file
+  time build/demodulator -i uint8.dat -o file -r1
+  #sox -traw -b32 -ef -r${arr[$key]} file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file uint8.dat
+  echo ":: End Timing uint8"
+  echo ""
+  echo ":: Timing int16"
+  printRunInfo "$key" "$compiler"
   time build/demodulator -i int16.dat -o file
-  sox -traw -b32 -ef -r${arr[$key]} file -traw -es -b16 -r48k - | dsd -i - -o /dev/null -n && rm file int16.dat
+  rm file
+  time build/demodulator -i int16.dat -o file
+  rm file
+  time build/demodulator -i int16.dat -o file
+  #sox -traw -b32 -ef -r${arr[$key]} file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file int16.dat
+  echo ":: End Timing int16"
+  rm -rf file int16.dat uint8.dat ||:
 done
 
