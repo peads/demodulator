@@ -43,12 +43,12 @@ static void convertUint8ToFloat(const void *__restrict__ in, const uint32_t inde
     float magA, magB;
     out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
     out[1] = (float) (buf[index + 1] + buf[index + 3] - 254);   // aj
-    magA = frsqrtf(out[0]*out[0] + out[1]*out[1]);
+    magA = frsqrtf(fmaf(out[0], out[0],out[1]*out[1]));
     out[0] *= magA;
     out[1] *= magA;
     out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
     out[3] = (float) -(buf[index + 5] + buf[index + 7] - 254);   // bj
-    magB = frsqrtf(out[2]*out[2] + out[3]*out[3]);
+    magB = frsqrtf(fmaf(out[2], out[2],out[3]*out[3]));
     out[2] *= magB;
     out[3] *= magB;
 }
