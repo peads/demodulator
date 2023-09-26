@@ -17,12 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-#ifndef DEMODULATOR_MATRIX_H
-#define DEMODULATOR_MATRIX_H
-#include "prototypes.h"
-#include <stdint.h>
-#include <math.h>
-
-typedef void (*conversionFunction_t)(const void *__restrict__, const uint32_t, float *__restrict__);
-#endif //DEMODULATOR_MATRIX_H
+#ifndef DEMODULATOR_FMATH_H
+#define DEMODULATOR_FMATH_H
+float frcpf(float x);
+float frsqrtf(float x);
+#endif //DEMODULATOR_FMATH_H

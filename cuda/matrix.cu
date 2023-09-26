@@ -25,7 +25,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float ar, aj, br, bj, zr, zj, lenR;
+    float ar, aj, br, bj, zr, zj;
 
     for (i = index; i < len; i += step) {
 
@@ -38,10 +38,8 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj));
         zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));
 
-        lenR = rnorm3df(zr, zj, 0.f);
-        zj = __fmul_rn(64.f, __fmul_rn(zj, lenR));
-        zr = __fmul_rn(zj, __frcp_rn(
-                __fmaf_rn(23.f, __fmul_rn(zr, lenR), 41.f)));
+        zj = __fmul_rn(64.f, zj);
+        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(23.f, zr, 41.f)));
 
         result[i >> 2] = isnan(zr) ? 0.f : zr; // delay line
     }

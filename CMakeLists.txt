@@ -146,7 +146,7 @@ else()
         FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     endif()
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/fmath.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
