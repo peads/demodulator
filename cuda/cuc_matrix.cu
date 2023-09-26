@@ -29,17 +29,6 @@ void fmDemod(uint8_t *idata, const uint32_t len, const float gain, float *result
     cuComplex z;
 
     for (i = index; i < len; i += step + 2) {
-
-        // power = (I^2 + Q^2) / 2 / (50 Ohms) = (I^2 + Q^2) / (100 Ohms)
-//        if (squelchLevel != 0.f && (float)(
-//                (idata[i] * idata[i]) + (idata[i + 1] * idata[i + 1]) +
-//                (idata[i + 2] * idata[i + 2]) + (idata[i + 3] * idata[i + 3]) +
-//                (idata[i + 4] * idata[i + 4]) + (idata[i + 5] * idata[i + 5]) +
-//                (idata[i + 6] * idata[i + 4]) + (idata[i + 7] * idata[i + 7]))
-//            * 0.01f < squelchLevel) {
-//            result[i >> 2] = 0.f;
-//        } else {
-
         z = cuCmulf(
             {(float) (idata[i] + idata[i + 2] - 254), (float) (254 - idata[i + 1] - idata[i + 3])},
             {(float) (idata[i + 4] + idata[i + 6] - 254), (float) (idata[i + 5] + idata[i + 7] - 254)});
@@ -48,7 +37,6 @@ void fmDemod(uint8_t *idata, const uint32_t len, const float gain, float *result
         z.x = __fmul_rn(z.y, __frcp_rn(__fmaf_rn(23.f, z.x, 41.f)));
         result[i >> 2] = isnan(z.x) ? 0.f : gain != 0.f ? z.x * gain : z.x; // delay line
 //        result[i >> 2] = atan2f(z.y, z.x);
-//        }
     }
 }
 

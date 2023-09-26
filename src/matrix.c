@@ -25,44 +25,44 @@
 
 conversionFunction_t convert;
 
-#ifdef HAS_AARCH64
-
-static inline float rsqrt(float x) {
-    __asm__ (
-        "frsqrte %0.2s, %0.2s\n\t"
-        : "=w"(x) : "w"(x) :);
-    return x;
-}
-#elif defined(HAS_EITHER_AVX_OR_SSE)
-
-static inline float rsqrt(float x) {
-
-    __asm__ (
-#ifdef HAS_AVX
-            "vrsqrtss %0, %0, %0\n\t"
-#else //if HAS_SSE
-        "rsqrtss %0, %0\n\t"
-#endif
-            : "=x" (x) : "0" (x));
-    return x;
-}
-
-#else
-
-static inline float rsqrt(float y) {
-
-    static union {
-        uint32_t i;
-        float f;
-    } pun;
-
-    pun.f = y;
-    pun.i = -(pun.i >> 1) + 0x5f3759df;
-    pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
-
-    return pun.f;
-}
-#endif
+//#ifdef HAS_AARCH64
+//
+//static inline float rsqrt(float x) {
+//    __asm__ (
+//        "frsqrte %0.2s, %0.2s\n\t"
+//        : "=w"(x) : "w"(x) :);
+//    return x;
+//}
+//#elif defined(HAS_EITHER_AVX_OR_SSE)
+//
+//static inline float rsqrt(float x) {
+//
+//    __asm__ (
+//#ifdef HAS_AVX
+//            "vrsqrtss %0, %0, %0\n\t"
+//#else //if HAS_SSE
+//        "rsqrtss %0, %0\n\t"
+//#endif
+//            : "=x" (x) : "0" (x));
+//    return x;
+//}
+//
+//#else
+//
+//static inline float rsqrt(float y) {
+//
+//    static union {
+//        uint32_t i;
+//        float f;
+//    } pun;
+//
+//    pun.f = y;
+//    pun.i = -(pun.i >> 1) + 0x5f3759df;
+//    pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
+//
+//    return pun.f;
+//}
+//#endif
 
 static void convertInt16ToFloat(const void *__restrict__ in, const uint32_t index,
                                 float *__restrict__ out) {
@@ -91,7 +91,7 @@ static inline void fmDemod(const void *__restrict__ buf, const uint32_t len, con
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
     uint32_t i;
-    float zr, zj, y;
+    float zr, zj;//, y;
 
     for (i = 0; i < len; i+=2) {
 
@@ -99,8 +99,8 @@ static inline void fmDemod(const void *__restrict__ buf, const uint32_t len, con
 
         zr = fmaf(out[0], out[2], -out[1] * out[3]);
         zj = fmaf(out[0], out[3], out[1] * out[2]);
-        y = rsqrt(fmaf(zr, zr, zj * zj));
-        zr = 64.f * zj * y * 1.f / fmaf(zr * y, 23.f, 41.f);
+//        y = rsqrt(fmaf(zr, zr, zj * zj));
+        zr = 64.f * zj  / fmaf(23.f, zr, 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
