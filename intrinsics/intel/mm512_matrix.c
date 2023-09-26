@@ -30,7 +30,7 @@
 #include <math.h>
 #include "definitions.h"
 #include "matrix.h"
-typedef void (*matrixOp512_t)(__m512i, __m64*__restrict__);
+typedef void (*matrixOp512_t)(void*__restrict__, __m64*__restrict__);
 
 typedef union {
     __m512i v;
@@ -208,7 +208,7 @@ static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
     result[1] = *(__m64 *) &res;
 }
 
-static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
+static inline void demodEpi16_(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
         (int64_t) 0xffff000100010001,
@@ -263,7 +263,7 @@ static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
+static inline void demodEpi8_(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
         (int64_t) 0xff010101ff010101,
@@ -331,23 +331,34 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
+static inline void demodEpi16(void *__restrict__ u, __m64 *__restrict__ result) {
+
+    demodEpi16_(*(__m512i*)u, result);
+    demodEpi16_(*(__m512i*) ((int16_t*)u + 32), result + 4);
+}
+
+static inline void demodEpi8(void *__restrict__ u, __m64 *__restrict__ result) {
+
+    demodEpi8_(*(__m512i*) u, result);
+}
+
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
-                  const float inGain,
+                  float inGain,
                   void *__restrict__ outFile) {
 
-    int exitFlag = 0;
-    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
+    int exitFlag = mode && mode != 1;
+    void *buf = _mm_malloc(MATRIX_WIDTH << (5-mode), 64);
     __m64 result[MATRIX_WIDTH << 1];
     size_t elementsRead;
 
-    const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
+    inGain = inGain != 1.f ? inGain : 0.f;
     const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
     const matrixOp512_t demodulate = mode ? demodEpi8 : demodEpi16;
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, 1, MATRIX_WIDTH << 4, inFile);
+        elementsRead = fread(buf, 2 - mode, MATRIX_WIDTH << 4, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -359,13 +370,13 @@ int processMatrix(FILE *__restrict__ inFile,
                             "fread. Stupid compiler.");
         }
 
-        demodulate(*(__m512i *) buf, result);
+        demodulate(buf, result);
 
-        if (isGain) {
+        if (inGain) {
             _mm512_mul_ps(*(__m512 *) result, gain);
         }
 
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << 1, outFile);
     }
 
     _mm_free(buf);
