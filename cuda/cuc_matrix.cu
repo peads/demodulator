@@ -87,7 +87,7 @@ extern "C" int processMatrix(FILE *__restrict__ inFile,
             ((readBytes + 2) >> 2) * OUTPUT_ELEMENT_BYTES,
             cudaMemcpyDeviceToHost);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, (FILE *) outFile);
+        fwrite(hResult, OUTPUT_ELEMENT_BYTES, (readBytes + 2) >> 2, (FILE *) outFile);
     }
 
     cudaFreeHost(hBuf);
