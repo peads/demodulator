@@ -43,7 +43,7 @@ float frcpf(float x) {
 #else //if HAS_SSE
         "rcpss %0, %0\n\t"
 #endif
-            : "=x" (x) : "0" (x));
+        : "=x" (x) : "0" (x));
     return x;
 }
 float frsqrtf(float x) {
@@ -69,7 +69,7 @@ float frcpf(float x) {
 
     x = sgn ? -x : x;
 
-    v.i = (int) (0x7EF127EA - v.i);
+    v.i = -v.i + 0x7EF127EA;
 
     // Efficient Iterative Approximation Improvement in horner polynomial form.
     v.f = v.f * -fmaf(x, v.f, -2.f);     // Single iteration, Err = -3.36e-3 * 2^(-flr(log2(x)))
@@ -81,11 +81,9 @@ float frcpf(float x) {
 float frsqrtf(float y) {
 
     static union {
-        uint32_t i;
         float f;
-    } pun;
-
-    pun.f = y;
+        uint32_t i;
+    } pun = {y};
     pun.i = -(pun.i >> 1) + 0x5f3759df;
     pun.f *= 0.5f * (-y * pun.f * pun.f + 3.f);
 
