@@ -27,7 +27,6 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
     cuComplex a, b, z;
-    float lenR;
 
     for (i = index; i < len; i += step) {
 
@@ -37,19 +36,19 @@ void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
         b = {
             __int2float_rn(buf[i + 4] + buf[i + 6] - 254),
             __int2float_rn(buf[i + 5] + buf[i + 7] - 254)};
-
         z = cuCmulf(a, b);
-//        z.y = __fmul_rn(64.f, __fmul_rn(z.y, lenR));
-//        z.x = __fmul_rn(z.y, __frcp_rn(
-//            __fmaf_rn(23.f, __fmul_rn(z.x, lenR), 41.f)));
 
-//        result[i >> 2] = isnan(z.x) ? 0.f : z.x; // delay line
-        result[i>>2] = atan2f(z.y, z.x);
-        result[i>>2] = isnan(result[i>>2]) ? 0.f : result[i>>2];
+        z.y = __fmul_rn(64.f, z.y);
+        z.x = __fmul_rn(z.y, __frcp_rn(__fmaf_rn(23.f, z.x, 41.f)));
+        result[i >> 2] = isnan(z.x) ? 0.f : z.x; // delay line
+//        result[i >> 2] = atan2f(z.y, z.x);
     }
 }
 
-extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile) {
+extern "C" int processMatrix(FILE *__restrict__ inFile,
+                             const uint8_t mode,
+                             float gain,
+                             void *__restrict__ outFile) {
 
     int exitFlag = mode != 1;
     uint8_t *dBuf;
@@ -77,15 +76,16 @@ extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, floa
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
-        } else if (!readBytes) {
-            // do notihgin
         }
 
         cudaMemcpy(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
 
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, dResult);
 
-        cudaMemcpy(hResult, dResult, ((readBytes + 2) >> 2) * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+        cudaMemcpy(hResult,
+            dResult,
+            ((readBytes + 2) >> 2) * OUTPUT_ELEMENT_BYTES,
+            cudaMemcpyDeviceToHost);
 
         fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, (FILE *) outFile);
     }
