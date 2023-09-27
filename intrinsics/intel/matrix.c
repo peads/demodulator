@@ -261,7 +261,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
     int exitFlag = mode && mode != 1;
     size_t elementsRead;
-    void *buf = _mm_malloc(MATRIX_WIDTH << (4-mode), 32);
+    void *buf = _mm_malloc(64 >> mode, 32);
     float result[MATRIX_WIDTH];
 
     inGain = inGain != 1.f ? inGain : 0.f;
@@ -271,7 +271,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, 2 - mode, MATRIX_WIDTH << 3, inFile);
+        elementsRead = fread(buf, 2 - mode, 32, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);

@@ -1,13 +1,31 @@
-audioOutOpts="-o/dev/null -n"
+#!/bin/bash
+
+wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
 if [ ! -z "$1" ]; then
-    audioOutOpts="-o${1}"
+  wavFile=$1
 fi
 
+audioOutOpts="-o/dev/null -n"
+if [ ! -z "$2" ]; then
+    audioOutOpts="-o${2}"
+fi
+
+hasAvx2=$(cat /proc/cpuinfo | grep avx2 | sed -E 's/avx2/yes/g' | grep yes | wc -l)
+hasAvx512=$(cat /proc/cpuinfo | grep avx512 | sed -E 's/avx512(bw|dq|f)/yes/g' | grep yes | wc -l)
+
 declare -A opts=(
-  ["-DIS_INTRINSICS=ON"]="128k"
-  ["-DIS_INTRINSICS=ON -DNO_AVX512=ON"]="128k"
   ["-DIS_INTRINSICS=OFF"]="256k"
 )
+
+if [ $hasAvx2 -ge 1 ]; then
+  opts["-DIS_INTRINSICS=ON"]="128k"
+fi
+
+if [ $hasAvx512 -ge 4 ]; then
+  opts["-DIS_INTRINSICS=ON"]="128k"
+  opts["-DIS_INTRINSICS=ON -DNO_AVX512=ON"]="128k"
+fi
+
 declare -A arr
 
 function gen() {
@@ -45,10 +63,10 @@ for key in "${!arr[@]}"; do
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
   printRunInfo "$key" "$compiler"
-  sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
+  sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
 
   printRunInfo "$key" "$compiler"
-  sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav -traw -es -b16 -r512k - 2>/dev/null| tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
+  sox -q -D -twav "${wavFile}" -traw -es -b16 -r512k - 2>/dev/null| tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r${arr[$key]} - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
 
   echo ""
   echo ":: Timing uint8"
