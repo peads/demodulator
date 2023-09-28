@@ -233,7 +233,6 @@ static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result)
 
     u = boxcarEpi8(convert_epu8_epi8(u));
 
-
     hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
     lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
 
