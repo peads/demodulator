@@ -112,5 +112,9 @@ for key in "${!arr[@]}"; do
   #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file int16.dat
   echo ":: End Timing int16"
   rm -rf file int16.dat uint8.dat ||:
+
+  echo "Press any key to continue..."
+  read -s -n 1
+  echo "You pressed a key! Continuing..."
 done
 

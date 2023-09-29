@@ -246,9 +246,16 @@ static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result)
     demod(M, result);
     M[0] = temp[0];
     M[1] = temp[1];
-    demod(M, &(result[2]));
+    demod(M, result);
 
     convert_epi8_ps(lo.v, M);
+    temp[0] = M[2];
+    temp[1] = M[3];
+    demod(M, &(result[2]));
+
+    M[0] = temp[0];
+    M[1] = temp[1];
+    demod(M, &(result[2]));
 
     prev.v = hi;
 }
