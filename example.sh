@@ -29,6 +29,7 @@ if [ ! -z "$2" ]; then
     audioOutOpts="-o${2}"
 fi
 
+hasCuda=0
 hasAvx2=$(cat /proc/cpuinfo | grep avx2 | sed -E 's/avx2/yes/g' | grep yes | wc -l)
 hasAvx512=$(cat /proc/cpuinfo | grep avx512 | sed -E 's/avx512(bw|dq|f)/yes/g' | grep yes | wc -l)
 
@@ -45,12 +46,10 @@ if [ $hasAvx512 -ge 4 ]; then
   opts["-DIS_INTRINSICS=ON -DNO_AVX512=ON -DIS_NATIVE=ON"]="128k"
 fi
 
-#type nvcc >/dev/null 2>&1
-#if [ "$?" == 0 ]; then
-#  opts["-DIS_NVIDIA=ON"]="256k"
-#fi
+hasCuda=`type nvcc >/dev/null 2>&1`
 
 declare -A arr
+compilers=[]
 
 function findCompiler() {
 
@@ -63,6 +62,7 @@ function findCompiler() {
     echo ":: COMPILER INFO"
     echo "$(${1} --version)"
     echo ":: END COMPILER INFO"
+    compilers[@] = $1
     key="-DCMAKE_C_COMPILER=$(which ${1})"
     for val in "${!opts[@]}"; do
       arr[$key $val]=${opts[$val]}
@@ -83,24 +83,12 @@ function printRunInfo() {
 findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
-#findCompiler nvcc hasNvcc
 
 set -e
 
 for key in "${!arr[@]}"; do
 
   val=${arr[$key]}
-#  isNvcc=`echo $key | grep "nvcc" | wc -l`
-#  isNVIDIA=`echo $key | grep "NVIDIA" | wc -l`
-#
-#  if [ $isNvcc == 1 ]; then
-#    if [ $isNVIDIA != 1 ]; then
-#      continue
-#    else
-#      key="-DIS_NATIVE=ON -DIS_NVIDIA=ON"
-#      val="256k"
-#    fi
-#  fi
 
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
@@ -137,3 +125,12 @@ for key in "${!arr[@]}"; do
   echo "You pressed a key! Continuing..."
 done
 
+if [ "$hasCuda" == 0 ]; then
+  for curr in "${compilers[@]}"; do
+    val = "256k"
+    compiler=`sh -c "./cmake_build.sh \"-DIS_NVIDIA=ON -DCMAKE_C_COMPILER=${curr}\" | grep \"The C compiler identification\""`
+    sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
+    sox -q -D -twav "${wavFile}" -traw -es -b16 -r512k - 2>/dev/null | tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
+    rm -rf file int16.dat uint8.dat ||:
+  done
+fi
