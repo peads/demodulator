@@ -29,6 +29,13 @@ if [ ! -z "$2" ]; then
     audioOutOpts="-o${2}"
 fi
 
+invertOpt=0
+if [ ! -z "$3" ]; then
+  invertOpt=$3
+fi
+
+type nvcc >/dev/null 2>&1
+hasCuda="$?"
 hasAvx2=$(cat /proc/cpuinfo | grep avx2 | sed -E 's/avx2/yes/g' | grep yes | wc -l)
 hasAvx512=$(cat /proc/cpuinfo | grep avx512 | sed -E 's/avx512(bw|dq|f)/yes/g' | grep yes | wc -l)
 
@@ -45,12 +52,8 @@ if [ $hasAvx512 -ge 4 ]; then
   opts["-DIS_INTRINSICS=ON -DNO_AVX512=ON -DIS_NATIVE=ON"]="128k"
 fi
 
-#type nvcc >/dev/null 2>&1
-#if [ "$?" == 0 ]; then
-#  opts["-DIS_NVIDIA=ON"]="256k"
-#fi
-
 declare -A arr
+compilers=()
 
 function findCompiler() {
 
@@ -63,6 +66,7 @@ function findCompiler() {
     echo ":: COMPILER INFO"
     echo "$(${1} --version)"
     echo ":: END COMPILER INFO"
+    compilers+=($1)
     key="-DCMAKE_C_COMPILER=$(which ${1})"
     for val in "${!opts[@]}"; do
       arr[$key $val]=${opts[$val]}
@@ -83,24 +87,37 @@ function printRunInfo() {
 findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
-#findCompiler nvcc hasNvcc
 
 set -e
+
+if [ "$hasCuda" == 0 ]; then
+  runOpts="-DIS_NVIDIA=ON"
+  for curr in "${compilers[@]}"; do
+    val="256k"
+    compiler=`sh -c "./cmake_build.sh \"${runOpts} -DCMAKE_C_COMPILER=${curr}\" | grep \"The C compiler identification\""`
+
+    printRunInfo "${runOpts} -DCMAKE_C_COMPILER=${curr}" "$compiler"
+    sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r"${invertOpt}" | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
+
+    echo ""
+    echo ":: Timing uint8"
+    printRunInfo "${runOpts} ${curr}" "$compiler"
+    time build/demodulator -i uint8.dat -o file -r1
+    rm file
+    time build/demodulator -i uint8.dat -o file -r1
+    rm file
+    time build/demodulator -i uint8.dat -o file -r1
+    echo ":: End Timing uint8"
+    rm -rf file int16.dat uint8.dat ||:
+
+    echo "Press any key to continue..."
+    read -s -n 1
+  done
+fi
 
 for key in "${!arr[@]}"; do
 
   val=${arr[$key]}
-#  isNvcc=`echo $key | grep "nvcc" | wc -l`
-#  isNVIDIA=`echo $key | grep "NVIDIA" | wc -l`
-#
-#  if [ $isNvcc == 1 ]; then
-#    if [ $isNVIDIA != 1 ]; then
-#      continue
-#    else
-#      key="-DIS_NATIVE=ON -DIS_NVIDIA=ON"
-#      val="256k"
-#    fi
-#  fi
 
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
@@ -134,6 +151,4 @@ for key in "${!arr[@]}"; do
 
   echo "Press any key to continue..."
   read -s -n 1
-  echo "You pressed a key! Continuing..."
 done
-
