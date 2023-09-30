@@ -260,6 +260,9 @@ static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
     convert_epi16_ps(lo.v, M);
     demod(M, &(result[2]));
 
+    convert_epi16_ps(hi, M);
+    demod(M, &(result[2]));
+
     prev.v = hi;
 }
 

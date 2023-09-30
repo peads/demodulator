@@ -9,7 +9,7 @@ from functools import partial
 plt.style.use('dark_background')
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-bufsize = 16384
+bufsize = 32768
 dt = bufsize >> 2
 
 class Chunker:
