@@ -39,29 +39,29 @@ def generateData(file):
     chunker = Chunker(file);
     return iter(chunker);
 
-def animate(i, xs, ys):
+def animate(i, ts, ys):
 
-    #if (bool(xs)):
-    #    xs.append(xs[-1] + 1);
+    #if (bool(ts)):
+    #    ts.append(ts[-1] + 1);
     #else:
-    #    xs.append(1);
+    #    ts.append(1);
     #ys.append(i);
     (ymins, y) = i;
-    xs.extend(range(xs[-1],xs[-1]+len(y)));
+    ts.extend(range(ts[-1],ts[-1]+len(y)));
     ys.extend(y);
-    xs = xs[-displaysize:];
+    ts = ts[-displaysize:];
     ys = ys[-displaysize:];
 
     ax.clear();
     ax.set_yscale('asinh', base=2);
     ax.set_ylim((-scaling,scaling));
-    #ax.scatter(xs, ys);
-    ax.fill_between(xs, ymins, ys, alpha=1, linewidth=dt)
+    #ax.scatter(ts, ys);
+    ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
 
     # needs initial value, s.t. animate doesn't whine on extend
     ys = [0];
-    xs = [0];
-    ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), frames=partial(generateData, f), save_count=displaysize, interval=8);
+    ts = [0];
+    ani = animation.FuncAnimation(fig, animate, fargs=(ts, ys), frames=partial(generateData, f), save_count=displaysize, interval=8);
     plt.show();
