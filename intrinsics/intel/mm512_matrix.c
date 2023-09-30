@@ -260,6 +260,9 @@ static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
     convert_epi16_ps(lo.v, M);
     demod(M, &(result[2]));
 
+    convert_epi16_ps(hi, M);
+    demod(M, &(result[2]));
+
     prev.v = hi;
 }
 
@@ -331,23 +334,88 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
+static void demodulate(void *buf, const matrixOp512_t fun, __m64 *result, const size_t iterations, __m512 gain, FILE *outFile, const uint8_t mode) {
+
+    size_t i;
+    size_t shiftIndex;
+    for (i = 0; i < iterations; ++i) {
+        shiftIndex = i << 2;
+        fun(*(__m512i *)(buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
+
+        if (*(float*)&gain) {
+            _mm512_mul_ps(*(__m512 *) result, gain);
+        }
+
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
+    }
+}
+//static inline void demodEpi16_(__m512i u, float *__restrict__ result) {
+//
+//    static const __m512i negateBIm = {
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001};
+//
+//    const __m512i indexLo = _mm512_set_epi16(
+//            7,7,8,8,7,7,6,6,
+//            5,5,6,6,5,5,4,4,
+//            3,3,4,4,3,3,2,2,
+//            1,1,2,2,1,1,0,0
+//    );
+//    const __m512i indexHi = _mm512_set_epi16(
+//            15,15,0,0,15,15,14,14,
+//            13,13,15,15,14,14,12,12,
+//            11,11,12,12,11,11,10,10,
+//            9,9,10,10,9,9,8,8);
+//
+//    static m512i_pun_t prev;
+//
+//    __m512i hi;
+//    m512i_pun_t lo;
+//
+//    __m512 M[6];
+//
+//    u = boxcarEpi16(u);
+//    hi = _mm512_mullo_epi16(_mm512_permutexvar_epi32(indexHi, u), negateBIm);
+//    lo.v = _mm512_mullo_epi16(_mm512_permutexvar_epi32(indexLo, u), negateBIm);
+//
+//    prev.buf16[28] = lo.buf16[0];
+//    prev.buf16[29] = lo.buf16[1];
+//
+//    convert_epi16_ps(prev.v, M);
+//    demod(M, result);
+//
+//    convert_epi16_ps(lo.v, M);
+//    demod(M, &(result[2]));
+//
+//    // we're decimating at each iteration
+//    convert_epi16_ps(hi, M);
+//    demod(M, &(result[2]));
+//
+//    prev.v = hi;
+//}
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
-                  const float inGain,
+                  float inGain,
                   void *__restrict__ outFile) {
 
-    int exitFlag = 0;
-    void *buf = _mm_malloc(MATRIX_WIDTH << 4, 64);
+    int exitFlag = mode && mode != 1;
+    void *buf = _mm_malloc(128 >> mode, 64);
     __m64 result[MATRIX_WIDTH << 1];
     size_t elementsRead;
 
-    const uint8_t isGain = inGain != 1.f && fabsf(inGain) > GAIN_THRESHOLD;
+    inGain = inGain != 1.f ? inGain : 0.f;
     const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
-    const matrixOp512_t demodulate = mode ? demodEpi8 : demodEpi16;
+    const matrixOp512_t fun = mode ? demodEpi8 : demodEpi16;
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, 1, MATRIX_WIDTH << 4, inFile);
+        elementsRead = fread(buf, 2 - mode, 64, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -359,13 +427,7 @@ int processMatrix(FILE *__restrict__ inFile,
                             "fread. Stupid compiler.");
         }
 
-        demodulate(*(__m512i *) buf, result);
-
-        if (isGain) {
-            _mm512_mul_ps(*(__m512 *) result, gain);
-        }
-
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
+        demodulate(buf, fun, result, 2-mode, gain, outFile, mode);
     }
 
     _mm_free(buf);

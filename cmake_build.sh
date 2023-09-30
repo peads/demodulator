@@ -15,6 +15,6 @@ fi
 #echo $CUST_OPTS
 
 rm -rf build/ ||:
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DIS_NATIVE=ON $CUST_OPTS -S . -B build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=`which ninja` -DIS_NATIVE=ON $CUST_OPTS -G Ninja -S . -B build
 cmake --build build
 sudo cmake --install build --prefix $INSTALL_PREFIX

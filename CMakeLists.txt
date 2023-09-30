@@ -81,13 +81,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-async
 
 if (IS_NVIDIA)
     set(CMAKE_CUDA_ARCHITECTURES native)
-    set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
     add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA C)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -m64 -ftz=true -use_fast_math -Xcompiler=\"${CMAKE_C_FLAGS}\" -res-usage ")
-    FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/*.cu" "src/main.c")
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-
+    set(SRCS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/cuc_matrix.cu")
     add_executable(${PROJECT_NAME} ${SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c)
     set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 elseif(IS_INTEL)
@@ -147,7 +145,7 @@ else()
         FILE(GLOB SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
     endif()
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/fmath.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
