@@ -43,13 +43,14 @@ typedef union {
     int16_t buf16[32];
 } m512i_pun_t;
 
-uint8_t gMode;
-FILE *gOutFile;
-int exitFlag;
-__m512 gGain;
-__m64 *gResult;
-matrixOp512_t demodFun;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static uint8_t gMode;
+static FILE *gOutFile;
+static int exitFlag;
+static __m512 gGain;
+static __m64 *gResult;
+static matrixOp512_t demodFun;
+static size_t elementsRead;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 sem_t full, empty;
 
 // taken from https://stackoverflow.com/a/55745816
@@ -377,17 +378,23 @@ static void demodulate(void *buf,
 
 void *runProcessMatrix(void *inBuf) {
 
-    void *buf = _mm_malloc(128 >> gMode, 64);
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE >> gMode, 64);
 
     while (!exitFlag) {
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
-        memcpy(buf, inBuf, 128 >> gMode);
+        memcpy(buf, inBuf, DEFAULT_BUF_SIZE >> gMode);
+        elementsRead = 0;
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);
-        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
+
+        for (int i = 0; i < (DEFAULT_BUF_SIZE >> gMode); i += (128 >> gMode)) {
+            demodulate(buf + i, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
+        }
     }
 
+    _mm_free(inBuf);
+    _mm_free(buf);
     return NULL;
 }
 
@@ -406,9 +413,9 @@ int processMatrix(FILE *__restrict__ inFile,
     sem_init(&empty, 0, 1);
     sem_init(&full, 0, 0);
 
-    void *buf = _mm_malloc(128 >> gMode, 64);
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE >> gMode, 64);
     pthread_t pid;
-    size_t elementsRead;
+    elementsRead = 0;
 
     if (pthread_create(&pid, NULL, runProcessMatrix, buf) != 0) {
         fprintf(stderr, "Unable to create consumer thread\n");
@@ -419,23 +426,19 @@ int processMatrix(FILE *__restrict__ inFile,
 
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
-        elementsRead = fread(buf, 2 - gMode, 64, inFile);
-        pthread_mutex_unlock(&mutex);
-        sem_post(&full);
+        elementsRead = fread(buf, 2 - gMode, DEFAULT_BUF_SIZE >> gMode, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
             exitFlag = EOF;
-        } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the gResult of"
-                            "fread. Stupid compiler.");
         }
+        pthread_mutex_unlock(&mutex);
+        sem_post(&full);
     }
 
     pthread_join(pid, NULL);
     _mm_free(gResult);
-    _mm_free(buf);
     return exitFlag;
 }
