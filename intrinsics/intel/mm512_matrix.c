@@ -30,6 +30,7 @@
 
 #include <immintrin.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <string.h>
 #include "definitions.h"
 #include "matrix.h"
@@ -48,9 +49,8 @@ int exitFlag;
 __m512 gGain;
 __m64 *gResult;
 matrixOp512_t demodFun;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;	/* mutex lock for buffer */
-pthread_cond_t canConsume = PTHREAD_COND_INITIALIZER; /* consumer waits on this cond var */
-pthread_cond_t canProduce = PTHREAD_COND_INITIALIZER; /* producer waits on this cond var */
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+sem_t full, empty;
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
@@ -174,10 +174,10 @@ preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restr
     // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} + {bj^2, br^2, aj^2, ar^2, ... }
     // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
     *w = _mm512_permute_ps(*u, 0x8D);
-    *u = _mm512_fmaddsub_ps(ONES,*u,*w);
-    *v = _mm512_mul_ps(*u,*u);
-    *w = _mm512_permute_ps(*v,0x1B);
-    *v = _mm512_add_ps(*v,*w);
+    *u = _mm512_fmaddsub_ps(ONES, *u, *w);
+    *v = _mm512_mul_ps(*u, *u);
+    *w = _mm512_permute_ps(*v, 0x1B);
+    *v = _mm512_add_ps(*v, *w);
 }
 
 static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
@@ -374,17 +374,23 @@ static void demodulate(void *buf,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
     }
 }
-//
-//void *runProcessMatrix(void *buf) {
-//
-//    while (!exitFlag) {
-//        pthread_cond_wait(&canConsume, &mutex);
-//        const size_t it = 2 - gMode;
-//        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
-//    }
-//
-//    return NULL;
-//}
+
+void *runProcessMatrix(void *inBuf) {
+
+    void *buf = _mm_malloc(128 >> gMode, 64);
+
+    while (!exitFlag) {
+        sem_wait(&full);
+        pthread_mutex_lock(&mutex);
+        memcpy(buf, inBuf, 128 >> gMode);
+        pthread_mutex_unlock(&mutex);
+        sem_post(&empty);
+        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
+    }
+
+    return NULL;
+}
+
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
                   float gain,
@@ -393,18 +399,29 @@ int processMatrix(FILE *__restrict__ inFile,
     gMode = mode;
     gOutFile = outFile;
     exitFlag = gMode && gMode != 1;
-
-    void *buf = _mm_malloc(128 >> gMode, 64);
     gResult = _mm_malloc(MATRIX_WIDTH << 1, 64);
-    size_t elementsRead;
-
     gain = gain != 1.f ? gain : 0.f;
     gGain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain));
     demodFun = gMode ? demodEpi8 : demodEpi16;
+    sem_init(&empty, 0, 1);
+    sem_init(&full, 0, 0);
+
+    void *buf = _mm_malloc(128 >> gMode, 64);
+    pthread_t pid;
+    size_t elementsRead;
+
+    if (pthread_create(&pid, NULL, runProcessMatrix, buf) != 0) {
+        fprintf(stderr, "Unable to create consumer thread\n");
+        exit(2);
+    }
 
     while (!exitFlag) {
 
+        sem_wait(&empty);
+        pthread_mutex_lock(&mutex);
         elementsRead = fread(buf, 2 - gMode, 64, inFile);
+        pthread_mutex_unlock(&mutex);
+        sem_post(&full);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -415,10 +432,9 @@ int processMatrix(FILE *__restrict__ inFile,
             fprintf(stderr, "This shouldn't happen, but I need to use the gResult of"
                             "fread. Stupid compiler.");
         }
-
-        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
     }
 
+    pthread_join(pid, NULL);
     _mm_free(gResult);
     _mm_free(buf);
     return exitFlag;
