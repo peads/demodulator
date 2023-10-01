@@ -20,39 +20,40 @@
  #
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
-if [ ! -z "$1" ]; then
-  wavFile=$1
-fi
-
 audioOutOpts="-o/dev/null -n"
+
+if [ ! -z "$1" ]; then
+  dontWait=1
+fi
 if [ ! -z "$2" ]; then
-    audioOutOpts="-o${2}"
+  wavFile=$2
 fi
-
-invertOpt=0
 if [ ! -z "$3" ]; then
-  invertOpt=$3
+  audioOutOpts="-o${3}"
+fi
+if [ ! -z "$4" ]; then
+  invertOpt=$4
+  type nvcc >/dev/null 2>&1
+  hasCuda="$?"
 fi
 
-type nvcc >/dev/null 2>&1
-hasCuda="$?"
 hasAvx2=$(cat /proc/cpuinfo | grep avx2 | sed -E 's/avx2/yes/g' | grep yes | wc -l)
 hasAvx512=$(cat /proc/cpuinfo | grep avx512 | sed -E 's/avx512(bw|dq|f)/yes/g' | grep yes | wc -l)
 
-declare -A opts=(
+declare -A temp=(
   ["-DIS_INTRINSICS=OFF -DIS_NATIVE=ON"]="256k"
 )
 
 if [ $hasAvx2 -ge 1 ]; then
-  opts["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
+  temp["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
 fi
 
 if [ $hasAvx512 -ge 4 ]; then
-  opts["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
-  opts["-DIS_INTRINSICS=ON -DNO_AVX512=ON -DIS_NATIVE=ON"]="128k"
+  temp["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
+  temp["-DIS_INTRINSICS=ON -DNO_AVX512=ON -DIS_NATIVE=ON"]="128k"
 fi
 
-declare -A arr
+declare -A opts
 compilers=()
 
 function findCompiler() {
@@ -68,8 +69,8 @@ function findCompiler() {
     echo ":: END COMPILER INFO"
     compilers+=($1)
     key="-DCMAKE_C_COMPILER=$(which ${1})"
-    for val in "${!opts[@]}"; do
-      arr[$key $val]=${opts[$val]}
+    for val in "${!temp[@]}"; do
+      opts[$key $val]=${temp[$val]}
     done
   fi
 
@@ -84,11 +85,19 @@ function printRunInfo() {
   echo ":: END RUN INFO"
 }
 
+function waitForUserIntput() {
+  if [ -z "$dontWait" ] && [ "${1}" -lt "${#opts[@]}" ]; then
+    echo "Press any key to continue onto next test..."
+    read -s -n 1
+    echo "Yes, m'lord."
+  fi
+}
+
 findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
 
-set -e
+set -e[ "$1" -lt "${#compilers[@]}" ]
 
 if [ "$hasCuda" == 0 ]; then
   runOpts="-DIS_NVIDIA=ON"
@@ -110,14 +119,14 @@ if [ "$hasCuda" == 0 ]; then
     echo ":: End Timing uint8"
     rm -rf file int16.dat uint8.dat ||:
 
-    echo "Press any key to continue..."
-    read -s -n 1
+    waitForUserIntput
   done
 fi
 
-for key in "${!arr[@]}"; do
+i=0
+for key in "${!opts[@]}"; do
 
-  val=${arr[$key]}
+  val=${opts[$key]}
 
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
@@ -149,6 +158,8 @@ for key in "${!arr[@]}"; do
   echo ":: End Timing int16"
   rm -rf file int16.dat uint8.dat ||:
 
-  echo "Press any key to continue..."
-  read -s -n 1
+  i=$(( i + 1 ))
+  waitForUserIntput $i
 done
+
+echo "Job's done."

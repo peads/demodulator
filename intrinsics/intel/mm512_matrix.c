@@ -20,7 +20,9 @@
 #include <stdio.h>
 
 #ifdef __GNUC__
+
 #include <stdint.h>
+
 #endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
@@ -30,7 +32,8 @@
 #include <math.h>
 #include "definitions.h"
 #include "matrix.h"
-typedef void (*matrixOp512_t)(__m512i, __m64*__restrict__);
+
+typedef void (*matrixOp512_t)(__m512i, __m64 *__restrict__);
 
 typedef union {
     __m512i v;
@@ -39,7 +42,6 @@ typedef union {
 } m512i_pun_t;
 
 // taken from https://stackoverflow.com/a/55745816
-//static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
 
     static const __m512i ZEROS = {};
@@ -50,21 +52,21 @@ static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
 
     static const __m512i ZEROS = {};
-    // vpsubw target{k1}, 0, target
+    // vpsubb target{k1}, 0, target
     return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
 }
 
 static inline __m512i convert_epu8_epi8(__m512i u) {
 
     static const __m512i Z = {
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f,
-        -0x7f7f7f7f7f7f7f7f};
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f,
+            -0x7f7f7f7f7f7f7f7f};
 
     return _mm512_add_epi8(u, Z);
 }
@@ -101,19 +103,19 @@ static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 static inline __m512i boxcarEpi8(__m512i u) {
 
     static const __m512i Z = {
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01,
-        (int64_t) 0xff01ff01ff01ff01};
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01};
     static const __m512i mask = {
-        0x0504070601000302, 0x0d0c0f0e09080b0a,
-        0x0504070601000302, 0x0d0c0f0e09080b0a,
-        0x0504070601000302, 0x0d0c0f0e09080b0a,
-        0x0504070601000302, 0x0d0c0f0e09080b0a};
+            0x0504070601000302, 0x0d0c0f0e09080b0a,
+            0x0504070601000302, 0x0d0c0f0e09080b0a,
+            0x0504070601000302, 0x0d0c0f0e09080b0a,
+            0x0504070601000302, 0x0d0c0f0e09080b0a};
 
     u = conditional_negate_epi8(u, Z);
     return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
@@ -122,43 +124,49 @@ static inline __m512i boxcarEpi8(__m512i u) {
 static inline __m512i boxcarEpi16(__m512i u) {
 
     static const __m512i Z = {
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001};
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001};
     static const __m512i mask = {
-        0x0302010007060504, 0x0b0a09080f0e0d0c,
-        0x0302010007060504, 0x0b0a09080f0e0d0c,
-        0x0302010007060504, 0x0b0a09080f0e0d0c,
-        0x0302010007060504, 0x0b0a09080f0e0d0c};
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c};
     u = conditional_negate_epi16(u, Z);
     return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
 }
 
 static inline void preNormMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
 
-    *v = _mm512_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
-                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
-                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    //  {bj, br, br, bj, bj, br, br, bj} *
+    //  {aj, aj, ar, ar, cj, cj, cr, cr}
+    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    *v = _mm512_permute_ps(*u, 0xEB);
     *u = _mm512_mul_ps(_mm512_permute_ps(*u, 0x5), *v);
 }
 
-static inline void preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restrict__ w) {
+static inline void
+preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restrict__ w) {
 
     static const __m512 ONES = {
-        1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
-        1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
+            1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
+            1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
 
-    *w = _mm512_permute_ps(*u, 0x8D);                // {aj, bj, ar, br, cj, dj, cr, dr}
-    *u = _mm512_fmaddsub_ps(ONES,*u,*w);   // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    *v = _mm512_mul_ps(*u,*u);                // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-    *w = _mm512_permute_ps(*v, 0x1B);               // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-                                                    // {bj^2, br^2, aj^2, ar^2, ... }
-    *v = _mm512_add_ps(*v, *w);               // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+    // {aj, bj, ar, br, cj, dj, cr, dr}
+    // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
+    // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+    // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} + {bj^2, br^2, aj^2, ar^2, ... }
+    // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+    *w = _mm512_permute_ps(*u, 0x8D);
+    *u = _mm512_fmaddsub_ps(ONES,*u,*w);
+    *v = _mm512_mul_ps(*u,*u);
+    *w = _mm512_permute_ps(*v,0x1B);
+    *v = _mm512_add_ps(*v,*w);
 }
 
 static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
@@ -167,14 +175,14 @@ static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
     static const __m512i index = {0xd00000005};
 
     static const __m512 all64s = {
-        64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
-        64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
+            64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
+            64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m512 all23s = {
-        23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f,
-        23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
+            23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f,
+            23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m512 all41s = {
-        41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
-        41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+            41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
+            41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
     __m512 y;
 
@@ -211,34 +219,34 @@ static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
 static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001};
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001};
 
     static const __m512i indexHi = {
-        0x13001200110010,
-        0x13001200150014,
-        0x17001600150014,
-        0x17001600190018,
-        0x1b001a00190018,
-        0x1b001a001d001c,
-        0x1f001e001d001c,
-        0x1f001e00FF00FF};
+            0x13001200110010,
+            0x13001200150014,
+            0x17001600150014,
+            0x17001600190018,
+            0x1b001a00190018,
+            0x1b001a001d001c,
+            0x1f001e001d001c,
+            0x1f001e00FF00FF};
 
     static const __m512i indexLo = {
-        0x3000200010000,
-        0x3000200050004,
-        0x7000600050004,
-        0x7000600090008,
-        0xb000a00090008,
-        0xb000a000d000c,
-        0xf000e000d000c,
-        0xf000e00110010};
+            0x3000200010000,
+            0x3000200050004,
+            0x7000600050004,
+            0x7000600090008,
+            0xb000a00090008,
+            0xb000a000d000c,
+            0xf000e000d000c,
+            0xf000e00110010};
 
     static m512i_pun_t prev;
 
@@ -269,34 +277,34 @@ static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
 static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
 
     static const __m512i negateBIm = {
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101};
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101};
 
     static const __m512i indexHi = {
-        0x2322252423222120,
-        0x2726292827262524,
-        0x2b2a2d2c2b2a2928,
-        0x2f2e31302f2e2d2c,
-        0x3332353433323130,
-        0x3736393837363534,
-        0x3b3a3d3c3b3a3938,
-        0x3f3effff3f3e3d3c};
+            0x2322252423222120,
+            0x2726292827262524,
+            0x2b2a2d2c2b2a2928,
+            0x2f2e31302f2e2d2c,
+            0x3332353433323130,
+            0x3736393837363534,
+            0x3b3a3d3c3b3a3938,
+            0x3f3effff3f3e3d3c};
 
     static const __m512i indexLo = {
-        0x302050403020100,
-        0x706090807060504,
-        0xb0a0d0c0b0a0908,
-        0xf0e11100f0e0d0c,
-        0x1312151413121110,
-        0x1716191815161514,
-        0x1b1a1d1c1b1a1918,
-        0x1f1e21201f1e1d1c};
+            0x302050403020100,
+            0x706090807060504,
+            0xb0a0d0c0b0a0908,
+            0xf0e11100f0e0d0c,
+            0x1312151413121110,
+            0x1716191815161514,
+            0x1b1a1d1c1b1a1918,
+            0x1f1e21201f1e1d1c};
 
     static m512i_pun_t prev;
 
@@ -334,71 +342,28 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static void demodulate(void *buf, const matrixOp512_t fun, __m64 *result, const size_t iterations, __m512 gain, FILE *outFile, const uint8_t mode) {
+static void demodulate(void *buf,
+                       const matrixOp512_t fun,
+                       __m64 *result,
+                       const size_t iterations,
+                       __m512 gain,
+                       FILE *outFile,
+                       const uint8_t mode) {
 
     size_t i;
     size_t shiftIndex;
     for (i = 0; i < iterations; ++i) {
         shiftIndex = i << 2;
-        fun(*(__m512i *)(buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
+        fun(*(__m512i *) (buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
 
-        if (*(float*)&gain) {
+        if (*(float *) &gain) {
             _mm512_mul_ps(*(__m512 *) result, gain);
         }
 
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
     }
 }
-//static inline void demodEpi16_(__m512i u, float *__restrict__ result) {
-//
-//    static const __m512i negateBIm = {
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xffff000100010001};
-//
-//    const __m512i indexLo = _mm512_set_epi16(
-//            7,7,8,8,7,7,6,6,
-//            5,5,6,6,5,5,4,4,
-//            3,3,4,4,3,3,2,2,
-//            1,1,2,2,1,1,0,0
-//    );
-//    const __m512i indexHi = _mm512_set_epi16(
-//            15,15,0,0,15,15,14,14,
-//            13,13,15,15,14,14,12,12,
-//            11,11,12,12,11,11,10,10,
-//            9,9,10,10,9,9,8,8);
-//
-//    static m512i_pun_t prev;
-//
-//    __m512i hi;
-//    m512i_pun_t lo;
-//
-//    __m512 M[6];
-//
-//    u = boxcarEpi16(u);
-//    hi = _mm512_mullo_epi16(_mm512_permutexvar_epi32(indexHi, u), negateBIm);
-//    lo.v = _mm512_mullo_epi16(_mm512_permutexvar_epi32(indexLo, u), negateBIm);
-//
-//    prev.buf16[28] = lo.buf16[0];
-//    prev.buf16[29] = lo.buf16[1];
-//
-//    convert_epi16_ps(prev.v, M);
-//    demod(M, result);
-//
-//    convert_epi16_ps(lo.v, M);
-//    demod(M, &(result[2]));
-//
-//    // we're decimating at each iteration
-//    convert_epi16_ps(hi, M);
-//    demod(M, &(result[2]));
-//
-//    prev.v = hi;
-//}
+
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
                   float inGain,
@@ -406,7 +371,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
     int exitFlag = mode && mode != 1;
     void *buf = _mm_malloc(128 >> mode, 64);
-    __m64 result[MATRIX_WIDTH << 1];
+    __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
     size_t elementsRead;
 
     inGain = inGain != 1.f ? inGain : 0.f;
@@ -427,9 +392,10 @@ int processMatrix(FILE *__restrict__ inFile,
                             "fread. Stupid compiler.");
         }
 
-        demodulate(buf, fun, result, 2-mode, gain, outFile, mode);
+        demodulate(buf, fun, result, 2 - mode, gain, outFile, mode);
     }
 
+    _mm_free(result);
     _mm_free(buf);
     return exitFlag;
 }
