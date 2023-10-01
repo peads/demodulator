@@ -378,17 +378,17 @@ static void demodulate(void *buf,
 
 void *runProcessMatrix(void *inBuf) {
 
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE >> gMode, 64);
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-gMode), 64);
 
     while (!exitFlag) {
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
-        memcpy(buf, inBuf, DEFAULT_BUF_SIZE >> gMode);
+        memcpy(buf, inBuf, DEFAULT_BUF_SIZE << (1-gMode));
         elementsRead = 0;
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);
 
-        for (int i = 0; i < (DEFAULT_BUF_SIZE >> gMode); i += (128 >> gMode)) {
+        for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> gMode)) {
             demodulate(buf + i, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
         }
     }
@@ -413,7 +413,7 @@ int processMatrix(FILE *__restrict__ inFile,
     sem_init(&empty, 0, 1);
     sem_init(&full, 0, 0);
 
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE >> gMode, 64);
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-gMode), 64);
     pthread_t pid;
     elementsRead = 0;
 
@@ -426,7 +426,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
-        elementsRead = fread(buf, 2 - gMode, DEFAULT_BUF_SIZE >> gMode, inFile);
+        elementsRead = fread(buf, 2 - gMode, DEFAULT_BUF_SIZE >> (1-gMode), inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
