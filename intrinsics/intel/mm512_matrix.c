@@ -45,16 +45,16 @@ typedef union {
 
 typedef struct  {
     const uint8_t mode;
+    void *buf;
     int exitFlag;
-    float gain;
     FILE *outFile;
     matrixOp512_t demodFun;
     pthread_mutex_t mutex;
     sem_t full, empty;
     matrixOp512_t demodulate;
+    __m64 *result;
+    __m512 gain;
 } consumerArgs;
-static void *gBuf;
-static __m64 *gResult;
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
@@ -382,18 +382,17 @@ static void demodulate(void *buf,
 void *runProcessMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-args->mode), 64);
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-        memcpy(buf, gBuf, DEFAULT_BUF_SIZE << (1-args->mode));
+        memcpy(buf, args->buf, DEFAULT_BUF_SIZE << (1-args->mode));
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
         for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode)) {
-            demodulate(buf + i, args->demodulate, gResult, 2 - args->mode, gain, args->outFile, args->mode);
+            demodulate(buf + i, args->demodulate, args->result, 2 - args->mode, args->gain, args->outFile, args->mode);
         }
     }
 
@@ -406,17 +405,17 @@ int processMatrix(FILE *__restrict__ inFile,
                   float gain,
                   void *__restrict__ outFile) {
 
-    consumerArgs args __attribute__((aligned(64))) = {
+    gain = gain != 1.f ? gain : 0.f;
+    consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
             .exitFlag = mode && mode != 1,
-            .gain = gain != 1.f ? gain : 0.f,
-            .demodulate =  mode ? demodEpi8 : demodEpi16
+            .demodulate =  mode ? demodEpi8 : demodEpi16,
+            .buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-mode), 64),
+            .result = _mm_malloc(MATRIX_WIDTH << 1, 64),
+            .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
     };
-
-    gBuf = _mm_malloc(DEFAULT_BUF_SIZE << (1-mode), 64),
-    gResult = _mm_malloc(MATRIX_WIDTH << 1, 64);
     sem_init(&args.empty, 0, 1);
     sem_init(&args.full, 0, 0);
 
@@ -432,7 +431,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
         sem_wait(&args.empty);
         pthread_mutex_lock(&args.mutex);
-        elementsRead = fread(gBuf, 2 - args.mode, DEFAULT_BUF_SIZE >> (1-args.mode), inFile);
+        elementsRead = fread(args.buf, 2 - args.mode, DEFAULT_BUF_SIZE >> (1-args.mode), inFile);
 
         if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -440,14 +439,14 @@ int processMatrix(FILE *__restrict__ inFile,
         } else if (feof(inFile)) {
             args.exitFlag = EOF;
         } else if (!elementsRead) {
-            // DO NOTHING
+            // DOES NOTHING, BUT THE WERROR IS NOT ANGY
         }
         pthread_mutex_unlock(&args.mutex);
         sem_post(&args.full);
     }
 
     pthread_join(pid, NULL);
-    _mm_free(gBuf);
-    _mm_free(gResult);
+    _mm_free(args.buf);
+    _mm_free(args.result);
     return args.exitFlag;
 }
