@@ -43,15 +43,18 @@ typedef union {
     int16_t buf16[32];
 } m512i_pun_t;
 
-static uint8_t gMode;
-static FILE *gOutFile;
-static int exitFlag;
-static __m512 gGain;
+typedef struct  {
+    const uint8_t mode;
+    int exitFlag;
+    float gain;
+    FILE *outFile;
+    matrixOp512_t demodFun;
+    pthread_mutex_t mutex;
+    sem_t full, empty;
+    matrixOp512_t demodulate;
+} consumerArgs;
+static void *gBuf;
 static __m64 *gResult;
-static matrixOp512_t demodFun;
-static size_t elementsRead;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-sem_t full, empty;
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
@@ -376,24 +379,24 @@ static void demodulate(void *buf,
     }
 }
 
-void *runProcessMatrix(void *inBuf) {
+void *runProcessMatrix(void *ctx) {
 
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-gMode), 64);
+    consumerArgs *args = ctx;
+    __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-args->mode), 64);
 
-    while (!exitFlag) {
-        sem_wait(&full);
-        pthread_mutex_lock(&mutex);
-        memcpy(buf, inBuf, DEFAULT_BUF_SIZE << (1-gMode));
-        elementsRead = 0;
-        pthread_mutex_unlock(&mutex);
-        sem_post(&empty);
+    while (!args->exitFlag) {
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
+        memcpy(buf, gBuf, DEFAULT_BUF_SIZE << (1-args->mode));
+        pthread_mutex_unlock(&args->mutex);
+        sem_post(&args->empty);
 
-        for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> gMode)) {
-            demodulate(buf + i, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
+        for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode)) {
+            demodulate(buf + i, args->demodulate, gResult, 2 - args->mode, gain, args->outFile, args->mode);
         }
     }
 
-    _mm_free(inBuf);
     _mm_free(buf);
     return NULL;
 }
@@ -403,42 +406,48 @@ int processMatrix(FILE *__restrict__ inFile,
                   float gain,
                   void *__restrict__ outFile) {
 
-    gMode = mode;
-    gOutFile = outFile;
-    exitFlag = gMode && gMode != 1;
+    consumerArgs args __attribute__((aligned(64))) = {
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .mode = mode,
+            .outFile = outFile,
+            .exitFlag = mode && mode != 1,
+            .gain = gain != 1.f ? gain : 0.f,
+            .demodulate =  mode ? demodEpi8 : demodEpi16
+    };
+
+    gBuf = _mm_malloc(DEFAULT_BUF_SIZE << (1-mode), 64),
     gResult = _mm_malloc(MATRIX_WIDTH << 1, 64);
-    gain = gain != 1.f ? gain : 0.f;
-    gGain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain));
-    demodFun = gMode ? demodEpi8 : demodEpi16;
-    sem_init(&empty, 0, 1);
-    sem_init(&full, 0, 0);
+    sem_init(&args.empty, 0, 1);
+    sem_init(&args.full, 0, 0);
 
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-gMode), 64);
     pthread_t pid;
-    elementsRead = 0;
+    size_t elementsRead;
 
-    if (pthread_create(&pid, NULL, runProcessMatrix, buf) != 0) {
+    if (pthread_create(&pid, NULL, runProcessMatrix, &args) != 0) {
         fprintf(stderr, "Unable to create consumer thread\n");
         exit(2);
     }
 
-    while (!exitFlag) {
+    while (!args.exitFlag) {
 
-        sem_wait(&empty);
-        pthread_mutex_lock(&mutex);
-        elementsRead = fread(buf, 2 - gMode, DEFAULT_BUF_SIZE >> (1-gMode), inFile);
+        sem_wait(&args.empty);
+        pthread_mutex_lock(&args.mutex);
+        elementsRead = fread(gBuf, 2 - args.mode, DEFAULT_BUF_SIZE >> (1-args.mode), inFile);
 
-        if ((exitFlag = ferror(inFile))) {
+        if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
-            exitFlag = EOF;
+            args.exitFlag = EOF;
+        } else if (!elementsRead) {
+            // DO NOTHING
         }
-        pthread_mutex_unlock(&mutex);
-        sem_post(&full);
+        pthread_mutex_unlock(&args.mutex);
+        sem_post(&args.full);
     }
 
     pthread_join(pid, NULL);
+    _mm_free(gBuf);
     _mm_free(gResult);
-    return exitFlag;
+    return args.exitFlag;
 }
