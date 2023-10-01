@@ -29,10 +29,8 @@
 #define MATRIX_ELEMENT_BYTES 16
 #define MATRIX_WIDTH 4
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 1048576
+#define DEFAULT_BUF_SIZE 262144
 #endif
-#define OUT_BUF_SIZE DEFAULT_BUF_SIZE << OUTPUT_ELEMENT_BYTES
-#define GAIN_THRESHOLD 0.01f
 
 #if (defined(__AVX__) || defined(__AVX2__))
 #define HAS_AVX
