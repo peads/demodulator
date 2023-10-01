@@ -97,7 +97,7 @@ findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
 
-set -e[ "$1" -lt "${#compilers[@]}" ]
+set -e
 
 if [ "$hasCuda" == 0 ]; then
   runOpts="-DIS_NVIDIA=ON"

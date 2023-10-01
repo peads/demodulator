@@ -29,7 +29,8 @@
 #endif
 
 #include <immintrin.h>
-#include <math.h>
+#include <pthread.h>
+#include <string.h>
 #include "definitions.h"
 #include "matrix.h"
 
@@ -40,6 +41,16 @@ typedef union {
     int8_t buf[64];
     int16_t buf16[32];
 } m512i_pun_t;
+
+uint8_t gMode;
+FILE *gOutFile;
+int exitFlag;
+__m512 gGain;
+__m64 *gResult;
+matrixOp512_t demodFun;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;	/* mutex lock for buffer */
+pthread_cond_t canConsume = PTHREAD_COND_INITIALIZER; /* consumer waits on this cond var */
+pthread_cond_t canProduce = PTHREAD_COND_INITIALIZER; /* producer waits on this cond var */
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
@@ -363,24 +374,37 @@ static void demodulate(void *buf,
         fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
     }
 }
-
+//
+//void *runProcessMatrix(void *buf) {
+//
+//    while (!exitFlag) {
+//        pthread_cond_wait(&canConsume, &mutex);
+//        const size_t it = 2 - gMode;
+//        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
+//    }
+//
+//    return NULL;
+//}
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
-                  float inGain,
+                  float gain,
                   void *__restrict__ outFile) {
 
-    int exitFlag = mode && mode != 1;
-    void *buf = _mm_malloc(128 >> mode, 64);
-    __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
+    gMode = mode;
+    gOutFile = outFile;
+    exitFlag = gMode && gMode != 1;
+
+    void *buf = _mm_malloc(128 >> gMode, 64);
+    gResult = _mm_malloc(MATRIX_WIDTH << 1, 64);
     size_t elementsRead;
 
-    inGain = inGain != 1.f ? inGain : 0.f;
-    const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
-    const matrixOp512_t fun = mode ? demodEpi8 : demodEpi16;
+    gain = gain != 1.f ? gain : 0.f;
+    gGain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain));
+    demodFun = gMode ? demodEpi8 : demodEpi16;
 
     while (!exitFlag) {
 
-        elementsRead = fread(buf, 2 - mode, 64, inFile);
+        elementsRead = fread(buf, 2 - gMode, 64, inFile);
 
         if ((exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -388,14 +412,14 @@ int processMatrix(FILE *__restrict__ inFile,
         } else if (feof(inFile)) {
             exitFlag = EOF;
         } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
+            fprintf(stderr, "This shouldn't happen, but I need to use the gResult of"
                             "fread. Stupid compiler.");
         }
 
-        demodulate(buf, fun, result, 2 - mode, gain, outFile, mode);
+        demodulate(buf, demodFun, gResult, 2 - gMode, gGain, gOutFile, gMode);
     }
 
-    _mm_free(result);
+    _mm_free(gResult);
     _mm_free(buf);
     return exitFlag;
 }
