@@ -360,12 +360,11 @@ static void demodulate(void *buf,
                        const matrixOp512_t fun,
                        const uint8_t mode,
                        __m512 gain,
-                       FILE *outFile) {
+                       __m64 *result) {
 
     size_t i;
     size_t shiftIndex;
     const size_t iterations = 2 - mode;
-    __m64 result[8] __attribute__((aligned(64)));
     for (i = 0; i < iterations; ++i) {
         shiftIndex = i << 2;
         fun(*(__m512i *) (buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
@@ -373,15 +372,15 @@ static void demodulate(void *buf,
         if (*(float *) &gain) {
             _mm512_mul_ps(*(__m512 *) result, gain);
         }
-
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
     }
 }
 
 void *runProcessMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
+    int i, j;
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-args->mode), 64);
+    __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64)));
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -390,9 +389,10 @@ void *runProcessMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-        for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode)) {
-            demodulate(buf + i, args->demodulate, args->mode, args->gain, args->outFile);
+        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode), j += 4) {
+            demodulate(buf + i, args->demodulate, args->mode, args->gain, result + j);
         }
+        fwrite(result, sizeof(__m64), DEFAULT_BUF_SIZE >> 4, args->outFile);
     }
 
     _mm_free(buf);
