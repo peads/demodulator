@@ -375,7 +375,7 @@ static void demodulate(void *buf,
 void *runProcessMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    int i, j;
+    size_t i, j;
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-args->mode), 64);
     __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64)));
 
