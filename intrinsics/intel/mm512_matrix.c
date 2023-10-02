@@ -52,7 +52,6 @@ typedef struct  {
     pthread_mutex_t mutex;
     sem_t full, empty;
     matrixOp512_t demodulate;
-    __m64 *result;
     __m512 gain;
 } consumerArgs;
 
@@ -359,14 +358,14 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
 
 static void demodulate(void *buf,
                        const matrixOp512_t fun,
-                       __m64 *result,
-                       const size_t iterations,
+                       const uint8_t mode,
                        __m512 gain,
-                       FILE *outFile,
-                       const uint8_t mode) {
+                       FILE *outFile) {
 
     size_t i;
     size_t shiftIndex;
+    const size_t iterations = 2 - mode;
+    __m64 result[8] __attribute__((aligned(64)));
     for (i = 0; i < iterations; ++i) {
         shiftIndex = i << 2;
         fun(*(__m512i *) (buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
@@ -392,7 +391,7 @@ void *runProcessMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (int i = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode)) {
-            demodulate(buf + i, args->demodulate, args->result, 2 - args->mode, args->gain, args->outFile, args->mode);
+            demodulate(buf + i, args->demodulate, args->mode, args->gain, args->outFile);
         }
     }
 
@@ -413,7 +412,6 @@ int processMatrix(FILE *__restrict__ inFile,
             .exitFlag = mode && mode != 1,
             .demodulate =  mode ? demodEpi8 : demodEpi16,
             .buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-mode), 64),
-            .result = _mm_malloc(MATRIX_WIDTH << 1, 64),
             .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
     };
     sem_init(&args.empty, 0, 1);
@@ -424,7 +422,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
     if (pthread_create(&pid, NULL, runProcessMatrix, &args) != 0) {
         fprintf(stderr, "Unable to create consumer thread\n");
-        exit(2);
+        return 2;
     }
 
     while (!args.exitFlag) {
@@ -447,6 +445,5 @@ int processMatrix(FILE *__restrict__ inFile,
 
     pthread_join(pid, NULL);
     _mm_free(args.buf);
-    _mm_free(args.result);
     return args.exitFlag;
 }

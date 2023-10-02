@@ -46,8 +46,8 @@ if [ ! -z "$4" ]; then
 fi
 
 nc $ADDR $PORT | \
-  demodulator -r1 -g0.1 -i - -o - | \
+  build/demodulator -r1 -g0.1 -i - -o - | \
     sox -traw -b32 -ef -r$RATE - -traw -es -b16 -r22050 - | \
-      multimon-ng -sZVEI1 -sZVEI2 -sZVEI3 -sDZVEI -sPZVEI -sEEA -sEIA -sCCIR \
+      multimon-ng -sFMSFSK -sZVEI1 -sZVEI2 -sZVEI3 -sDZVEI -sPZVEI -sEEA -sEIA -sCCIR \
         -sDUMPCSV -sUFSK1200 -sDTMF -sMORSE_CW -sFLEX -sX10 -sEAS --timestamp \
         $LABEL -i -
