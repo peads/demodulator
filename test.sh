@@ -21,6 +21,7 @@
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
 audioOutOpts=""
+invertOpt=1
 
 if [ ! -z "$1" ]; then
   dontWait=1
@@ -32,7 +33,7 @@ if [ ! -z "$3" ]; then
   audioOutOpts="-w${3}"
 fi
 if [ ! -z "$4" ]; then
-  invertOpt=$4
+  invertOpt=-1
   type nvcc >/dev/null 2>&1
   hasCuda="$?"
 fi
@@ -108,19 +109,19 @@ if [ "$hasCuda" == 0 ]; then
     printRunInfo "${runOpts} -DCMAKE_C_COMPILER=${curr}" "$compiler"
     sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
       | tee -i uint8.dat \
-      | build/demodulator -i - -o - -r"${invertOpt}" \
+      | build/demodulator -i - -o - -g"${invertOpt}" \
       | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
-      | dsd -i -o/dev/null -n ${audioOutOpts}
+      | dsd -i - -o/dev/null -n ${audioOutOpts}
 
 
     echo ""
     echo ":: Timing uint8"
     printRunInfo "${runOpts} ${curr}" "$compiler"
-    time build/demodulator -i uint8.dat -o file -r1
+    time build/demodulator -i uint8.dat -o file
     rm file
-    time build/demodulator -i uint8.dat -o file -r1
+    time build/demodulator -i uint8.dat -o file
     rm file
-    time build/demodulator -i uint8.dat -o file -r1
+    time build/demodulator -i uint8.dat -o file
     echo ":: End Timing uint8"
     rm -rf file int16.dat uint8.dat ||:
 
@@ -137,31 +138,21 @@ for key in "${!opts[@]}"; do
 
   printRunInfo "$key" "$compiler"
   sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
-    | tee -i uint8.dat | build/demodulator -i - -o - -r1 \
+    | tee -i uint8.dat | build/demodulator -i - -o - \
     | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
     | dsd -i - -o/dev/null -n ${audioOutOpts}
 
   echo ""
   echo ":: Timing uint8"
   printRunInfo "$key" "$compiler"
-  time build/demodulator -i uint8.dat -o file -r1
+  time build/demodulator -i uint8.dat -o file
+  rm file
+  time build/demodulator -i uint8.dat -o file
   rm file
   time build/demodulator -i uint8.dat -o file -r1
-  rm file
-  time build/demodulator -i uint8.dat -o file -r1
-  #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file uint8.dat
   echo ":: End Timing uint8"
   echo ""
-#  echo ":: Timing int16"
-#  printRunInfo "$key" "$compiler"
-#  time build/demodulator -i int16.dat -o file
-#  rm file
-#  time build/demodulator -i int16.dat -o file
-#  rm file
-#  time build/demodulator -i int16.dat -o file
-#  #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file int16.dat
-#  echo ":: End Timing int16"
-  rm -rf file int16.dat uint8.dat ||:
+  rm -rf file uint8.dat ||:
 
   i=$(( i + 1 ))
   waitForUserIntput $i

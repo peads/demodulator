@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
+
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
 #endif
@@ -35,12 +36,12 @@ typedef union {
 } m512i_pun_t;
 
 typedef struct {
+    sem_t full, empty;
     const uint8_t mode;
     void *buf;
     int exitFlag;
     FILE *outFile;
     pthread_mutex_t mutex;
-    sem_t full, empty;
     __m512 gain;
 } consumerArgs;
 
@@ -70,7 +71,7 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
 static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 
     __m512i w,
-    v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
+            v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
     u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
 
     w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
@@ -150,9 +151,9 @@ static inline __m512 fmDemod(__m512 *M) {
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m512 w,y,
-        u = M[0],
-        v = M[2];
+    __m512 w, y,
+            u = M[0],
+            v = M[2];
 
     // Norm
     preNormMult(&u, &v);
@@ -265,7 +266,7 @@ static void *runDemodulator(void *ctx) {
         for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 64, j += 4) {
             demodEpi8(*(__m512i *) (buf + i), result + j);
 
-            if (*(float*)&args->gain) {
+            if (*(float *) &args->gain) {
                 _mm512_mul_ps(*(__m512 *) &result, args->gain);
             }
         }
@@ -281,25 +282,20 @@ int processMatrix(FILE *__restrict__ inFile,
                   float gain,
                   void *__restrict__ outFile) {
 
+    pthread_t pid;
+    size_t elementsRead;
+
     gain = gain != 1.f ? gain : 0.f;
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
-            .exitFlag = mode != 1,
+            .exitFlag = sem_init(&args.empty, 0, 1),
             .buf = _mm_malloc(DEFAULT_BUF_SIZE, 64),
             .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
     };
-    sem_init(&args.empty, 0, 1);
-    sem_init(&args.full, 0, 0);
-
-    pthread_t pid;
-    size_t elementsRead;
-
-    if (pthread_create(&pid, NULL, runDemodulator, &args) != 0) {
-        fprintf(stderr, "Unable to create consumer thread\n");
-        return 2;
-    }
+    args.exitFlag |= sem_init(&args.full, 0, 0);
+    args.exitFlag |= pthread_create(&pid, NULL, runDemodulator, &args);
 
     while (!args.exitFlag) {
 

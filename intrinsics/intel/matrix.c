@@ -36,12 +36,12 @@ typedef union {
 } m256i_pun_t;
 
 typedef struct {
+    sem_t full, empty;
     const uint8_t mode;
     void *buf;
     int exitFlag;
     FILE *outFile;
     pthread_mutex_t mutex;
-    sem_t full, empty;
     __m256 gain;
 } consumerArgs;
 
@@ -81,7 +81,7 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
 
     *w = _mm256_permute_ps(*u, 0x8D);
     *u = _mm256_addsub_ps(*u, *w);
-    *v = _mm256_mul_ps(*u,*u);
+    *v = _mm256_mul_ps(*u, *u);
     *w = _mm256_permute_ps(*v, 0x1B);
     *v = _mm256_add_ps(*v, *w);
 }
@@ -92,9 +92,9 @@ static float fmDemod(__m256 *M) {
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m256 w,y,
-        u = M[0],
-        v = M[2];
+    __m256 w, y,
+            u = M[0],
+            v = M[2];
 
     // Norm
     preNormMult(&u, &w);
@@ -117,7 +117,7 @@ static float fmDemod(__m256 *M) {
 static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
 
     __m256i w,
-    v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
+            v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
     u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 
     w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
@@ -226,17 +226,12 @@ int processMatrix(FILE *__restrict__ inFile,
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
-            .exitFlag = mode != 1,
+            .exitFlag = sem_init(&args.empty, 0, 1),
             .buf = _mm_malloc(DEFAULT_BUF_SIZE, 64),
             .gain = _mm256_broadcast_ss(&gain)
     };
-    sem_init(&args.empty, 0, 1);
-    sem_init(&args.full, 0, 0);
-
-    if (pthread_create(&pid, NULL, runDemodulator, &args) != 0) {
-        fprintf(stderr, "Unable to create consumer thread\n");
-        return 2;
-    }
+    args.exitFlag |= sem_init(&args.full, 0, 0);
+    args.exitFlag |= pthread_create(&pid, NULL, runDemodulator, &args);
 
     while (!args.exitFlag) {
 

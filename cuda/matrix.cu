@@ -20,40 +20,45 @@
 #include "nvidia.cuh"
 
 __global__
-void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
+void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *result) {
 
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float ar, aj, br, bj, zr, zj;
+    float a, b, c, d, ac, bd, zr, zj;
 
     for (i = index; i < len; i += step) {
 
-        ar = __int2float_rn(buf[i] + buf[i + 2] - 254);
-        aj = __int2float_rn(254 - buf[i + 1] - buf[i + 3]);
+        a = __int2float_rn(buf[i] + buf[i + 2] - 254);
+        b = __int2float_rn(254 - buf[i + 1] - buf[i + 3]);
 
-        br = __int2float_rn(buf[i + 4] + buf[i + 6] - 254);
-        bj = __int2float_rn(buf[i + 5] + buf[i + 7] - 254);
+        c = __int2float_rn(buf[i + 4] + buf[i + 6] - 254);
+        d = __int2float_rn(buf[i + 5] + buf[i + 7] - 254);
 
-        zr = __fmaf_rn(ar, br, -__fmul_rn(aj, bj));
-        zj = __fmaf_rn(ar, bj, __fmul_rn(aj, br));
+        ac = a * c;
+        bd = b * d;
+        zr = ac - bd;
+        zj = __fmaf_rn((a + b), (c + d), -(ac + bd));
 
         zj = __fmul_rn(64.f, zj);
         zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(23.f, zr, 41.f)));
 
-        result[i >> 2] = isnan(zr) ? 0.f : zr; // delay line
+        result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr; // delay line
     }
 }
 
-extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile) {
+extern "C" int processMatrix(FILE *__restrict__ inFile,
+                             const uint8_t mode,
+                             float gain,
+                             void *__restrict__ outFile) {
 
-    int exitFlag = mode != 1;
+    int exitFlag = 0;
     uint8_t *dBuf;
     float *dResult;
     uint8_t *hBuf;
     float *hResult;
     size_t readBytes;
-    const uint8_t isGain = fabsf(1.f - gain) > GAIN_THRESHOLD;
+    gain = gain != 1.f ? gain : 0.f;
 
     cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE);
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
@@ -76,9 +81,12 @@ extern "C" int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, floa
 
         cudaMemcpyAsync(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
 
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, dResult);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, gain, dResult);
 
-        cudaMemcpy(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES, cudaMemcpyDeviceToHost);
+        cudaMemcpy(hResult,
+                dResult,
+                (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES,
+                cudaMemcpyDeviceToHost);
 
         fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, (FILE *) outFile);
     }
