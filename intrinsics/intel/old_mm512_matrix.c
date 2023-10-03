@@ -18,33 +18,32 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdio.h>
+
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
 #endif
 
 #include <immintrin.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <string.h>
+#include <math.h>
 #include "definitions.h"
 #include "matrix.h"
+
+typedef void (*matrixOp512_t)(__m512i, __m64 *__restrict__);
 
 typedef union {
     __m512i v;
     int8_t buf[64];
+    int16_t buf16[32];
 } m512i_pun_t;
 
-typedef struct {
-    const uint8_t mode;
-    void *buf;
-    int exitFlag;
-    FILE *outFile;
-    pthread_mutex_t mutex;
-    sem_t full, empty;
-    __m512 gain;
-} consumerArgs;
-
 // taken from https://stackoverflow.com/a/55745816
+static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
+
+    static const __m512i ZEROS = {};
+    // vpsubw target{k1}, 0, target
+    return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), ZEROS, target);
+}
+
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
 
     static const __m512i ZEROS = {};
@@ -117,6 +116,26 @@ static inline __m512i boxcarEpi8(__m512i u) {
     return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
 }
 
+static inline __m512i boxcarEpi16(__m512i u) {
+
+    static const __m512i Z = {
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001};
+    static const __m512i mask = {
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c,
+            0x0302010007060504, 0x0b0a09080f0e0d0c};
+    u = conditional_negate_epi16(u, Z);
+    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
+}
+
 static inline void preNormMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
 
     //  {bj, br, br, bj, bj, br, br, bj} *
@@ -139,13 +158,13 @@ preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restr
     // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} + {bj^2, br^2, aj^2, ar^2, ... }
     // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
     *w = _mm512_permute_ps(*u, 0x8D);
-    *u = _mm512_fmaddsub_ps(ONES, *u, *w);
-    *v = _mm512_mul_ps(*u, *u);
-    *w = _mm512_permute_ps(*v, 0x1B);
-    *v = _mm512_add_ps(*v, *w);
+    *u = _mm512_fmaddsub_ps(ONES,*u,*w);
+    *v = _mm512_mul_ps(*u,*u);
+    *w = _mm512_permute_ps(*v,0x1B);
+    *v = _mm512_add_ps(*v,*w);
 }
 
-static inline __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
+static __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
 
     //_mm512_setr_epi32(5,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
     static const __m512i index = {0xd00000005};
@@ -190,6 +209,64 @@ static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
     result[0] = *(__m64 *) &res;
     res = fmDemod(M[1], M[3], M[5]);
     result[1] = *(__m64 *) &res;
+}
+
+static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
+
+    static const __m512i negateBIm = {
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001,
+            (int64_t) 0xffff000100010001};
+
+    static const __m512i indexHi = {
+            0x13001200110010,
+            0x13001200150014,
+            0x17001600150014,
+            0x17001600190018,
+            0x1b001a00190018,
+            0x1b001a001d001c,
+            0x1f001e001d001c,
+            0x1f001e00FF00FF};
+
+    static const __m512i indexLo = {
+            0x3000200010000,
+            0x3000200050004,
+            0x7000600050004,
+            0x7000600090008,
+            0xb000a00090008,
+            0xb000a000d000c,
+            0xf000e000d000c,
+            0xf000e00110010};
+
+    static m512i_pun_t prev;
+
+    __m512i hi;
+    m512i_pun_t lo;
+
+    __m512 M[6];
+
+    u = boxcarEpi16(u);
+    hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
+    lo.v = conditional_negate_epi16(_mm512_permutexvar_epi16(indexLo, u), negateBIm);
+
+    prev.buf16[28] = lo.buf16[0];
+    prev.buf16[29] = lo.buf16[1];
+
+    convert_epi16_ps(prev.v, M);
+    demod(M, result);
+
+    convert_epi16_ps(lo.v, M);
+    demod(M, &(result[2]));
+
+    convert_epi16_ps(hi, M);
+    demod(M, &(result[4]));
+
+    prev.v = hi;
 }
 
 static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
@@ -260,81 +337,60 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static void *runProcessMatrix(void *ctx) {
+static void demodulate(void *buf,
+                       const matrixOp512_t fun,
+                       __m64 *result,
+                       const size_t iterations,
+                       __m512 gain,
+                       FILE *outFile,
+                       const uint8_t mode) {
 
-    consumerArgs *args = ctx;
-    size_t i, j;
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, 64);
-    __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64))); // TODO change this to a float array
+    size_t i;
+    size_t shiftIndex;
+    for (i = 0; i < iterations; ++i) {
+        shiftIndex = i << 2;
+        fun(*(__m512i *) (buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
 
-    while (!args->exitFlag) {
-        sem_wait(&args->full);
-        pthread_mutex_lock(&args->mutex);
-        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
-        pthread_mutex_unlock(&args->mutex);
-        sem_post(&args->empty);
-
-        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 64, j += 4) {
-            demodEpi8(*(__m512i *) (buf + i), result + j);
-
-            if (*(float*)&args->gain) {
-                _mm512_mul_ps(*(__m512 *) &result, args->gain);
-            }
+        if (*(float *) &gain) {
+            _mm512_mul_ps(*(__m512 *) result, gain);
         }
-        fwrite(result, sizeof(__m64), DEFAULT_BUF_SIZE >> 4, args->outFile);
-    }
 
-    _mm_free(buf);
-    return NULL;
+        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH << mode, outFile);
+    }
 }
 
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
-                  float gain,
+                  float inGain,
                   void *__restrict__ outFile) {
 
-    gain = gain != 1.f ? gain : 0.f;
-    consumerArgs args = {
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .mode = mode,
-            .outFile = outFile,
-            .exitFlag = mode != 1,
-            .buf = _mm_malloc(DEFAULT_BUF_SIZE, 64),
-            .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
-    };
-    sem_init(&args.empty, 0, 1);
-    sem_init(&args.full, 0, 0);
-
-    pthread_t pid;
+    int exitFlag = mode && mode != 1;
+    void *buf = _mm_malloc(128 >> mode, 64);
+    __m64 *result = _mm_malloc(MATRIX_WIDTH << 1, 64);
     size_t elementsRead;
 
-    if (pthread_create(&pid, NULL, runProcessMatrix, &args) != 0) {
-        fprintf(stderr, "Unable to create consumer thread\n");
-        return 2;
-    }
+    inGain = inGain != 1.f ? inGain : 0.f;
+    const __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&inGain));
+    const matrixOp512_t fun = mode ? demodEpi8 : demodEpi16;
 
-    while (!args.exitFlag) {
+    while (!exitFlag) {
 
-        sem_wait(&args.empty);
-        pthread_mutex_lock(&args.mutex);
-        elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
+        elementsRead = fread(buf, 2 - mode, 64, inFile);
 
-        if ((args.exitFlag = ferror(inFile))) {
+        if ((exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
-            args.exitFlag = EOF;
+            exitFlag = EOF;
         } else if (!elementsRead) {
-            // DOES NOTHING, BUT THE WERROR IS NOT ANGY
+            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
+                            "fread. Stupid compiler.");
         }
-        pthread_mutex_unlock(&args.mutex);
-        sem_post(&args.full);
+
+        demodulate(buf, fun, result, 2 - mode, gain, outFile, mode);
     }
 
-    pthread_join(pid, NULL);
-    pthread_mutex_destroy(&args.mutex);
-    sem_destroy(&args.empty);
-    sem_destroy(&args.full);
-    _mm_free(args.buf);
-    return args.exitFlag;
+    _mm_free(result);
+    _mm_free(buf);
+    return exitFlag;
 }
