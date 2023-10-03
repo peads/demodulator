@@ -79,7 +79,7 @@ extern "C" int processMatrix(FILE *__restrict__ inFile,
             exitFlag = EOF;
         }
 
-        cudaMemcpyAsync(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
+        cudaMemcpy(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
 
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, gain, dResult);
 
