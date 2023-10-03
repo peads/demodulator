@@ -46,21 +46,6 @@ typedef struct {
     __m256 gain;
 } consumerArgs;
 
-//static inline void convert_epi16_epi32(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-//
-//    *v = _mm256_cvtepi16_epi32(_mm256_extractf128_si256(*u, 1));
-//    *u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(*u));
-//}
-
-//static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
-//
-//    __m256i q1;
-//
-//    convert_epi16_epi32(&u, &q1);
-//    ret[0] = _mm256_cvtepi32_ps(u);
-//    ret[1] = _mm256_cvtepi32_ps(q1);
-//}
-
 static inline __m256i convert_epu8_epi8(__m256i u) {
 
     static const __m256i Z = {
@@ -71,12 +56,6 @@ static inline __m256i convert_epu8_epi8(__m256i u) {
 
     return _mm256_add_epi8(u, Z);
 }
-
-//static inline void convert_epi8_epi16(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-//
-//    *v = _mm256_cvtepi8_epi16(_mm256_extractf128_si256(*u, 1));
-//    *u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(*u));
-//}
 
 static inline __m256i boxcarEpi8(__m256i u) {
 
@@ -96,8 +75,8 @@ static inline __m256i boxcarEpi8(__m256i u) {
 static inline void preNormMult(__m256 *u, __m256 *v) {
 
     *v = _mm256_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
-                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
-                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    //  {aj, aj, ar, ar, cj, cj, cr, cr}
+    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
     *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5), *v);
 }
 
@@ -105,9 +84,10 @@ static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
 
     *w = _mm256_permute_ps(*u, 0x8D);         // {aj, bj, ar, br, cj, dj, cr, dr}
     *u = _mm256_addsub_ps(*u, *w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    *v = _mm256_mul_ps(*u,*u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
+    *v = _mm256_mul_ps(*u,
+            *u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
     *w = _mm256_permute_ps(*v, 0x1B);        // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-                                             // {bj^2, br^2, aj^2, ar^2, ... }
+    // {bj^2, br^2, aj^2, ar^2, ... }
     *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
 }
 
@@ -134,121 +114,40 @@ static float fmDemod(__m256 u, __m256 v, __m256 w) {
 
     return u[5];
 }
-//static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
-//
-//    __m256i w, v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
-//    u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
-//
-//    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
-//    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
-//
-//    ret[0] = _mm256_cvtepi32_ps(u);
-//    ret[1] = _mm256_cvtepi32_ps(w);
-//
-//    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(v, 1));
-//    v = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(v));
-//
-//    ret[2] = _mm256_cvtepi32_ps(v);
-//    ret[3] = _mm256_cvtepi32_ps(w);
-//}
-//static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
-//
-//    __m256 u, v, w, x;
-//    preNormMult(M, &w);
-//    preNormMult(&M[1], &x);
-//
-//    preNormAddSubAdd(M, &w, &u);
-//    preNormAddSubAdd(&M[1], &x, &v);
-//
-//    result[0] = fmDemod(M[0], w, u);
-//    result[1] = fmDemod(M[1], x, v);
-//}
-//
-//static inline void demodEpi8(__m256i u, float *__restrict__ result) {
-//
-//    static const __m256i negateBIm = {
-//        (int64_t) 0xff010101ff010101,
-//        (int64_t) 0xff010101ff010101,
-//        (int64_t) 0xff010101ff010101,
-//        (int64_t) 0xff010101ff010101};
-//
-//    static const __m256i indexHi = {
-//        0x1312151413121110,
-//        0x1716191815161514,
-//        0x1b1a1d1c1b1a1918,
-//        0x1f1e21201f1e1d1c};
-//
-//    static const __m256i indexLo = {
-//        0x302050403020100,
-//        0x706090807060504,
-//        0xb0a0d0c0b0a0908,
-//        0xf0e11100f0e0d0c};
-//
-//    static m256i_pun_t prev;
-//
-//    __m256i hi;
-//    m256i_pun_t lo;
-//
-//    __m256 M[4];
-//
-//    u = boxcarEpi8(convert_epu8_epi8(u));
-//
-//    hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
-//    lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
-//
-//    prev.buf[28] = lo.buf[0];
-//    prev.buf[29] = lo.buf[1];
-//
-//    convert_epi8_ps(prev.v, M);
-//    demod(M, result);
-//    demod(&M[2], result);
-//
-//    convert_epi8_ps(lo.v, M);
-//    demod(M, &result[2]);
-//    demod(&M[2], &result[2]);
-//
-//    prev.v = hi;
-//}
-static inline void convert_epi16_epi32(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-
-    *v = _mm256_cvtepi16_epi32(_mm256_extractf128_si256(*u, 1));
-    *u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(*u));
-}
-
-static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
-
-    __m256i q1;
-
-    convert_epi16_epi32(&u, &q1);
-    ret[0] = _mm256_cvtepi32_ps(u);
-    ret[1] = _mm256_cvtepi32_ps(q1);
-}
-
-static inline void convert_epi8_epi16(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-
-    *v = _mm256_cvtepi8_epi16(_mm256_extractf128_si256(*u, 1));
-    *u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(*u));
-}
 
 static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
 
-    __m256i v = {};
-    convert_epi8_epi16(&u, &v);
-    convert_epi16_ps(u, ret);
-    convert_epi16_ps(v, &(ret[2]));
+    __m256i w,
+    v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
+    u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+
+    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
+    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
+
+    ret[0] = _mm256_cvtepi32_ps(u);
+    ret[1] = _mm256_cvtepi32_ps(w);
+
+    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(v, 1));
+    v = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(v));
+
+    ret[2] = _mm256_cvtepi32_ps(v);
+    ret[3] = _mm256_cvtepi32_ps(w);
 }
+
 static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
 
-    preNormMult(M, &(M[2]));
-    preNormMult(&(M[1]), &(M[3]));
+    __m256 u, v, w, x;
+    preNormMult(M, &w);
+    preNormMult(&M[1], &x);
 
-    preNormAddSubAdd(&M[0], &M[2], &M[4]);
-    preNormAddSubAdd(&M[1], &M[3], &M[5]);
+    preNormAddSubAdd(M, &w, &u);
+    preNormAddSubAdd(&M[1], &x, &v);
 
-    result[0] = fmDemod(M[0], M[2], M[4]);
-    result[1] = fmDemod(M[1], M[3], M[5]);
+    result[0] = fmDemod(M[0], w, u);
+    result[1] = fmDemod(M[1], x, v);
 }
-static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result) {
+
+static inline void demodEpi8(__m256i u, float *__restrict__ result) {
 
     static const __m256i negateBIm = {
             (int64_t) 0xff010101ff010101,
@@ -270,11 +169,10 @@ static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result)
 
     static m256i_pun_t prev;
 
-    __m256i hi, u = *(__m256i*)buf;
+    __m256i hi;
     m256i_pun_t lo;
 
-    __m256 M[6];
-    __m256 temp[2];
+    __m256 M[4];
 
     u = boxcarEpi8(convert_epu8_epi8(u));
 
@@ -285,25 +183,16 @@ static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result)
     prev.buf[29] = lo.buf[1];
 
     convert_epi8_ps(prev.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
     demod(M, result);
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, result);
+    demod(&M[2], result);
 
     convert_epi8_ps(lo.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-    demod(M, &(result[2]));
-
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[2]));
+    demod(M, &result[2]);
+    demod(&M[2], &result[2]);
 
     prev.v = hi;
 }
+
 void *runDemodulator(void *ctx) {
 
     consumerArgs *args = ctx;
@@ -319,9 +208,9 @@ void *runDemodulator(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 32, j += 4) {
-            demodEpi8((buf + i), result + j);
+            demodEpi8(*(__m256i *) (buf + i), result + j);
 
-            if (*(float*)&args->gain) {
+            if (*(float *) &args->gain) {
                 _mm256_mul_ps(*(__m256 *) &result, args->gain);
             }
         }

@@ -67,33 +67,44 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convert_epi8_epi16(__m512i *__restrict__ u, __m512i *__restrict__ v) {
+//static inline void convert_epi8_epi16(__m512i *__restrict__ u, __m512i *__restrict__ v) {
+//
+//    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
+//    *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
+//}
 
-    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
-    *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
-}
+//static inline void convert_epi16_epi32(__m512i *__restrict__ u, __m512i *__restrict__ v) {
+//
+//    *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
+//    *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
+//}
 
-static inline void convert_epi16_epi32(__m512i *__restrict__ u, __m512i *__restrict__ v) {
-
-    *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
-    *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
-}
-
-static inline void convert_epi16_ps(__m512i u, __m512 *__restrict__ ret) {
-
-    __m512i q1;
-
-    convert_epi16_epi32(&u, &q1);
-    ret[0] = _mm512_cvtepi32_ps(u);
-    ret[1] = _mm512_cvtepi32_ps(q1);
-}
+//static inline void convert_epi16_ps(__m512i u, __m512 *__restrict__ ret) {
+//
+//    __m512i w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
+//    u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
+//
+//    ret[0] = _mm512_cvtepi32_ps(u);
+//    ret[1] = _mm512_cvtepi32_ps(w);
+//}
 
 static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 
-    __m512i v = {};
-    convert_epi8_epi16(&u, &v);
-    convert_epi16_ps(u, ret);
-    convert_epi16_ps(v, &(ret[2]));
+    __m512i w,
+    v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
+    u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
+
+    w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
+    u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
+
+    ret[0] = _mm512_cvtepi32_ps(u);
+    ret[1] = _mm512_cvtepi32_ps(w);
+
+    w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1));
+    v = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(v));
+
+    ret[2] = _mm512_cvtepi32_ps(v);
+    ret[3] = _mm512_cvtepi32_ps(w);
 }
 
 static inline __m512i boxcarEpi8(__m512i u) {
