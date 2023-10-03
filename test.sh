@@ -20,7 +20,7 @@
  #
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
-audioOutOpts="-o/dev/null -n"
+audioOutOpts=""
 
 if [ ! -z "$1" ]; then
   dontWait=1
@@ -29,7 +29,7 @@ if [ ! -z "$2" ]; then
   wavFile=$2
 fi
 if [ ! -z "$3" ]; then
-  audioOutOpts="-o${3}"
+  audioOutOpts="-w${3}"
 fi
 if [ ! -z "$4" ]; then
   invertOpt=$4
@@ -106,7 +106,12 @@ if [ "$hasCuda" == 0 ]; then
     compiler=`sh -c "./cmake_build.sh \"${runOpts} -DCMAKE_C_COMPILER=${curr}\" | grep \"The C compiler identification\""`
 
     printRunInfo "${runOpts} -DCMAKE_C_COMPILER=${curr}" "$compiler"
-    sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r"${invertOpt}" | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts}
+    sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
+      | tee -i uint8.dat \
+      | build/demodulator -i - -o - -r"${invertOpt}" \
+      | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
+      | dsd -i -o/dev/null -n ${audioOutOpts}
+
 
     echo ""
     echo ":: Timing uint8"
@@ -131,10 +136,10 @@ for key in "${!opts[@]}"; do
   compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
 
   printRunInfo "$key" "$compiler"
-  sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null | tee -i uint8.dat | build/demodulator -i - -o - -r1 | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
-
-  printRunInfo "$key" "$compiler"
-  sox -q -D -twav "${wavFile}" -traw -es -b16 -r512k - 2>/dev/null | tee -i int16.dat | build/demodulator -i - -o - | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - | dsd -i - ${audioOutOpts} #>/dev/null 2>&1
+  sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
+    | tee -i uint8.dat | build/demodulator -i - -o - -r1 \
+    | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
+    | dsd -i - -o/dev/null -n ${audioOutOpts}
 
   echo ""
   echo ":: Timing uint8"
@@ -147,15 +152,15 @@ for key in "${!opts[@]}"; do
   #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file uint8.dat
   echo ":: End Timing uint8"
   echo ""
-  echo ":: Timing int16"
-  printRunInfo "$key" "$compiler"
-  time build/demodulator -i int16.dat -o file
-  rm file
-  time build/demodulator -i int16.dat -o file
-  rm file
-  time build/demodulator -i int16.dat -o file
-  #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file int16.dat
-  echo ":: End Timing int16"
+#  echo ":: Timing int16"
+#  printRunInfo "$key" "$compiler"
+#  time build/demodulator -i int16.dat -o file
+#  rm file
+#  time build/demodulator -i int16.dat -o file
+#  rm file
+#  time build/demodulator -i int16.dat -o file
+#  #sox -traw -b32 -ef -r$val file -traw -es -b16 -r48k - | dsd -q -i - -o /dev/null -n && rm -f file int16.dat
+#  echo ":: End Timing int16"
   rm -rf file int16.dat uint8.dat ||:
 
   i=$(( i + 1 ))

@@ -193,7 +193,7 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
     prev.v = hi;
 }
 
-void *runDemodulator(void *ctx) {
+static void *runDemodulator(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i, j;

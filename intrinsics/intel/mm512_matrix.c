@@ -67,27 +67,6 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-//static inline void convert_epi8_epi16(__m512i *__restrict__ u, __m512i *__restrict__ v) {
-//
-//    *v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(*u, 1));
-//    *u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(*u));
-//}
-
-//static inline void convert_epi16_epi32(__m512i *__restrict__ u, __m512i *__restrict__ v) {
-//
-//    *v = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(*u, 1));
-//    *u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(*u));
-//}
-
-//static inline void convert_epi16_ps(__m512i u, __m512 *__restrict__ ret) {
-//
-//    __m512i w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
-//    u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
-//
-//    ret[0] = _mm512_cvtepi32_ps(u);
-//    ret[1] = _mm512_cvtepi32_ps(w);
-//}
-
 static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 
     __m512i w,
@@ -271,7 +250,7 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static void *runProcessMatrix(void *ctx) {
+static void *runDemodulator(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i, j;
@@ -319,7 +298,7 @@ int processMatrix(FILE *__restrict__ inFile,
     pthread_t pid;
     size_t elementsRead;
 
-    if (pthread_create(&pid, NULL, runProcessMatrix, &args) != 0) {
+    if (pthread_create(&pid, NULL, runDemodulator, &args) != 0) {
         fprintf(stderr, "Unable to create consumer thread\n");
         return 2;
     }
