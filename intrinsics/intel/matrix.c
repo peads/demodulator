@@ -19,40 +19,31 @@
  */
 #include <stdio.h>
 
-#ifdef __GNUC__
-#include <stdint.h>
-#endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
 #endif
 
 #include <immintrin.h>
-#include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <string.h>
 #include "definitions.h"
 #include "matrix.h"
 
 typedef union {
     __m256i v;
     int8_t buf[32];
-    int16_t buf16[16];
 } m256i_pun_t;
 
-typedef void (*matrixOp256_t)(void *__restrict__, float *__restrict__);
-
-static inline void convert_epi16_epi32(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-
-    *v = _mm256_cvtepi16_epi32(_mm256_extractf128_si256(*u, 1));
-    *u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(*u));
-}
-
-static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
-
-    __m256i q1;
-
-    convert_epi16_epi32(&u, &q1);
-    ret[0] = _mm256_cvtepi32_ps(u);
-    ret[1] = _mm256_cvtepi32_ps(q1);
-}
+typedef struct {
+    const uint8_t mode;
+    void *buf;
+    int exitFlag;
+    FILE *outFile;
+    pthread_mutex_t mutex;
+    sem_t full, empty;
+    __m256 gain;
+} consumerArgs;
 
 static inline __m256i convert_epu8_epi8(__m256i u) {
 
@@ -63,20 +54,6 @@ static inline __m256i convert_epu8_epi8(__m256i u) {
             -0x7f7f7f7f7f7f7f7f};
 
     return _mm256_add_epi8(u, Z);
-}
-
-static inline void convert_epi8_epi16(__m256i *__restrict__ u, __m256i *__restrict__ v) {
-
-    *v = _mm256_cvtepi8_epi16(_mm256_extractf128_si256(*u, 1));
-    *u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(*u));
-}
-
-static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
-
-    __m256i v = {};
-    convert_epi8_epi16(&u, &v);
-    convert_epi16_ps(u, ret);
-    convert_epi16_ps(v, &(ret[2]));
 }
 
 static inline __m256i boxcarEpi8(__m256i u) {
@@ -94,47 +71,34 @@ static inline __m256i boxcarEpi8(__m256i u) {
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
-static inline __m256i boxcarEpi16(__m256i u) {
-
-    static const __m256i Z = {
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001,
-        (int64_t) 0xffff0001ffff0001};
-    static const __m256i mask = {
-        0x0302010007060504, 0x0b0a09080f0e0d0c,
-        0x0302010007060504, 0x0b0a09080f0e0d0c};
-    u = _mm256_sign_epi16(u, Z);
-    return _mm256_add_epi16(u, _mm256_shuffle_epi8(u, mask));
-}
-
 static inline void preNormMult(__m256 *u, __m256 *v) {
 
-    *v = _mm256_permute_ps(*u, 0xEB);   //  {bj, br, br, bj, bj, br, br, bj} *
-                                        //  {aj, aj, ar, ar, cj, cj, cr, cr}
-                                        // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
+    *v = _mm256_permute_ps(*u, 0xEB);
     *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5), *v);
 }
 
 static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
 
-    *w = _mm256_permute_ps(*u, 0x8D);         // {aj, bj, ar, br, cj, dj, cr, dr}
-    *u = _mm256_addsub_ps(*u, *w);     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    *v = _mm256_mul_ps(*u,*u);         // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-    *w = _mm256_permute_ps(*v, 0x1B);        // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} +
-                                             // {bj^2, br^2, aj^2, ar^2, ... }
-    *v = _mm256_add_ps(*v, *w);       // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
+    *w = _mm256_permute_ps(*u, 0x8D);
+    *u = _mm256_addsub_ps(*u, *w);
+    *v = _mm256_mul_ps(*u,*u);
+    *w = _mm256_permute_ps(*v, 0x1B);
+    *v = _mm256_add_ps(*v, *w);
 }
 
-static float fmDemod(__m256 u, __m256 v, __m256 w) {
+static float fmDemod(__m256 *M) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m256 y;
+    __m256 w,y,
+        u = M[0],
+        v = M[2];
 
     // Norm
+    preNormMult(&u, &w);
+    preNormAddSubAdd(&u, &v, &w);
     v = _mm256_rsqrt_ps(v);
     u = _mm256_mul_ps(u, v);
 
@@ -150,86 +114,57 @@ static float fmDemod(__m256 u, __m256 v, __m256 w) {
     return u[5];
 }
 
+static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
+
+    __m256i w,
+    v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
+    u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+
+    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
+    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
+
+    ret[0] = _mm256_cvtepi32_ps(u);
+    ret[1] = _mm256_cvtepi32_ps(w);
+
+    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(v, 1));
+    v = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(v));
+
+    ret[2] = _mm256_cvtepi32_ps(v);
+    ret[3] = _mm256_cvtepi32_ps(w);
+}
+
 static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
 
-    preNormMult(M, &(M[2]));
-    preNormMult(&(M[1]), &(M[3]));
-
-    preNormAddSubAdd(&M[0], &M[2], &M[4]);
-    preNormAddSubAdd(&M[1], &M[3], &M[5]);
-
-    result[0] = fmDemod(M[0], M[2], M[4]);
-    result[1] = fmDemod(M[1], M[3], M[5]);
+    result[0] = fmDemod(M);
+    result[1] = fmDemod(&M[1]);
 }
 
-static inline void demodEpi16(void *__restrict__ buf, float *__restrict__ result) {
+static inline void demodEpi8(__m256i u, float *__restrict__ result) {
 
     static const __m256i negateBIm = {
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001,
-        (int64_t) 0xffff000100010001};
-
-    static m256i_pun_t prev;
-
-    __m256i hi, u = *(__m256i*)buf;
-    m256i_pun_t lo;
-
-    __m256 M[6];
-
-    u = boxcarEpi16(u);
-
-    const __m256i indexLo = _mm256_setr_epi16(
-        0,0,1,1,2,2,1,1,
-        2,2,3,3,4,4,3,3
-    );
-    const __m256i indexHi = _mm256_setr_epi16(
-        4,4,5,5,6,6,5,5,
-        6,6,7,7,8,8,7,7
-    );
-
-    hi = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
-    lo.v = _mm256_sign_epi16(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
-
-    prev.buf16[12] = lo.buf16[0];
-    prev.buf16[13] = lo.buf16[1];
-
-    convert_epi16_ps(prev.v, M);
-    demod(M, result);
-
-    convert_epi16_ps(lo.v, M);
-    demod(M, &(result[2]));
-
-    prev.v = hi;
-}
-
-static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result) {
-
-    static const __m256i negateBIm = {
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101,
-        (int64_t) 0xff010101ff010101};
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101,
+            (int64_t) 0xff010101ff010101};
 
     static const __m256i indexHi = {
-        0x1312151413121110,
-        0x1716191815161514,
-        0x1b1a1d1c1b1a1918,
-        0x1f1e21201f1e1d1c};
+            0x1312151413121110,
+            0x1716191815161514,
+            0x1b1a1d1c1b1a1918,
+            0x1f1e21201f1e1d1c};
 
     static const __m256i indexLo = {
-        0x302050403020100,
-        0x706090807060504,
-        0xb0a0d0c0b0a0908,
-        0xf0e11100f0e0d0c};
+            0x302050403020100,
+            0x706090807060504,
+            0xb0a0d0c0b0a0908,
+            0xf0e11100f0e0d0c};
 
     static m256i_pun_t prev;
 
-    __m256i hi, u = *(__m256i*)buf;
+    __m256i hi;
     m256i_pun_t lo;
 
-    __m256 M[6];
-    __m256 temp[2];
+    __m256 M[4];
 
     u = boxcarEpi8(convert_epu8_epi8(u));
 
@@ -240,64 +175,93 @@ static inline void demodEpi8(void *__restrict__ buf, float *__restrict__ result)
     prev.buf[29] = lo.buf[1];
 
     convert_epi8_ps(prev.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
     demod(M, result);
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, result);
+    demod(&M[2], result);
 
     convert_epi8_ps(lo.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-    demod(M, &(result[2]));
-
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[2]));
+    demod(M, &result[2]);
+    demod(&M[2], &result[2]);
 
     prev.v = hi;
 }
 
+static void *runDemodulator(void *ctx) {
+
+    consumerArgs *args = ctx;
+    size_t i, j;
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, 32);
+    float result[DEFAULT_BUF_SIZE >> 3];
+
+    while (!args->exitFlag) {
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
+        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
+        pthread_mutex_unlock(&args->mutex);
+        sem_post(&args->empty);
+
+        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 32, j += 4) {
+            demodEpi8(*(__m256i *) (buf + i), result + j);
+
+            if (*(float *) &args->gain) {
+                _mm256_mul_ps(*(__m256 *) &result, args->gain);
+            }
+        }
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
+    }
+
+    _mm_free(buf);
+    return NULL;
+}
+
 int processMatrix(FILE *__restrict__ inFile,
                   const uint8_t mode,
-                  float inGain,
+                  float gain,
                   void *__restrict__ outFile) {
 
-    int exitFlag = mode && mode != 1;
+    pthread_t pid;
     size_t elementsRead;
-    void *buf = _mm_malloc(64 >> mode, 32);
-    float result[MATRIX_WIDTH];
 
-    inGain = inGain != 1.f ? inGain : 0.f;
-    const __m256 gain = _mm256_broadcast_ss(&inGain);
-    const matrixOp256_t demodulate = mode ? demodEpi8 : demodEpi16;
+    gain = gain != 1.f ? gain : 0.f;
+    consumerArgs args = {
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .mode = mode,
+            .outFile = outFile,
+            .exitFlag = mode != 1,
+            .buf = _mm_malloc(DEFAULT_BUF_SIZE, 64),
+            .gain = _mm256_broadcast_ss(&gain)
+    };
+    sem_init(&args.empty, 0, 1);
+    sem_init(&args.full, 0, 0);
 
+    if (pthread_create(&pid, NULL, runDemodulator, &args) != 0) {
+        fprintf(stderr, "Unable to create consumer thread\n");
+        return 2;
+    }
 
-    while (!exitFlag) {
+    while (!args.exitFlag) {
 
-        elementsRead = fread(buf, 2 - mode, 32, inFile);
+        sem_wait(&args.empty);
+        pthread_mutex_lock(&args.mutex);
+        elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
 
-        if ((exitFlag = ferror(inFile))) {
+        if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);
             break;
         } else if (feof(inFile)) {
-            exitFlag = EOF;
+            args.exitFlag = EOF;
         } else if (!elementsRead) {
             fprintf(stderr, "This shouldn't happen, but I need to use the result of"
                             "fread. Stupid compiler.");
         }
-
-        demodulate(buf, result);
-
-        if (inGain) {
-            _mm256_mul_ps(*(__m256 *) &result, gain);
-        }
-
-        fwrite(result, OUTPUT_ELEMENT_BYTES, MATRIX_WIDTH, outFile);
+        pthread_mutex_unlock(&args.mutex);
+        sem_post(&args.full);
     }
 
-    _mm_free(buf);
-    return exitFlag;
+
+    pthread_join(pid, NULL);
+    pthread_mutex_destroy(&args.mutex);
+    sem_destroy(&args.empty);
+    sem_destroy(&args.full);
+    _mm_free(args.buf);
+    return args.exitFlag;
 }
