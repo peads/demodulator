@@ -135,7 +135,7 @@ preNormAddSubAdd(__m512 *__restrict__ u, __m512 *__restrict__ v, __m512 *__restr
     *v = _mm512_add_ps(*v, *w);
 }
 
-static inline __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
+static inline __m512 fmDemod(__m512 *M) {
 
     //_mm512_setr_epi32(5,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
     static const __m512i index = {0xd00000005};
@@ -150,9 +150,13 @@ static inline __m512 fmDemod(__m512 u, __m512 v, __m512 w) {
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m512 y;
+    __m512 w,y,
+        u = M[0],
+        v = M[2];
 
     // Norm
+    preNormMult(&u, &v);
+    preNormAddSubAdd(&u, &v, &w);
     v = _mm512_sqrt_ps(v);
     u = _mm512_mul_ps(u, v);
 
@@ -170,15 +174,9 @@ static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
 
     __m512 res;
 
-    preNormMult(M, &(M[2]));
-    preNormMult(&(M[1]), &(M[3]));
-
-    preNormAddSubAdd(&M[0], &M[2], &M[4]);
-    preNormAddSubAdd(&M[1], &M[3], &M[5]);
-
-    res = fmDemod(M[0], M[2], M[4]);
+    res = fmDemod(M);
     result[0] = *(__m64 *) &res;
-    res = fmDemod(M[1], M[3], M[5]);
+    res = fmDemod(&M[1]);
     result[1] = *(__m64 *) &res;
 }
 
@@ -315,7 +313,8 @@ int processMatrix(FILE *__restrict__ inFile,
         } else if (feof(inFile)) {
             args.exitFlag = EOF;
         } else if (!elementsRead) {
-            // DOES NOTHING, BUT THE WERROR IS NOT ANGY
+            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
+                            "fread. Stupid compiler.");
         }
         pthread_mutex_unlock(&args.mutex);
         sem_post(&args.full);
