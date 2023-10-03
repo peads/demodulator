@@ -43,7 +43,7 @@ typedef union {
     int16_t buf16[32];
 } m512i_pun_t;
 
-typedef struct  {
+typedef struct {
     const uint8_t mode;
     void *buf;
     int exitFlag;
@@ -56,12 +56,12 @@ typedef struct  {
 } consumerArgs;
 
 // taken from https://stackoverflow.com/a/55745816
-static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
-
-    static const __m512i ZEROS = {};
-    // vpsubw target{k1}, 0, target
-    return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), ZEROS, target);
-}
+//static inline __m512i conditional_negate_epi16(__m512i target, __m512i signs) {
+//
+//    static const __m512i ZEROS = {};
+//    // vpsubw target{k1}, 0, target
+//    return _mm512_mask_sub_epi16(target, _mm512_movepi16_mask(signs), ZEROS, target);
+//}
 
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
 
@@ -135,25 +135,25 @@ static inline __m512i boxcarEpi8(__m512i u) {
     return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
 }
 
-static inline __m512i boxcarEpi16(__m512i u) {
-
-    static const __m512i Z = {
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001,
-            (int64_t) 0xffff0001ffff0001};
-    static const __m512i mask = {
-            0x0302010007060504, 0x0b0a09080f0e0d0c,
-            0x0302010007060504, 0x0b0a09080f0e0d0c,
-            0x0302010007060504, 0x0b0a09080f0e0d0c,
-            0x0302010007060504, 0x0b0a09080f0e0d0c};
-    u = conditional_negate_epi16(u, Z);
-    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
-}
+//static inline __m512i boxcarEpi16(__m512i u) {
+//
+//    static const __m512i Z = {
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001,
+//            (int64_t) 0xffff0001ffff0001};
+//    static const __m512i mask = {
+//            0x0302010007060504, 0x0b0a09080f0e0d0c,
+//            0x0302010007060504, 0x0b0a09080f0e0d0c,
+//            0x0302010007060504, 0x0b0a09080f0e0d0c,
+//            0x0302010007060504, 0x0b0a09080f0e0d0c};
+//    u = conditional_negate_epi16(u, Z);
+//    return _mm512_add_epi16(u, _mm512_shuffle_epi8(u, mask));
+//}
 
 static inline void preNormMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
 
@@ -230,60 +230,60 @@ static inline void demod(__m512 *__restrict__ M, __m64 *__restrict__ result) {
     result[1] = *(__m64 *) &res;
 }
 
-static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
-
-    static const __m512i negateBIm = {
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001};
-
-    static const __m512i indexHi = {
-            0x13001200110010,
-            0x13001200150014,
-            0x17001600150014,
-            0x17001600190018,
-            0x1b001a00190018,
-            0x1b001a001d001c,
-            0x1f001e001d001c,
-            0x1f001e00FF00FF};
-
-    static const __m512i indexLo = {
-            0x3000200010000,
-            0x3000200050004,
-            0x7000600050004,
-            0x7000600090008,
-            0xb000a00090008,
-            0xb000a000d000c,
-            0xf000e000d000c,
-            0xf000e00110010};
-
-    static m512i_pun_t prev;
-
-    __m512i hi;
-    m512i_pun_t lo;
-
-    __m512 M[6];
-
-    u = boxcarEpi16(u);
-    hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
-    lo.v = conditional_negate_epi16(_mm512_permutexvar_epi16(indexLo, u), negateBIm);
-
-    prev.buf16[28] = lo.buf16[0];
-    prev.buf16[29] = lo.buf16[1];
-
-    convert_epi16_ps(prev.v, M);
-    demod(M, result);
-
-    convert_epi16_ps(lo.v, M);
-    demod(M, &(result[2]));
-
-    prev.v = hi;
-}
+//static inline void demodEpi16(__m512i u, __m64 *__restrict__ result) {
+//
+//    static const __m512i negateBIm = {
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001,
+//            (int64_t) 0xffff000100010001};
+//
+//    static const __m512i indexHi = {
+//            0x13001200110010,
+//            0x13001200150014,
+//            0x17001600150014,
+//            0x17001600190018,
+//            0x1b001a00190018,
+//            0x1b001a001d001c,
+//            0x1f001e001d001c,
+//            0x1f001e00FF00FF};
+//
+//    static const __m512i indexLo = {
+//            0x3000200010000,
+//            0x3000200050004,
+//            0x7000600050004,
+//            0x7000600090008,
+//            0xb000a00090008,
+//            0xb000a000d000c,
+//            0xf000e000d000c,
+//            0xf000e00110010};
+//
+//    static m512i_pun_t prev;
+//
+//    __m512i hi;
+//    m512i_pun_t lo;
+//
+//    __m512 M[6];
+//
+//    u = boxcarEpi16(u);
+//    hi = conditional_negate_epi16(_mm512_permutexvar_epi16(indexHi, u), negateBIm);
+//    lo.v = conditional_negate_epi16(_mm512_permutexvar_epi16(indexLo, u), negateBIm);
+//
+//    prev.buf16[28] = lo.buf16[0];
+//    prev.buf16[29] = lo.buf16[1];
+//
+//    convert_epi16_ps(prev.v, M);
+//    demod(M, result);
+//
+//    convert_epi16_ps(lo.v, M);
+//    demod(M, &(result[2]));
+//
+//    prev.v = hi;
+//}
 
 static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
 
@@ -353,41 +353,22 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static void demodulate(void *buf,
-                       const matrixOp512_t fun,
-                       const uint8_t mode,
-                       __m512 gain,
-                       __m64 *result) {
-
-    size_t i;
-    size_t shiftIndex;
-    const size_t iterations = 2 - mode;
-    for (i = 0; i < iterations; ++i) {
-        shiftIndex = i << 2;
-        fun(*(__m512i *) (buf + (shiftIndex << 3) * iterations), &(result[shiftIndex]));
-
-        if (*(float *) &gain) {
-            _mm512_mul_ps(*(__m512 *) result, gain);
-        }
-    }
-}
-
 void *runProcessMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i, j;
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-args->mode), 64);
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE << (1 - args->mode), 64);
     __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64)));
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-        memcpy(buf, args->buf, DEFAULT_BUF_SIZE << (1-args->mode));
+        memcpy(buf, args->buf, DEFAULT_BUF_SIZE << (1 - args->mode));
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
         for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += (128 >> args->mode), j += 4) {
-            demodulate(buf + i, args->demodulate, args->mode, args->gain, result + j);
+            demodEpi8(*(__m512i *) (buf + i), result + j);
         }
         fwrite(result, sizeof(__m64), DEFAULT_BUF_SIZE >> 4, args->outFile);
     }
@@ -406,9 +387,8 @@ int processMatrix(FILE *__restrict__ inFile,
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
-            .exitFlag = mode && mode != 1,
-            .demodulate =  mode ? demodEpi8 : demodEpi16,
-            .buf = _mm_malloc(DEFAULT_BUF_SIZE << (1-mode), 64),
+            .exitFlag = mode != 1,
+            .buf = _mm_malloc(DEFAULT_BUF_SIZE << (1 - mode), 64),
             .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
     };
     sem_init(&args.empty, 0, 1);
@@ -426,7 +406,7 @@ int processMatrix(FILE *__restrict__ inFile,
 
         sem_wait(&args.empty);
         pthread_mutex_lock(&args.mutex);
-        elementsRead = fread(args.buf, 2 - args.mode, DEFAULT_BUF_SIZE >> (1-args.mode), inFile);
+        elementsRead = fread(args.buf, 2 - args.mode, DEFAULT_BUF_SIZE, inFile);
 
         if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);
