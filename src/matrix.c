@@ -30,12 +30,12 @@ static inline void convertUint8ToFloat(const void *__restrict__ in, const uint32
     float magA, magB;
     out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
     out[1] = (float) (buf[index + 1] + buf[index + 3] - 254);   // aj
-    magA = frsqrtf(fmaf(out[0], out[0], out[1] * out[1]));
+    magA = frsqrtf(out[0] * out[0] + out[1] * out[1]);
     out[0] *= magA;
     out[1] *= magA;
     out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
     out[3] = (float) -(buf[index + 5] + buf[index + 7] - 254);   // bj
-    magB = frsqrtf(fmaf(out[2], out[2], out[3] * out[3]));
+    magB = frsqrtf(out[2] * out[2] + out[3] * out[3]);
     out[2] *= magB;
     out[3] *= magB;
 }
@@ -57,8 +57,8 @@ static inline void fmDemod(const void *__restrict__ buf,
         ac = out[0] * out[2];
         bd = out[1] * out[3];
         zr = ac - bd;
-        zj = fmaf((out[0] + out[1]), (out[2] + out[3]), -(ac + bd));
-        zr = 64.f * zj * frcpf(fmaf(23.f, zr, 41.f));
+        zj = (out[0] + out[1]) * (out[2] + out[3]) - (ac + bd);
+        zr = 64.f * zj * frcpf(23.f * zr + 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }

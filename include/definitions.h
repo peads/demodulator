@@ -20,7 +20,10 @@
 
 #ifndef DEMODULATOR_DEFINITIONS_H
 #define DEMODULATOR_DEFINITIONS_H
-
+#if __GNUC__ < 10
+#include <math.h>
+#include <stdint.h>
+#endif
 //#define DEBUG
 
 // sizeof(float)

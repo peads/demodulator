@@ -1,7 +1,7 @@
 # demodulator
 Yet another FM demodulator, but now in three flavors because I like pain! (Intel intrinsics [requires avx2 and/or avx512(bw|dq|f)], Vanilla C99, and CUDA).
 ## Building
-Clone this repo, then use cmake to build. The code has been tested on various *nix platforms (e.g. Ubuntu 18+ aarch64, Debian bullseye armhf, Ubuntu 20+ x64, MacOS 13.3 and Ubuntu on WSL2), but the various automation scripts may not function as expected on all systems.
+Clone this repo, then use cmake to build. The code has been tested on various *nix platforms (e.g. Ubuntu 18+ aarch64, Debian buster armhf, Ubuntu 20+ x64, MacOS 13.3 and Ubuntu on WSL2), but the various automation scripts may not function as expected on all systems.
 
 `mkdir build && cd build && cmake .. && make -j$(nproc)`
 #### CMake compile options 
