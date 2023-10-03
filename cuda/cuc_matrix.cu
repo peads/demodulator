@@ -21,7 +21,7 @@
 #include "nvidia.cuh"
 
 __global__
-void fmDemod(uint8_t *idata, const uint32_t len, const float invert, const float gain, float *result) {
+void fmDemod(uint8_t *idata, const uint32_t len, const float gain, float *result) {
 
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -36,9 +36,7 @@ void fmDemod(uint8_t *idata, const uint32_t len, const float invert, const float
         z.y = __fmul_rn(64.f, z.y);
         z.x = __fmul_rn(z.y, __frcp_rn(__fmaf_rn(23.f, z.x, 41.f)));
 
-        // for some reason it doesn't like copysignf in release builds
-        z.x *= invert;
-        result[i >> 2] = isnan(z.x) ? 0.f : gain != 0.f ? gain * z.x : z.x; //copysignf(z.x, invert) * gain : copysignf(z.x, invert);
+        result[i >> 2] = isnan(z.x) ? 0.f : gain != 0.f ? gain * z.x : z.x;
     }
 }
 
@@ -54,7 +52,6 @@ extern "C" int processMatrix(FILE *__restrict__ inFile,
     float *hResult;
     size_t readBytes;
 
-    const float invert = mode ? -1.f : 1.f;
     gain = gain != 1.f ? gain : 0.f;
 
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
@@ -77,7 +74,7 @@ extern "C" int processMatrix(FILE *__restrict__ inFile,
         }
 
         cudaMemcpy(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, invert, gain, dResult);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, gain, dResult);
         cudaMemcpy(hResult,
             dResult,
             (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
