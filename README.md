@@ -7,7 +7,7 @@ Clone this repo, then use cmake to build. The code has been tested on various *n
 #### CMake compile options 
 - ~~`-DIS_ASSEMBLY` compiles assembly language versions, if available (x64 and aarch64 only), default: OFF~~ (deprecated in favor of intrinsics, but the code base retains the files for posterity; it is no longer supported)
 - `-DIS_NVIDIA` compiles CUDA version, requires `nvcc` (https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html) , default: OFF
-- `-DIS_INTRINSICS` compiles intrinsics version, if available (x64 only), default: OFF
+- `-DNO_INTRINSICS` compiles non-intrinsics-based version, even if extensions are available (x64 only), default: OFF
 - `-DNO_AVX512` compiles intrinsics version, but forces avx2 version if avx512 extension are detected on the system, default: OFF
 ## Usage
 The demodulator doesn't care about input sampling rate (depending on which flavor you compiled--the asm/intrinsics versions quarter the sampling rate; the C and CUDA versions halve it--ymmv), but it does expect the input to be uint8 encoded. Just feed it some raw I/Q data, and with some further pipe work with SoX you have wonderfully useful/-less audio.
