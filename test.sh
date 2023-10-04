@@ -21,41 +21,21 @@
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
 audioOutOpts=""
-invertOpt=1
+gain=1
+compilers=()
 
-if [ ! -z "$1" ]; then
-  dontWait=1
+if [ ! -z "$1" ] && [ "$1" ~= "(y|Y)" ]; then
+  dontWait=$1
 fi
 if [ ! -z "$2" ]; then
   wavFile=$2
 fi
 if [ ! -z "$3" ]; then
-  audioOutOpts="-w${3}"
+  audioOutOpts="-w$3"
 fi
 if [ ! -z "$4" ]; then
-  invertOpt=-1
-  type nvcc >/dev/null 2>&1
-  hasCuda="$?"
+  gain=$4
 fi
-
-hasAvx2=$(cat /proc/cpuinfo | grep avx2 | sed -E 's/avx2/yes/g' | grep yes | wc -l)
-hasAvx512=$(cat /proc/cpuinfo | grep avx512 | sed -E 's/avx512(bw|dq|f)/yes/g' | grep yes | wc -l)
-
-declare -A temp=(
-  ["-DIS_INTRINSICS=OFF -DIS_NATIVE=ON"]="256k"
-)
-
-if [ $hasAvx2 -ge 1 ]; then
-  temp["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
-fi
-
-if [ $hasAvx512 -ge 4 ]; then
-  temp["-DIS_INTRINSICS=ON -DIS_NATIVE=ON"]="128k"
-  temp["-DIS_INTRINSICS=ON -DNO_AVX512=ON -DIS_NATIVE=ON"]="128k"
-fi
-
-declare -A opts
-compilers=()
 
 function findCompiler() {
 
@@ -68,94 +48,66 @@ function findCompiler() {
     echo ":: COMPILER INFO"
     echo "$(${1} --version)"
     echo ":: END COMPILER INFO"
-    compilers+=($1)
-    key="-DCMAKE_C_COMPILER=$(which ${1})"
-    for val in "${!temp[@]}"; do
-      opts[$key $val]=${temp[$val]}
-    done
+    if [ "${1}" != nvcc ]; then
+      compilers+=("`which ${1}`")
+    fi
   fi
 
   eval $__resultvar="'$result'"
 }
 
-function printRunInfo() {
-
-  echo ":: RUN INFO"
-  echo ":: $2"
-  echo ":: COMPILER OPTIONS=$1"
-  echo ":: END RUN INFO"
+function executeRun() {
+  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
+    | tee -i uint8.dat \
+    | build/demodulator -i - -o - -g"$3" \
+    | sox -q -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
+    | dsd -i - -o/dev/null -n ${audioOutOpts}
 }
 
-function waitForUserIntput() {
-  if [ -z "$dontWait" ] && [ "${1}" -lt "${#opts[@]}" ]; then
-    echo "Press any key to continue onto next test..."
-    read -s -n 1
-    echo "Yes, m'lord."
-  fi
+function join_by() {
+  local IFS="$1"; shift; echo "$*";
+}
+
+function findSmVersion() {
+  nvc=`which nvcc`
+  var=(`echo ${nvc} | sed 's/\// /g'`)
+  unset var[-1]
+  unset var[-1]
+  var="/`join_by "/" ${var[*]}`/extras/demo_suite/deviceQuery"
+  var=`eval $var | grep "CUDA Capability Major/Minor version number" \
+    | sed -e "s/\s\+CUDA Capability Major\/Minor version number:\s\+//g"`
+  echo $var
 }
 
 findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
-
-set -e
-
-if [ "$hasCuda" == 0 ]; then
-  runOpts="-DIS_NVIDIA=ON"
-  for curr in "${compilers[@]}"; do
-    val="256k"
-    compiler=`sh -c "./cmake_build.sh \"${runOpts} -DCMAKE_C_COMPILER=${curr}\" | grep \"The C compiler identification\""`
-
-    printRunInfo "${runOpts} -DCMAKE_C_COMPILER=${curr}" "$compiler"
-    sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
-      | tee -i uint8.dat \
-      | build/demodulator -i - -o - -g"${invertOpt}" \
-      | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
-      | dsd -i - -o/dev/null -n ${audioOutOpts}
-
-
-    echo ""
-    echo ":: Timing uint8"
-    printRunInfo "${runOpts} ${curr}" "$compiler"
-    time build/demodulator -i uint8.dat -o file
-    rm file
-    time build/demodulator -i uint8.dat -o file
-    rm file
-    time build/demodulator -i uint8.dat -o file
-    echo ":: End Timing uint8"
-    rm -rf file int16.dat uint8.dat ||:
-
-    waitForUserIntput
-  done
+findCompiler nvcc hasNvcc
+if [ $hasNvcc == 0 ]; then
+  var=$(bc -l <<<"$(findSmVersion) < 8")
+  if [ $var == 0 ]; then
+    gain=$(bc -l <<<"-1*${gain}")
+  fi
+  echo $gain
 fi
-
+set -e
 i=0
-for key in "${!opts[@]}"; do
+for compiler in ${compilers[@]}; do
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=OFF" | grep "The C compiler identification"
+  executeRun $compiler "128k" 1
 
-  val=${opts[$key]}
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
+  executeRun $compiler "128k" 1
 
-  compiler=`sh -c "./cmake_build.sh \"${key}\" | grep \"The C compiler identification\""`
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
+  executeRun $compiler "256k" $gain
 
-  printRunInfo "$key" "$compiler"
-  sox -q -D -twav "${wavFile}" -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
-    | tee -i uint8.dat | build/demodulator -i - -o - \
-    | sox -traw -b32 -ef -r$val - -traw -es -b16 -r48k - \
-    | dsd -i - -o/dev/null -n ${audioOutOpts}
-
-  echo ""
-  echo ":: Timing uint8"
-  printRunInfo "$key" "$compiler"
-  time build/demodulator -i uint8.dat -o file
-  rm file
-  time build/demodulator -i uint8.dat -o file
-  rm file
-  time build/demodulator -i uint8.dat -o file -r1
-  echo ":: End Timing uint8"
-  echo ""
-  rm -rf file uint8.dat ||:
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
+  executeRun $compiler "256k" 1
 
   i=$(( i + 1 ))
-  waitForUserIntput $i
+#  waitForUserIntput $i
 done
+
 
 echo "Job's done."
