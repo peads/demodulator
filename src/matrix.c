@@ -40,20 +40,17 @@ static inline void convertUint8ToFloat(const void *__restrict__ in, const uint32
     out[3] *= magB;
 }
 
-static inline void fmDemod(void *__restrict__ buf,
+static inline void fmDemod(const void *__restrict__ buf,
                            const uint32_t len,
                            const float gain,
                            float *__restrict__ result) {
 
-    static uint8_t prev[2] = {0,0};
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
     uint32_t i;
-    float zr, zj, ac, bd;
+    float zr, zj, ac, bd, mag;
 
-    ((uint8_t *)buf)[0] = prev[0];
-    ((uint8_t *)buf)[1] = prev[1];
-    for (i = 0; i < len + 2; i += 2) {
+    for (i = 0; i < len; i += 2) {
 
         convertUint8ToFloat(buf, i, out);
 
@@ -61,25 +58,24 @@ static inline void fmDemod(void *__restrict__ buf,
         bd = out[1] * out[3];
         zr = ac - bd;
         zj = (out[0] + out[1]) * (out[2] + out[3]) - (ac + bd);
-        zr = 64.f * zj * frcpf(23.f * zr + 41.f);
+        mag = frsqrtf(zr*zr + zj*zj);
+        zr = 64.f * zj*mag * frcpf(23.f * zr*mag + 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
-    prev[0] = ((uint8_t *)buf)[len - 2];
-    prev[1] = ((uint8_t *)buf)[len - 1];
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    void *buf = calloc(DEFAULT_BUF_SIZE + 2, 1);
+    void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
 
     while (!args->exitFlag) {
 
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-        memcpy(buf + 2, args->buf, DEFAULT_BUF_SIZE);
+        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
