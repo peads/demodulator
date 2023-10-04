@@ -70,10 +70,11 @@ extern "C" void *processMatrix(void *ctx) {
 
         cudaMemcpy(hResult,
                 dResult,
-                (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES,
+                (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
                 cudaMemcpyDeviceToHost);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, args->outFile);
+        cudaDeviceSynchronize();
+        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
 
     cudaFreeHost(args->buf);
@@ -85,5 +86,5 @@ extern "C" void *processMatrix(void *ctx) {
 }
 
 extern "C" void allocateBuffer(void **buf, const size_t len) {
-    cudaMallocHost(buf, DEFAULT_BUF_SIZE);
+    cudaMallocHost(buf, len);
 }

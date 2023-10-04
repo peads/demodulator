@@ -79,7 +79,7 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         fmDemod(buf, DEFAULT_BUF_SIZE, args->gain, result);
-        fwrite(result, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, args->outFile);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
     free(buf);
     free(result);
