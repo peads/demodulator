@@ -24,7 +24,7 @@
 #include "fmath.h"
 
 static inline void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
-                                float *__restrict__ out) {
+                                       float *__restrict__ out) {
 
     const uint8_t *buf = (uint8_t *) in;
     float magA, magB;
@@ -48,7 +48,7 @@ static inline void fmDemod(const void *__restrict__ buf,
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
     uint32_t i;
-    float zr, zj, ac, bd, mag;
+    float zr, zj, ac, bd;
 
     for (i = 0; i < len; i += 2) {
 
@@ -58,8 +58,7 @@ static inline void fmDemod(const void *__restrict__ buf,
         bd = out[1] * out[3];
         zr = ac - bd;
         zj = (out[0] + out[1]) * (out[2] + out[3]) - (ac + bd);
-        mag = frsqrtf(zr*zr + zj*zj);
-        zr = 64.f * zj*mag * frcpf(23.f * zr*mag + 41.f);
+        zr = 64.f * zj * frcpf(23.f * zr + 41.f + hypotf(zr, zj));
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
@@ -89,5 +88,6 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
+
     *buf = calloc(len, 1);
 }

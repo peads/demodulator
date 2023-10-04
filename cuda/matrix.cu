@@ -25,7 +25,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t step = blockDim.x * gridDim.x;
-    float a, b, c, d, ac, bd, zr, zj, mag;
+    float a, b, c, d, ac, bd, zr, zj;
 
     for (i = index; i < len; i += step) {
 
@@ -39,10 +39,13 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
         bd = b * d;
         zr = ac - bd;
         zj = (a + b) * (c + d) - (ac + bd);
-        mag = rnorm3df(zr, zj, 0.f);
-        zj = 64.f * zj * mag;
 
-        zr = zj * __frcp_rn(23.f * zr*mag + 41.f);
+        // ||z|| = Sqrt[zr*zr+zj*zj], fatan2f(y,x) = 64*y/(41 + 23*x),
+        // arg(z) = fatan2(zj/||z||, zr/||z||)
+        // = 64*(zj/Sqrt[zr*zr+zj*zj]) / (41 + 23*(zr/Sqrt[zr*zr+zj*zj]))
+        // = 64*zj / (||z|| * (41 + 23*(zr/||z||)))
+        // = 64*zj / (41*||z|| + 23*zr)
+        zr = 64.f * zj * __frcp_rn(23.f * zr + 41.f * hypotf(zr, zj));
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
     }
