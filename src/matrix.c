@@ -40,17 +40,20 @@ static inline void convertUint8ToFloat(const void *__restrict__ in, const uint32
     out[3] *= magB;
 }
 
-static inline void fmDemod(const void *__restrict__ buf,
+static inline void fmDemod(void *__restrict__ buf,
                            const uint32_t len,
                            const float gain,
                            float *__restrict__ result) {
 
+    static uint8_t prev[2] = {0,0};
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
     uint32_t i;
     float zr, zj, ac, bd;
 
-    for (i = 0; i < len; i += 2) {
+    ((uint8_t *)buf)[0] = prev[0];
+    ((uint8_t *)buf)[1] = prev[1];
+    for (i = 0; i < len + 2; i += 2) {
 
         convertUint8ToFloat(buf, i, out);
 
@@ -62,19 +65,21 @@ static inline void fmDemod(const void *__restrict__ buf,
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
+    prev[0] = ((uint8_t *)buf)[len - 2];
+    prev[1] = ((uint8_t *)buf)[len - 1];
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    void *buf = calloc(DEFAULT_BUF_SIZE, 1);
+    void *buf = calloc(DEFAULT_BUF_SIZE + 2, 1);
     float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
 
     while (!args->exitFlag) {
 
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
+        memcpy(buf + 2, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
