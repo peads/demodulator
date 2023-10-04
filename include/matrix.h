@@ -20,9 +20,23 @@
 
 #ifndef DEMODULATOR_MATRIX_H
 #define DEMODULATOR_MATRIX_H
-#include "prototypes.h"
 #include <stdint.h>
 #include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <string.h>
+#include "prototypes.h"
+#include "definitions.h"
+
+typedef struct {
+    sem_t full, empty;
+    const uint8_t mode;
+    void *buf;
+    int exitFlag;
+    FILE *outFile;
+    pthread_mutex_t mutex;
+    float gain;
+} consumerArgs;
 
 typedef void (*conversionFunction_t)(const void *__restrict__, const uint32_t, float *__restrict__);
 #endif //DEMODULATOR_MATRIX_H

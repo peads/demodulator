@@ -38,62 +38,56 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
         ac = a * c;
         bd = b * d;
         zr = ac - bd;
-        zj = __fmaf_rn((a + b), (c + d), -(ac + bd));
+        zj = (a + b) * (c + d) - (ac + bd);
 
-        zj = __fmul_rn(64.f, zj);
-        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(23.f, zr, 41.f)));
+        zj = 64.f * zj;
+        zr = zj * __frcp_rn(23.f * zr + 41.f);
 
-        result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr; // delay line
+        result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
     }
 }
 
-extern "C" int processMatrix(FILE *__restrict__ inFile,
-                             const uint8_t mode,
-                             float gain,
-                             void *__restrict__ outFile) {
+extern "C" void *processMatrix(void *ctx) {
 
-    int exitFlag = 0;
-    uint8_t *dBuf;
+    auto *args = static_cast<consumerArgs *>(ctx);
     float *dResult;
-    uint8_t *hBuf;
+    uint8_t *dBuf;
     float *hResult;
-    size_t readBytes;
-    gain = gain != 1.f ? gain : 0.f;
 
-    cudaMallocHost(&hBuf, DEFAULT_BUF_SIZE);
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
-    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
-    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES);
+    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
+    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
 
-    hBuf[0] = 0;
-    hBuf[1] = 0;
+    while (!args->exitFlag) {
 
-    while (!exitFlag) {
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
+        cudaMemcpy(dBuf, args->buf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
+        pthread_mutex_unlock(&args->mutex);
+        sem_post(&args->empty);
 
-        readBytes = fread(hBuf + 2, 1, DEFAULT_BUF_SIZE - 2, inFile);
+        cudaDeviceSynchronize();
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, args->gain, dResult);
 
-        if ((exitFlag = ferror(inFile))) {
-            perror(nullptr);
-            break;
-        } else if (feof(inFile)) {
-            exitFlag = EOF;
-        }
-
-        cudaMemcpy(dBuf, hBuf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
-
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, readBytes + 2, gain, dResult);
-
+        cudaDeviceSynchronize();
         cudaMemcpy(hResult,
                 dResult,
-                (DEFAULT_BUF_SIZE >> 2) * OUTPUT_ELEMENT_BYTES,
+                (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
                 cudaMemcpyDeviceToHost);
 
-        fwrite(hResult, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, (FILE *) outFile);
+        cudaDeviceSynchronize();
+        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
 
-    cudaFreeHost(hBuf);
+    cudaFreeHost(args->buf);
     cudaFreeHost(hResult);
     cudaFree(dBuf);
     cudaFree(dResult);
-    return exitFlag;
+
+    return nullptr;
+}
+
+extern "C" void allocateBuffer(void **buf, const size_t len) {
+
+    cudaMallocHost(buf, len);
 }

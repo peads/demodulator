@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #ifndef IS_NVIDIA
-int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain, void *__restrict__ outFile);
+void *processMatrix(void *ctx);
+void allocateBuffer(void **buf, size_t len);
 #endif
 #endif //DEMODULATOR_PROTOTYPES_H

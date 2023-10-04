@@ -23,17 +23,64 @@
 #include "matrix.h"
 
 #ifdef IS_NVIDIA
-
-extern int processMatrix(FILE *__restrict__ inFile, const uint8_t mode, float gain, void *__restrict__ outFile);
+extern void *processMatrix(void *ctx);
+extern void allocateBuffer(void **buf,  size_t len);
 #endif
 
-int printIfError(FILE *file) {
+static inline int printIfError(FILE *file) {
 
     if (!file) {
         perror(NULL);
         return 1;
     }
     return 0;
+}
+
+static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const float gain, FILE* outFile) {
+
+    pthread_t pid;
+    size_t elementsRead;
+
+    consumerArgs args = {
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .mode = mode,
+            .outFile = outFile,
+            .exitFlag = sem_init(&args.empty, 0, 1),
+            .gain = gain != 1.f ? gain : 0.f
+    };
+    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
+
+    args.exitFlag |= sem_init(&args.full, 0, 0);
+    args.exitFlag |= pthread_create(&pid, NULL, processMatrix, &args);
+
+    while (!args.exitFlag) {
+
+        sem_wait(&args.empty);
+        pthread_mutex_lock(&args.mutex);
+        elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
+
+        if ((args.exitFlag = ferror(inFile))) {
+            perror(NULL);
+            break;
+        } else if (feof(inFile)) {
+            args.exitFlag = EOF;
+        } else if (!elementsRead) {
+            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
+                            "fread. Stupid compiler.");
+        }
+        pthread_mutex_unlock(&args.mutex);
+        sem_post(&args.full);
+    }
+
+
+    pthread_join(pid, NULL);
+    pthread_mutex_destroy(&args.mutex);
+    sem_destroy(&args.empty);
+    sem_destroy(&args.full);
+
+    fclose(outFile);
+    fclose(inFile);
+    return args.exitFlag != EOF;
 }
 
 int main(int argc, char **argv) {
@@ -43,11 +90,7 @@ int main(int argc, char **argv) {
     int ret = 0;
     int opt;
     FILE *inFile = NULL;
-#if defined(IS_INTEL) || defined(IS_ARM)
-    char *outFile = NULL;
-#else
     FILE *outFile = NULL;
-#endif
 
     if (argc < 3) {
         return -1;
@@ -69,16 +112,12 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'o':
-#if defined(IS_INTEL) || defined(IS_ARM)
-                    outFile = !strstr(optarg, "-") ? optarg : NULL;
-#else
                     if (!strstr(optarg, "-")) {
                         ret += printIfError(outFile = fopen(optarg, "wb"));
                     } else {
                         ret += printIfError(freopen(NULL, "wb", stdout));
                         outFile = stdout;
                     }
-#endif
                     break;
                 default:
                     break;
@@ -87,12 +126,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        ret = processMatrix(inFile, mode, gain, outFile);
-#if !(defined(IS_INTEL) || defined(IS_ARM))
-        ret = ret != EOF;
-        fclose(outFile);
-#endif
-        fclose(inFile);
+        startProcessingMatrix(inFile, mode, gain, outFile);
     }
     return ret;
 }

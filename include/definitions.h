@@ -20,14 +20,10 @@
 
 #ifndef DEMODULATOR_DEFINITIONS_H
 #define DEMODULATOR_DEFINITIONS_H
-
-//#define DEBUG
-
-// sizeof(float)
-#define OUTPUT_ELEMENT_BYTES 4
-// sizeof(__m128)
-#define MATRIX_ELEMENT_BYTES 16
-#define MATRIX_WIDTH 4
+#if __GNUC__ < 10
+#include <math.h>
+#include <stdint.h>
+#endif
 #ifndef DEFAULT_BUF_SIZE
 #define DEFAULT_BUF_SIZE 262144
 #endif

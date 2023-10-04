@@ -24,26 +24,12 @@
 #endif
 
 #include <immintrin.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <string.h>
-#include "definitions.h"
 #include "matrix.h"
 
 typedef union {
     __m512i v;
     int8_t buf[64];
 } m512i_pun_t;
-
-typedef struct {
-    sem_t full, empty;
-    const uint8_t mode;
-    void *buf;
-    int exitFlag;
-    FILE *outFile;
-    pthread_mutex_t mutex;
-    __m512 gain;
-} consumerArgs;
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
@@ -249,12 +235,13 @@ static inline void demodEpi8(__m512i u, __m64 *__restrict__ result) {
     prev.v = hi;
 }
 
-static void *runDemodulator(void *ctx) {
+void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i, j;
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE, 64);
     __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64))); // TODO change this to a float array
+    __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -267,7 +254,7 @@ static void *runDemodulator(void *ctx) {
             demodEpi8(*(__m512i *) (buf + i), result + j);
 
             if (*(float *) &args->gain) {
-                _mm512_mul_ps(*(__m512 *) &result, args->gain);
+                _mm512_mul_ps(*(__m512 *) &result, gain);
             }
         }
         fwrite(result, sizeof(__m64), DEFAULT_BUF_SIZE >> 4, args->outFile);
@@ -277,49 +264,6 @@ static void *runDemodulator(void *ctx) {
     return NULL;
 }
 
-int processMatrix(FILE *__restrict__ inFile,
-                  const uint8_t mode,
-                  float gain,
-                  void *__restrict__ outFile) {
-
-    pthread_t pid;
-    size_t elementsRead;
-
-    gain = gain != 1.f ? gain : 0.f;
-    consumerArgs args = {
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .mode = mode,
-            .outFile = outFile,
-            .exitFlag = sem_init(&args.empty, 0, 1),
-            .buf = _mm_malloc(DEFAULT_BUF_SIZE, 64),
-            .gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&gain))
-    };
-    args.exitFlag |= sem_init(&args.full, 0, 0);
-    args.exitFlag |= pthread_create(&pid, NULL, runDemodulator, &args);
-
-    while (!args.exitFlag) {
-
-        sem_wait(&args.empty);
-        pthread_mutex_lock(&args.mutex);
-        elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
-
-        if ((args.exitFlag = ferror(inFile))) {
-            perror(NULL);
-            break;
-        } else if (feof(inFile)) {
-            args.exitFlag = EOF;
-        } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
-                            "fread. Stupid compiler.");
-        }
-        pthread_mutex_unlock(&args.mutex);
-        sem_post(&args.full);
-    }
-
-    pthread_join(pid, NULL);
-    pthread_mutex_destroy(&args.mutex);
-    sem_destroy(&args.empty);
-    sem_destroy(&args.full);
-    _mm_free(args.buf);
-    return args.exitFlag;
+void allocateBuffer(void **buf, const size_t len) {
+    *buf = _mm_malloc(len, 64);
 }
