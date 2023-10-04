@@ -48,7 +48,7 @@ static inline void fmDemod(const void *__restrict__ buf,
     static float out[4] = {0.f, 0.f, 0.f, 0.f};
 
     uint32_t i;
-    float zr, zj, ac, bd;
+    float zr, zj, ac, bd, mag;
 
     for (i = 0; i < len; i += 2) {
 
@@ -58,7 +58,8 @@ static inline void fmDemod(const void *__restrict__ buf,
         bd = out[1] * out[3];
         zr = ac - bd;
         zj = (out[0] + out[1]) * (out[2] + out[3]) - (ac + bd);
-        zr = 64.f * zj * frcpf(23.f * zr + 41.f);
+        mag = frsqrtf(zr*zr + zj*zj);
+        zr = 64.f * zj*mag * frcpf(23.f * zr*mag + 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
