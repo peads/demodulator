@@ -27,7 +27,7 @@ extern void *processMatrix(void *ctx);
 extern void allocateBuffer(void **buf,  size_t len);
 #endif
 
-int printIfError(FILE *file) {
+static inline int printIfError(FILE *file) {
 
     if (!file) {
         perror(NULL);
@@ -36,53 +36,11 @@ int printIfError(FILE *file) {
     return 0;
 }
 
-int main(int argc, char **argv) {
+static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const float gain, FILE* outFile) {
 
-    float gain = 1.f;
-    uint8_t mode = 0;
-    int ret = 0;
-    int opt;
-    FILE *inFile = NULL;
-    FILE *outFile = NULL;
     pthread_t pid;
     size_t elementsRead;
 
-    if (argc < 3) {
-        return -1;
-    } else {
-        while ((opt = getopt(argc, argv, "g:i:o:r:")) != -1) {
-            switch (opt) {
-                case 'g':
-                    gain = strtof(optarg, NULL);
-                    break;
-                case 'r' :
-                    mode = strtol(optarg, NULL, 10);
-                    break;
-                case 'i':
-                    if (!strstr(optarg, "-")) {
-                        ret += printIfError(inFile = fopen(optarg, "rb"));
-                    } else {
-                        ret += printIfError(freopen(NULL, "rb", stdin));
-                        inFile = stdin;
-                    }
-                    break;
-                case 'o':
-                    if (!strstr(optarg, "-")) {
-                        ret += printIfError(outFile = fopen(optarg, "wb"));
-                    } else {
-                        ret += printIfError(freopen(NULL, "wb", stdout));
-                        outFile = stdout;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-
-    if (ret) {
-        return ret;
-    }
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
@@ -123,4 +81,52 @@ int main(int argc, char **argv) {
     fclose(outFile);
     fclose(inFile);
     return args.exitFlag != EOF;
+}
+
+int main(int argc, char **argv) {
+
+    float gain = 1.f;
+    uint8_t mode = 0;
+    int ret = 0;
+    int opt;
+    FILE *inFile = NULL;
+    FILE *outFile = NULL;
+
+    if (argc < 3) {
+        return -1;
+    } else {
+        while ((opt = getopt(argc, argv, "g:i:o:r:")) != -1) {
+            switch (opt) {
+                case 'g':
+                    gain = strtof(optarg, NULL);
+                    break;
+                case 'r' :
+                    mode = strtol(optarg, NULL, 10);
+                    break;
+                case 'i':
+                    if (!strstr(optarg, "-")) {
+                        ret += printIfError(inFile = fopen(optarg, "rb"));
+                    } else {
+                        ret += printIfError(freopen(NULL, "rb", stdin));
+                        inFile = stdin;
+                    }
+                    break;
+                case 'o':
+                    if (!strstr(optarg, "-")) {
+                        ret += printIfError(outFile = fopen(optarg, "wb"));
+                    } else {
+                        ret += printIfError(freopen(NULL, "wb", stdout));
+                        outFile = stdout;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (!ret) {
+        startProcessingMatrix(inFile, mode, gain, outFile);
+    }
+    return ret;
 }
