@@ -38,10 +38,10 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
         ac = a * c;
         bd = b * d;
         zr = ac - bd;
-        zj = __fmaf_rn((a + b), (c + d), -(ac + bd));
+        zj = (a + b) * (c + d) - (ac + bd);
 
-        zj = __fmul_rn(64.f, zj);
-        zr = __fmul_rn(zj, __frcp_rn(__fmaf_rn(23.f, zr, 41.f)));
+        zj = 64.f * zj;
+        zr = zj * __frcp_rn(23.f * zr + 41.f);
 
         result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
     }
