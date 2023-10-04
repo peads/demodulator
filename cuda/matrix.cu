@@ -62,15 +62,7 @@ extern "C" void *processMatrix(void *ctx) {
 
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-//        static_cast<std::uint8_t *>(args->buf)[0]
-//            = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE];
-//        static_cast<std::uint8_t *>(args->buf)[1]
-//            = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE + 1];
         cudaMemcpy(dBuf, args->buf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
-//        static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE]
-//                = static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 2];
-//        static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE + 1]
-//                = static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 1];
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
@@ -98,6 +90,4 @@ extern "C" void *processMatrix(void *ctx) {
 extern "C" void allocateBuffer(void **buf, const size_t len) {
 
     cudaMallocHost(buf, len);
-//    static_cast<std::uint8_t *>(*buf)[len]
-//            = static_cast<std::uint8_t *>(*buf)[len + 1] = 0;
 }
