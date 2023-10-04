@@ -64,34 +64,29 @@ static inline void fmDemod(const void *__restrict__ buf,
     }
 }
 
-int processMatrix(FILE *__restrict__ inFile,
-                  const uint8_t mode,
-                  float gain,
-                  void *__restrict__ outFile) {
+void *processMatrix(void *ctx) {
 
-    gain = gain != 1.f ? gain : 0.f;
-    int exitFlag = 0;
+    consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
-
-    size_t readBytes;
     float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
 
-    while (!exitFlag) {
+    while (!args->exitFlag) {
 
-        readBytes = fread(buf + 2, 1, DEFAULT_BUF_SIZE - 2, inFile);
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
+        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
+        pthread_mutex_unlock(&args->mutex);
+        sem_post(&args->empty);
 
-        if ((exitFlag = ferror(inFile))) {
-            perror(NULL);
-            break;
-        } else if (feof(inFile)) {
-            exitFlag = EOF;
-        }
-
-        fmDemod(buf, readBytes, gain, result);
-
-        fwrite(result, OUTPUT_ELEMENT_BYTES, readBytes >> 2, outFile);
+        fmDemod(buf, DEFAULT_BUF_SIZE, args->gain, result);
+        fwrite(result, OUTPUT_ELEMENT_BYTES, DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
     free(buf);
     free(result);
-    return exitFlag;
+
+    return NULL;
+}
+
+void allocateBuffer(void **buf, const size_t len) {
+    *buf = calloc(len, 1);
 }

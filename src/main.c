@@ -23,7 +23,8 @@
 #include "matrix.h"
 
 #ifdef IS_NVIDIA
-extern int processMatrix(FILE *__restrict__ inFile, uint8_t mode, float gain, void *__restrict__ outFile);
+extern void *processMatrix(void *ctx);
+extern void allocateBuffer(void **buf,  size_t len);
 #endif
 
 int printIfError(FILE *file) {

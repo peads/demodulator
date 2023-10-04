@@ -201,5 +201,5 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
-    *buf = _mm_malloc(len, 64);
+    *buf = _mm_malloc(len, 32);
 }
