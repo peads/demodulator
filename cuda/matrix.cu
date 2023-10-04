@@ -52,32 +52,32 @@ extern "C" void *processMatrix(void *ctx) {
     auto *args = static_cast<consumerArgs *>(ctx);
     float *dResult;
     uint8_t *dBuf;
-//    uint8_t *hBuf;
-//    uint8_t *prev;
     float *hResult;
 
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
-//    cudaMalloc(&prev, DEFAULT_BUF_SIZE);
     cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
-//    cudaMallocHost(&hBuf, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
     cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
 
-//    hBuf[0] = 0;
-//    hBuf[1] = 0;
     while (!args->exitFlag) {
 
         sem_wait(&args->full);
         pthread_mutex_lock(&args->mutex);
-//        memcpy(hBuf + 2, args->buf, DEFAULT_BUF_SIZE - 2);
-//        prev[0] = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 2];
-//        prev[1] = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 1];
+//        static_cast<std::uint8_t *>(args->buf)[0]
+//            = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE];
+//        static_cast<std::uint8_t *>(args->buf)[1]
+//            = static_cast<const uint8_t *>(args->buf)[DEFAULT_BUF_SIZE + 1];
         cudaMemcpy(dBuf, args->buf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
+//        static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE]
+//                = static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 2];
+//        static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE + 1]
+//                = static_cast<std::uint8_t *>(args->buf)[DEFAULT_BUF_SIZE - 1];
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
         cudaDeviceSynchronize();
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, args->gain, dResult);
 
+        cudaDeviceSynchronize();
         cudaMemcpy(hResult,
                 dResult,
                 (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
@@ -96,5 +96,8 @@ extern "C" void *processMatrix(void *ctx) {
 }
 
 extern "C" void allocateBuffer(void **buf, const size_t len) {
+
     cudaMallocHost(buf, len);
+//    static_cast<std::uint8_t *>(*buf)[len]
+//            = static_cast<std::uint8_t *>(*buf)[len + 1] = 0;
 }

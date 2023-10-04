@@ -98,7 +98,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-async
 
 if (IS_NVIDIA)
     message("-- USING CUDA")
-    add_compile_definitions(DEFAULT_BUF_SIZE=524288)
+    add_compile_definitions(DEFAULT_BUF_SIZE=1048576)
+#    add_compile_definitions(DEFAULT_BUF_SIZE=524288)
     set(CMAKE_CUDA_ARCHITECTURES native)
     add_compile_definitions(__CUDACC__)
     project(${PROJECT_NAME} LANGUAGES CUDA C)
