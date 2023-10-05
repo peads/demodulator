@@ -20,11 +20,13 @@
  #
 
 rm -rf build/ ||:
+mkdir build
 # use cflags for a build representative of target that could be an rpizerow
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_MAKE_PROGRAM=`which ninja` \
-  -DCMAKE_C_COMPILER=`which arm-linux-gnueabihf-gcc` \
+  -DCMAKE_MAKE_PROGRAM=ninja \
+  -DCMAKE_C_COMPILER=/usr/bin/arm-linux-gnueabihf-gcc \
   -DCMAKE_C_FLAGS="-march=armv6zk+fp -mcpu=arm1176jzf-s -marm -mtune=arm1176jz-s -mfloat-abi=hard -mfpu=vfp -mtp=cp15" \
+  -DIS_NATIVE=OFF -DNO_INTRINSICS=ON -DIS_VERBOSE=ON \
   -G Ninja -S . -B build
 cmake --build build
 sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r512k - \

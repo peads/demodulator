@@ -7,3 +7,4 @@ build*/
 *.dat
 *.raw
 .DS_Store
+CMakeFiles

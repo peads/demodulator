@@ -20,11 +20,13 @@
  #
 
 rm -rf build/ ||:
+mkdir build
 # use cflags for a build representative of target that could be an rpi4
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_MAKE_PROGRAM=`which ninja` \
-  -DCMAKE_C_COMPILER=`which aarch64-linux-gnu-gcc` \
+  -DCMAKE_MAKE_PROGRAM=ninja \
+  -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
   -DCMAKE_C_FLAGS="-mabi=lp64 -march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mfix-cortex-a53-835769 -mfix-cortex-a53-843419 -momit-leaf-frame-pointer" \
+  -DIS_NATIVE=OFF -DNO_INTRINSICS=ON -DIS_VERBOSE=ON \
   -G Ninja -S . -B build
 cmake --build build
 sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r512k - \
