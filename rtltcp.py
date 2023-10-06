@@ -1,3 +1,22 @@
+#
+# This file is part of the demodulator distribution
+# (https://github.com/peads/demodulator).
+# with code originally part of the misc_snippets distribution
+# (https://github.com/peads/misc_snippets).
+# Copyright (c) 2023 Patrick Eads.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 import socket
 from enum import Enum
 from struct import pack
@@ -7,7 +26,7 @@ import typer
 
 # translated directly from rtl_tcp.c
 class RtlTcpCommands(Enum):
-    SET_FREQUENCY = 0x01
+    SET_FREQUENCY = 0x01 # TODO split this with top half using 0x56?
     SET_SAMPLE_RATE = 0x02
     SET_GAIN_MODE = 0x03
     SET_GAIN = 0x04
