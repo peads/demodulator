@@ -47,6 +47,21 @@ static int8x16_t convert_epu8_epi8(uint8x16_t u) {
     return vaddq_s8(vreinterpretq_s8_u8(u), Z);
 }
 
+static inline void convert_epi8_ps(int8x16_t in, float32x4_t *ret) {
+    int16x8_t   v = vmovl_high_s8(in),  // int8->int16 (high)
+                u = vmovl_s8(vget_low_s8(in));       // int8->int16 (low)
+    int32x4_t   w1 = vmovl_high_s16(u),
+                w0 = vmovl_s16(vget_low_s16(u));
+    ret[0] = vcvtq_f32_s32(w0);
+    ret[1] = vcvtq_f32_s32(w1);
+
+    w1 = vmovl_high_s16(v);
+    w0 = vmovl_s16(vget_low_s16(v));
+
+    ret[2] = vcvtq_f32_s32(w0);
+    ret[3] = vcvtq_f32_s32(w1);
+}
+
 static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
 
     static const int8x16_t negateBIm = {
@@ -61,15 +76,33 @@ static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
             8, 9, 10,11,12,13,11,12,
             12,13,14,15,16,17,14,15
     };
+    static int8x16_t prev = {
+            0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0
+    };
 
+    float32x4_t M[4];
     int8x16_t lo, hi, u = convert_epu8_epi8(buf);
     u = boxcarEpi8(u);
     hi = vqtbl1q_s8(u, indexHi);
     hi = vmulq_s8(hi, negateBIm);
     lo = vqtbl1q_s8(u, indexLo);
     lo = vmulq_s8(lo, negateBIm);
-    hi=hi;
-    lo=lo;
+
+    prev[12] = lo[0];
+    prev[13] = lo[1];
+
+    convert_epi8_ps(prev, M);
+
+    // TODO demodulate low half
+    // TODO demodulate high half
+
+    convert_epi8_ps(lo, M);
+
+    // TODO demodulate low half
+    // TODO demodulate high half
+
+    prev = hi;
 }
 
 void *processMatrix(void *ctx) {
