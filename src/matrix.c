@@ -32,12 +32,12 @@ static inline void fmDemod(const void *__restrict__ in,
     uint32_t i;
     float zr, zj, ac, bd;
 
-    for (i = 0; i < len; i += 2) {
+    for (i = 0; i < len; i += 4) {
 
-        temp[0] = (float) (buf[i] + buf[i + 2] - 254);       // ar
-        temp[1] = (float) (buf[i + 1] + buf[i + 3] - 254);   // aj
-        temp[2] = (float) (buf[i + 4] + buf[i + 6] - 254);   // br
-        temp[3] = (float) (254 - buf[i + 5] - buf[i + 7]);   // -bj
+        temp[0] = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);       // ar
+        temp[1] = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);   // aj
+        temp[2] = (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
+        temp[3] = (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
 
         ac = temp[0] * temp[2];
         bd = temp[1] * temp[3];
@@ -45,7 +45,7 @@ static inline void fmDemod(const void *__restrict__ in,
         zj = (temp[0] + temp[1]) * (temp[2] + temp[3]) - (ac + bd);
         zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
 
-        result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
+        result[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
 }
 
@@ -53,7 +53,7 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
-    float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
+    float *result = calloc(DEFAULT_BUF_SIZE >> 3, sizeof(float));
 
     while (!args->exitFlag) {
 
@@ -64,7 +64,7 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         fmDemod(buf, DEFAULT_BUF_SIZE, args->gain, result);
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
     }
     free(buf);
     free(result);

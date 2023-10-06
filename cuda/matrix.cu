@@ -29,11 +29,10 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
 
     for (i = index; i < len; i += step) {
 
-        a = __int2float_rn(buf[i] + buf[i + 2] - 254);
-        b = __int2float_rn(254 - buf[i + 1] - buf[i + 3]);
-
-        c = __int2float_rn(buf[i + 4] + buf[i + 6] - 254);
-        d = __int2float_rn(buf[i + 5] + buf[i + 7] - 254);
+        a = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);          // ar
+        b = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);      // aj
+        c = (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
+        d = (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
 
         ac = a * c;
         bd = b * d;
@@ -47,7 +46,7 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
         // = 64*zj / (41*||z|| + 23*zr)
         zr = 64.f * zj * __frcp_rn(23.f * zr + 41.f * hypotf(zr, zj));
 
-        result[i >> 2] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
+        result[i >> 3] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
     }
 }
 
@@ -59,8 +58,8 @@ extern "C" void *processMatrix(void *ctx) {
     float *hResult;
 
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
-    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
-    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
+    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 3) * sizeof(float));
+    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 3) * sizeof(float));
 
     while (!args->exitFlag) {
 
@@ -76,11 +75,11 @@ extern "C" void *processMatrix(void *ctx) {
         cudaDeviceSynchronize();
         cudaMemcpy(hResult,
                 dResult,
-                (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
+                (DEFAULT_BUF_SIZE >> 3) * sizeof(float),
                 cudaMemcpyDeviceToHost);
 
         cudaDeviceSynchronize();
-        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
     }
 
     cudaFreeHost(args->buf);
