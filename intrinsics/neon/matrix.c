@@ -21,18 +21,55 @@
 #include <stdlib.h>
 #include "definitions.h"
 #include "matrix.h"
-static int8x16_t convert_epu8_epi8(uint8x16_t u) {
-    static const int8_t onetwoseven = -127;
 
-    const int8x16_t Z = vld1q_dup_s8(&onetwoseven);
+static inline int8x16_t boxcarEpi8(int8x16_t u) {
+
+    static const int8x16_t Z = {
+            1,-1,1,-1,1,-1,1,-1,
+            1,-1,1,-1,1,-1,1,-1
+    };
+    static const uint8x16_t mask = {
+            2,3,0,1,6,7,4,5,
+            10,11,8,9,14,15,12,13
+    };
+
+    u = vmulq_s8(u, Z);
+    int8x16_t v = vqtbl1q_s8(u, mask);
+    return vaddq_s8(u, v);
+}
+
+static int8x16_t convert_epu8_epi8(uint8x16_t u) {
+
+    static const int8x16_t Z = {
+            -127,-127,-127,-127,-127,-127,-127,-127,
+            -127,-127,-127,-127,-127,-127,-127,-127
+    };
     return vaddq_s8(vreinterpretq_s8_u8(u), Z);
 }
 
-static inline void demodEpi8(uint8x16_t u, float *__restrict__ result) {
-    fprintf(stderr, "Starting demodulation");
-//    uint8x16_t negateBIm = 0xff010ff0101;
+static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
 
-    convert_epu8_epi8(u);
+    static const int8x16_t negateBIm = {
+            1,1,1,-1,1,1,1,-1,
+            1,1,1,-1,1,1,1,-1
+    };
+    static const uint8x16_t indexLo = {
+            0,1,2,3,4,5,2,3,
+            4,5,6,7,8,9,6,7
+    };
+    static const uint8x16_t indexHi = {
+            8, 9, 10,11,12,13,11,12,
+            12,13,14,15,16,17,14,15
+    };
+
+    int8x16_t lo, hi, u = convert_epu8_epi8(buf);
+    u = boxcarEpi8(u);
+    hi = vqtbl1q_s8(u, indexHi);
+    hi = vmulq_s8(hi, negateBIm);
+    lo = vqtbl1q_s8(u, indexLo);
+    lo = vmulq_s8(lo, negateBIm);
+    hi=hi;
+    lo=lo;
 }
 
 void *processMatrix(void *ctx) {
