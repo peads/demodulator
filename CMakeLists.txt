@@ -12,6 +12,10 @@ option(NO_AVX512 OFF)
 option(NO_AVX2 OFF)
 option(NO_NEON OFF)
 
+if(DEFAULT_BUF_SIZE)
+    add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
 target_architecture(TARGET_ARCH)
