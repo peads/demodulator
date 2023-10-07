@@ -56,7 +56,7 @@ static int8x16_t convert_epu8_epi8(uint8x16_t u) {
     return vaddq_s8(vreinterpretq_s8_u8(u), Z);
 }
 
-static inline void convert_epi8_fp16(int8x16_t in, float16x8_t *ret) {
+static inline void convert_epi8_fp16(int8x16_t in, int16x8_t *ret) {
 
     int16x8_t v = vmovl_high_s8(in),  // int8->int16 (high)
     u = vmovl_s8(vget_low_s8(in));       // int8->int16 (low)
@@ -66,8 +66,10 @@ static inline void convert_epi8_fp16(int8x16_t in, float16x8_t *ret) {
 //    ret[1] = vcvtq_f32_s32(w1);
 
 
-    ret[0] = vcvtq_f16_s16(u);
-    ret[1] = vcvtq_f16_s16(v);
+    ret[0] = u;
+    ret[1] = v;
+//    ret[0] = vcvtq_f16_s16(u);
+//    ret[1] = vcvtq_f16_s16(v);
 //    w1 = vmovl_high_s16(v);
 //    w0 = vmovl_s16(vget_low_s16(v));
 //
@@ -75,56 +77,56 @@ static inline void convert_epi8_fp16(int8x16_t in, float16x8_t *ret) {
 //    ret[3] = vcvtq_f32_s32(w1);
 }
 
-static inline void preNormMult(float16x8_t *u, float16x8_t *v) {
+static inline void preNormMult(int16x8_t *u, int16x8_t *v) {
 
     // *v = _mm256_permute_ps(*u, 0xEB);
-    float32x2x4_t temp = *(float32x2x4_t *) u;
-    temp.val[0] = vdup_lane_f32(temp.val[0], 1);
-    temp.val[1] = vdup_lane_f32(temp.val[1], 1);
-    float32x4_t w = vreinterpretq_f32_f16(
-            vrev64q_f16(*(float16x8_t *) &temp));
-    temp.val[2] = vzip1_f32(vget_low_f32(w), temp.val[0]);
-    temp.val[3] = vzip1_f32(vget_high_f32(w), temp.val[1]);
-    *v = *(float16x8_t *) (&temp.val[2]);
+    int32x2x4_t temp = *(int32x2x4_t *) u;
+    temp.val[0] = vdup_lane_s32(temp.val[0], 1);
+    temp.val[1] = vdup_lane_s32(temp.val[1], 1);
+    int32x4_t w = vreinterpretq_s32_s16(
+            vrev64q_s16(*(int16x8_t *) &temp));
+    temp.val[2] = vzip1_s32(vget_low_s32(w), temp.val[0]);
+    temp.val[3] = vzip1_s32(vget_high_s32(w), temp.val[1]);
+    *v = *(int16x8_t *) (&temp.val[2]);
     // *u = _mm256_permute_ps(*u, 0x5)
-    temp.val[2] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 5));
-    temp.val[3] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 4));
-    temp.val[0] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 1));
-    temp.val[1] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 0));
-    temp.val[0] = vzip1_f32(temp.val[0], temp.val[1]);
-    temp.val[1] = vzip1_f32(temp.val[2], temp.val[3]);
-    *u = *(float16x8_t *) &temp;
+    temp.val[2] = vreinterpret_s32_s16(vdup_laneq_s16(*u, 5));
+    temp.val[3] = vreinterpret_s32_s16(vdup_laneq_s16(*u, 4));
+    temp.val[0] = vreinterpret_s32_s16(vdup_laneq_s16(*u, 1));
+    temp.val[1] = vreinterpret_s32_s16(vdup_laneq_s16(*u, 0));
+    temp.val[0] = vzip1_s32(temp.val[0], temp.val[1]);
+    temp.val[1] = vzip1_s32(temp.val[2], temp.val[3]);
+    *u = *(int16x8_t *) &temp;
     // *u = _mm256_mul_ps(*u, *v);
-    *u = vmulq_f16(*u, *v);
+    *u = vmulq_s16(*u, *v);
 }
 
-static inline void preNormAddSubAdd(float16x8_t *u, float16x8_t *v, float16x8_t *w) {
+static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w) {
 
 //    *w = _mm256_permute_ps(*u, 0x8D);
     static const uint8x16_t index = {
             2,3,6,7,0,1,4,5,
             10,11,14,15,8,9,12,13
     };
-    static const float16x8_t altNegate = {
-            -1.f,1.f,-1.f,1.f,-1.f,1.f,-1.f,1.f
+    static const int16x8_t altNegate = {
+            -1,1,-1,1,-1,1,-1,1
     };
-    *w = vreinterpretq_f16_u8(vqtbl1q_u8(vreinterpretq_u8_f16(*u), index));
+    *w = vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(*u), index));
 //    *u = _mm256_addsub_ps(*u, *w);
-    *u = vaddq_f16(*u, vmulq_f16(altNegate, *w));
+    *u = vaddq_s16(*u, vmulq_s16(altNegate, *w));
 //    *v = _mm256_mul_ps(*u, *u);
-    *v = vmulq_f16(*u, *u);
+    *v = vmulq_s16(*u, *u);
 //    *w = _mm256_permute_ps(*v, 0x1B);
-    *w = vrev64q_f16(*v);
+    *w = vrev64q_s16(*v);
 //    *v = _mm256_add_ps(*v, *w);
-    *v = vaddq_f16(*v, *w);
+    *v = vaddq_s16(*v, *w);
 }
 
-static float fmDemod(float16x8_t *M) {
+static float fmDemod(int16x8_t *M) {
 //    static const float16x8_t all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
 //    static const float16x8_t all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
 //    static const float16x8_t all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    float16x8_t w,// y,
+    int16x8_t w,// y,
     u = M[0],
     v = M[1];
     preNormMult(&u, &w);
@@ -152,7 +154,7 @@ static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
             0, 0, 0, 0, 0, 0, 0, 0
     };
 
-    float16x8_t M[4];
+    int16x8_t M[4];
     int8x16_t lo, hi, u = convert_epu8_epi8(buf);
     u = boxcarEpi8(u);
     hi = vqtbl1q_s8(u, indexHi);
