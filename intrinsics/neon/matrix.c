@@ -98,14 +98,21 @@ static inline void preNormMult(float16x8_t *u, float16x8_t *v) {
     *u = vmulq_f16(*u, *v);
 }
 
-//static inline void preNormAddSubAdd(float16x8_t *u, float16x8_t *v, float16x8_t *w) {
-//
+static inline void preNormAddSubAdd(float16x8_t *u, float16x8_t *v, float16x8_t *w) {
+
 //    *w = _mm256_permute_ps(*u, 0x8D);
+    static const uint8x16_t index = {
+            2,3,6,7,0,1,4,5,
+            10,11,14,15,8,9,12,13
+    };
+    *w = vreinterpretq_f16_u8(vqtbl1q_u8(vreinterpretq_u8_f16(*u), index));
+
+
 //    *u = _mm256_addsub_ps(*u, *w);
 //    *v = _mm256_mul_ps(*u, *u);
 //    *w = _mm256_permute_ps(*v, 0x1B);
 //    *v = _mm256_add_ps(*v, *w);
-//}
+}
 
 static float fmDemod(float16x8_t *M) {
 //    static const float16x8_t all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -113,11 +120,11 @@ static float fmDemod(float16x8_t *M) {
 //    static const float16x8_t all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
     float16x8_t w,// y,
-    u = M[0];
-//            v = M[1];
+    u = M[0],
+    v = M[1];
     preNormMult(&u, &w);
-//    preNormAddSubAdd(&u, &v, &w);
-    w = w;
+    preNormAddSubAdd(&u, &v, &w);
+
     return 0.f;
 }
 
