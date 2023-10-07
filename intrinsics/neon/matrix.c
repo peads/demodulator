@@ -81,26 +81,21 @@ static inline void preNormMult(float16x8_t *u, float16x8_t *v) {
     float32x2x4_t temp = *(float32x2x4_t *) u;
     temp.val[0] = vdup_lane_f32(temp.val[0], 1);
     temp.val[1] = vdup_lane_f32(temp.val[1], 1);
-    float32x4_t w = vreinterpretq_f32_f16(vrev64q_f16(*(float16x8_t *) &temp));
+    float32x4_t w = vreinterpretq_f32_f16(
+            vrev64q_f16(*(float16x8_t *) &temp));
     temp.val[2] = vzip1_f32(vget_low_f32(w), temp.val[0]);
-    temp.val[3] = vzip1_f32(vget_high_f32(w),temp.val[1]);
-    *v = *(float16x8_t*)(&temp.val[2]);
+    temp.val[3] = vzip1_f32(vget_high_f32(w), temp.val[1]);
+    *v = *(float16x8_t *) (&temp.val[2]);
     // *u = _mm256_permute_ps(*u, 0x5)
-    // 0x5 = 1100_4
-    // for (a,b,c,d,e,f,g,h) -> (b,b,a,a,f,f,e,e)
-//    temp = *(float32x2x4_t *) u;
-//    temp.val[0] = vdup_lane_f32(temp.val[0], 0);
-//    temp.val[1] = vdup_lane_f32(temp.val[1], 0);
     temp.val[2] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 5));
     temp.val[3] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 4));
     temp.val[0] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 1));
     temp.val[1] = vreinterpret_f32_f16(vdup_laneq_f16(*u, 0));
     temp.val[0] = vzip1_f32(temp.val[0], temp.val[1]);
     temp.val[1] = vzip1_f32(temp.val[2], temp.val[3]);
-    *u = *(float16x8_t *)&temp;
-
-
+    *u = *(float16x8_t *) &temp;
     // *u = _mm256_mul_ps(*u, *v);
+    *u = vmulq_f16(*u, *v);
 }
 
 //static inline void preNormAddSubAdd(float16x8_t *u, float16x8_t *v, float16x8_t *w) {
