@@ -105,13 +105,18 @@ static inline void preNormAddSubAdd(float16x8_t *u, float16x8_t *v, float16x8_t 
             2,3,6,7,0,1,4,5,
             10,11,14,15,8,9,12,13
     };
+    static const float16x8_t altNegate = {
+            -1.f,1.f,-1.f,1.f,-1.f,1.f,-1.f,1.f
+    };
     *w = vreinterpretq_f16_u8(vqtbl1q_u8(vreinterpretq_u8_f16(*u), index));
-
-
 //    *u = _mm256_addsub_ps(*u, *w);
+    *u = vaddq_f16(*u, vmulq_f16(altNegate, *w));
 //    *v = _mm256_mul_ps(*u, *u);
+    *v = vmulq_f16(*u, *u);
 //    *w = _mm256_permute_ps(*v, 0x1B);
+    *w = vrev64q_f16(*v);
 //    *v = _mm256_add_ps(*v, *w);
+    *v = vaddq_f16(*v, *w);
 }
 
 static float fmDemod(float16x8_t *M) {
