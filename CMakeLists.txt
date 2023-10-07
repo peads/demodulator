@@ -51,7 +51,7 @@ elseif (TARGET_ARCH STREQUAL "aarch64")
     set(NO_AVX2 ON)
     set(NO_AVX512 ON)
     execute_process(COMMAND cat /proc/cpuinfo OUTPUT_VARIABLE PROCINFO)
-    set(HAS_NEON ${PROCINFO} MATCHES "asimd")
+    set(HAS_NEON ((${PROCINFO} MATCHES "asimd") OR (${PROCINFO} MATCHES "neon")))
     if (NOT NO_INTRINSICS AND NOT NO_NEON AND HAS_NEON) #asimd
         set(NO_NEON OFF)
         set(HAS_NEON ON)

@@ -31,5 +31,5 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r512k - \
   | qemu-aarch64 -L /usr/aarch64-linux-gnu/ build/demodulator -i - -o - \
-  | sox -q -D -traw -b32 -ef -r256k - -traw -es -b16 -r48k - \
+  | sox -q -D -traw -b32 -ef -r128k - -traw -es -b16 -r48k - \
   | dsd -i - -o /dev/null -n
