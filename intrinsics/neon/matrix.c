@@ -104,21 +104,37 @@ static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w) {
 
 //    *w = _mm256_permute_ps(*u, 0x8D);
     static const uint8x16_t index = {
-            2,3,6,7,0,1,4,5,
-            10,11,14,15,8,9,12,13
+            2, 3, 6, 7, 0, 1, 4, 5,
+            10, 11, 14, 15, 8, 9, 12, 13
+    };
+
+    static const uint8x16_t reverse = {
+            12,13,14,15,8,9,10,11,
+            4,5,6,7,0,1,2,3
     };
     static const int16x8_t altNegate = {
-            -1,1,-1,1,-1,1,-1,1
+            -1, 1, -1, 1, -1, 1, -1, 1
     };
     *w = vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(*u), index));
 //    *u = _mm256_addsub_ps(*u, *w);
     *u = vaddq_s16(*u, vmulq_s16(altNegate, *w));
 //    *v = _mm256_mul_ps(*u, *u);
-    *v = vmulq_s16(*u, *u);
+    int32x4x4_t tmp;
+    tmp.val[0] = vmovl_s16(vget_low_s16(*u));
+    tmp.val[0] = vmulq_s32(tmp.val[0], tmp.val[0]);
+    tmp.val[1] = vmovl_high_s16(*u);
+    tmp.val[1] = vmulq_s32(tmp.val[1], tmp.val[1]);
 //    *w = _mm256_permute_ps(*v, 0x1B);
-    *w = vrev64q_s16(*v);
 //    *v = _mm256_add_ps(*v, *w);
-    *v = vaddq_s16(*v, *w);
+//    *w = vrev64q_s16(*v);
+    tmp.val[2] = vreinterpretq_s32_u8(vqtbl1q_u8(vreinterpretq_u8_s32(tmp.val[0]), reverse));
+    tmp.val[2] = vaddq_s32(tmp.val[0], tmp.val[2]);
+    tmp.val[3] = vreinterpretq_s32_u8(vqtbl1q_u8(vreinterpretq_u8_s32(tmp.val[1]), reverse));
+    tmp.val[3] = vaddq_s32(tmp.val[1], tmp.val[3]);
+    int16x4x4_t temp;
+    temp.val[0] = vqmovn_s32(tmp.val[0]);
+    temp.val[1] = vqmovn_s32(tmp.val[1]);
+    *v = *(int16x8_t *) &temp;
 }
 
 static float fmDemod(int16x8_t *M) {
@@ -128,7 +144,7 @@ static float fmDemod(int16x8_t *M) {
 
     int16x8_t w,// y,
     u = M[0],
-    v = M[1];
+            v = M[1];
     preNormMult(&u, &w);
     preNormAddSubAdd(&u, &v, &w);
 
