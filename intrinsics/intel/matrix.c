@@ -25,7 +25,7 @@
 
 #include <immintrin.h>
 #include "matrix.h"
-
+size_t iterations = 0;
 typedef union {
     __m256i v;
     int8_t buf[32];
@@ -128,7 +128,7 @@ static float fmDemod(__m256 u) {
 
     w = _mm256_cmp_ps(u, u, 0);                           // NAN check
     u = _mm256_and_ps(u, w);
-
+    iterations++;
     return u[5];
 }
 
@@ -154,7 +154,7 @@ static inline float demodEpi8(__m256i u) {
 
     static m256i_pun_t prev;
 
-    float result;
+    float result[8];
     __m256i hi, uhi, ulo;
     m256i_pun_t lo;
     __m256 U[2];
@@ -169,22 +169,22 @@ static inline float demodEpi8(__m256i u) {
 
     complexMultiply(prev.v, &ulo, &uhi);
     convert_epi16_ps(ulo, U);
-    fmDemod(U[0]);
-    fmDemod(U[1]);
+    result[0] =fmDemod(U[0]);
+    result[1] =fmDemod(U[1]);
     convert_epi16_ps(uhi, U);
-    fmDemod(U[0]);
-    result = fmDemod(U[1]);
+    result[2] =fmDemod(U[0]);
+    result[3] = fmDemod(U[1]);
 
     complexMultiply(lo.v, &ulo, &uhi);
     convert_epi16_ps(ulo, U);
-    fmDemod(U[0]);
-    fmDemod(U[1]);
+    result[4] =fmDemod(U[0]);
+    result[5] =fmDemod(U[1]);
     convert_epi16_ps(uhi, U);
-    fmDemod(U[0]);
-    fmDemod(U[1]);
+    result[6] =fmDemod(U[0]);
+    result[7] = fmDemod(U[1]);
 
     prev.v = hi;
-    return result;
+    return result[3];
 }
 
 void *processMatrix(void *ctx) {
