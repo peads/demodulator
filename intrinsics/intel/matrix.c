@@ -168,7 +168,7 @@ static inline float demodEpi8(__m256i u) {
 
     static m256i_pun_t prev;
 
-    float result[8];
+    float result;
     __m256i hi, uhi, ulo;
     m256i_pun_t lo;
     __m256 U[2];
@@ -183,28 +183,28 @@ static inline float demodEpi8(__m256i u) {
 
     complexMultiply(prev.v, &ulo, &uhi);
     convert_epi8_ps(ulo, U);
-    result[0] = fmDemod(U[0]);
-    result[1] =fmDemod(U[1]);
+    fmDemod(U[0]);
+    fmDemod(U[1]);
     convert_epi8_ps(uhi, U);
-    result[2] =fmDemod(U[0]);
-    result[3] = fmDemod(U[1]);
+    fmDemod(U[0]);
+    result = fmDemod(U[1]);
 
     complexMultiply(lo.v, &ulo, &uhi);
     convert_epi8_ps(ulo, U);
-    result[4] =fmDemod(U[0]);
-    result[5] =fmDemod(U[1]);
+    fmDemod(U[0]);
+    fmDemod(U[1]);
     convert_epi8_ps(uhi, U);
-    result[6] =fmDemod(U[0]);
-    result[7] =fmDemod(U[1]);
+    fmDemod(U[0]);
+    fmDemod(U[1]);
 
     prev.v = hi;
-    return result[3];
+    return result;
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    size_t i, j;
+    size_t i;
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     float result[DEFAULT_BUF_SIZE >> 5];
     __m256 gain = _mm256_broadcast_ss(&args->gain);
@@ -216,8 +216,8 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 32, ++j) {
-            result[j] = demodEpi8(*(__m256i *) (buf + i));
+        for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
+            result[i >> 5] = demodEpi8(*(__m256i *) (buf + i));
         }
 
         if (*(float *) &args->gain) {
