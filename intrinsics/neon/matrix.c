@@ -100,8 +100,9 @@ static inline void preNormMult(int16x8_t *u, int16x8_t *v) {
     *u = vmulq_s16(*u, *v);
 }
 
-static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w) {
+static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w, float16x8x2_t *M) {
 
+    // TODO consider normalizing before we even begin, or just returning f32s
 //    *w = _mm256_permute_ps(*u, 0x8D);
     static const uint8x16_t index = {
             2, 3, 6, 7, 0, 1, 4, 5,
@@ -112,12 +113,15 @@ static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w) {
             12,13,14,15,8,9,10,11,
             4,5,6,7,0,1,2,3
     };
+
     static const int16x8_t altNegate = {
             -1, 1, -1, 1, -1, 1, -1, 1
     };
     *w = vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(*u), index));
 //    *u = _mm256_addsub_ps(*u, *w);
     *u = vaddq_s16(*u, vmulq_s16(altNegate, *w));
+    M->val[0] = vcvtq_f16_s16(*u);
+
 //    *v = _mm256_mul_ps(*u, *u);
     int32x4x4_t tmp;
     tmp.val[0] = vmovl_s16(vget_low_s16(*u));
@@ -131,24 +135,36 @@ static inline void preNormAddSubAdd(int16x8_t *u, int16x8_t *v, int16x8_t *w) {
     tmp.val[2] = vaddq_s32(tmp.val[0], tmp.val[2]);
     tmp.val[3] = vreinterpretq_s32_u8(vqtbl1q_u8(vreinterpretq_u8_s32(tmp.val[1]), reverse));
     tmp.val[3] = vaddq_s32(tmp.val[1], tmp.val[3]);
-    int16x4x4_t temp;
-    temp.val[0] = vqmovn_s32(tmp.val[0]);
-    temp.val[1] = vqmovn_s32(tmp.val[1]);
-    *v = *(int16x8_t *) &temp;
+
+    M->val[1] = vcombine_f16(vcvt_f16_f32(vcvtq_f32_s32(tmp.val[2])), vcvt_f16_f32(vcvtq_f32_s32(tmp.val[3])));
 }
 
 static float fmDemod(int16x8_t *M) {
-//    static const float16x8_t all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
-//    static const float16x8_t all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
-//    static const float16x8_t all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+    static const float16x8_t all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
+    static const float16x8_t all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
+    static const float16x8_t all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+
+    static const uint8x16_t reverse = {
+            12,13,14,15,8,9,10,11,
+            4,5,6,7,0,1,2,3
+    };
 
     int16x8_t w,// y,
     u = M[0],
-            v = M[1];
-    preNormMult(&u, &w);
-    preNormAddSubAdd(&u, &v, &w);
+    v = M[1];
+    float16x8x4_t N;
 
-    return 0.f;
+    preNormMult(&u, &w);
+    preNormAddSubAdd(&u, &v, &w, (float16x8x2_t *) &N);
+    N.val[1] = vrsqrteq_f16(N.val[1]);
+    N.val[0] = vmulq_f16(N.val[0], N.val[1]);
+
+    N.val[2] = vmulq_f16(all64s, N.val[0]);
+    N.val[0] = vfmaq_f16(all23s, N.val[0], all41s);
+    N.val[3] = vrecpeq_f16(vreinterpretq_f16_u8(vqtbl1q_u8(vreinterpretq_u8_f16(N.val[0]), reverse)));
+    N.val[0] = vmulq_f16(N.val[2], N.val[3]);
+
+    return N.val[0][5];
 }
 
 static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
@@ -171,7 +187,7 @@ static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
     };
 
     int16x8_t M[4];
-    int8x16_t lo, hi, u = convert_epu8_epi8(buf);
+    int8x16_t lo, hi, u = heterodyne(buf);
     u = boxcarEpi8(u);
     hi = vqtbl1q_s8(u, indexHi);
     hi = vmulq_s8(hi, negateBIm);

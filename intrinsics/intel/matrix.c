@@ -146,7 +146,7 @@ static float fmDemod(__m256 u) {
 //    result[1] = fmDemod(&M[1]);
 //}
 
-static inline void demodEpi8(__m256i u, float *__restrict__ result) {
+static inline float demodEpi8(__m256i u) {
 
     static const __m256i negateBIm = {
             (int64_t) 0xff010101ff010101,
@@ -168,6 +168,7 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
 
     static m256i_pun_t prev;
 
+    float result[8];
     __m256i hi, uhi, ulo;
     m256i_pun_t lo;
     __m256 U[2];
@@ -183,28 +184,29 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
     complexMultiply(prev.v, &ulo, &uhi);
     convert_epi8_ps(ulo, U);
     result[0] = fmDemod(U[0]);
-    result[1] = fmDemod(U[1]);
+    result[1] =fmDemod(U[1]);
     convert_epi8_ps(uhi, U);
-    result[0] = fmDemod(U[0]);
-    result[1] = fmDemod(U[1]);
+    result[2] =fmDemod(U[0]);
+    result[3] = fmDemod(U[1]);
 
     complexMultiply(lo.v, &ulo, &uhi);
     convert_epi8_ps(ulo, U);
-    result[2] = fmDemod(U[0]);
-    result[3] = fmDemod(U[1]);
+    result[4] =fmDemod(U[0]);
+    result[5] =fmDemod(U[1]);
     convert_epi8_ps(uhi, U);
-    result[2] = fmDemod(U[0]);
-    result[3] = fmDemod(U[1]);
+    result[6] =fmDemod(U[0]);
+    result[7] =fmDemod(U[1]);
 
     prev.v = hi;
+    return result[3];
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    size_t i;
+    size_t i, j;
     void *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    float result[4];
+    float result[DEFAULT_BUF_SIZE >> 5];
     __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
@@ -214,14 +216,14 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-        for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            demodEpi8(*(__m256i *) (buf + i), result);
-
-            if (*(float *) &args->gain) {
-                _mm256_mul_ps(*(__m256 *) &result, gain);
-            }
-            fwrite(result, sizeof(float),  4, args->outFile);
+        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 32, ++j) {
+            result[j] = demodEpi8(*(__m256i *) (buf + i));
         }
+
+        if (*(float *) &args->gain) {
+            _mm256_mul_ps(*(__m256 *) &result, gain);
+        }
+        fwrite(result, sizeof(float),  DEFAULT_BUF_SIZE >> 5, args->outFile);
     }
 
     _mm_free(buf);
