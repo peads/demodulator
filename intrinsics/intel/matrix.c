@@ -45,6 +45,7 @@ static inline __m256i shiftAxisConvert_epu8_epi8(__m256i u) {
 }
 
 static inline void convert_epi8_epi16(__m256i u, __m256i *hi, __m256i *lo) {
+
     *hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
     *lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 }
@@ -79,21 +80,21 @@ static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
 
     const __m256i indexHiSymmetry = _mm256_setr_epi8(
             3, 2, 2, 3, 7, 6, 6, 7,
-            11,10,10,11,15,14,14,15,
-            19,18,18,19,23,22,22,23,
-            27,26,26,27,31,30,30,31
+            11, 10, 10, 11, 15, 14, 14, 15,
+            19, 18, 18, 19, 23, 22, 22, 23,
+            27, 26, 26, 27, 31, 30, 30, 31
     );
 
     const __m256i indexLoDuplicateReverse = _mm256_setr_epi8(
             0, 1, 0, 1, 4, 5, 4, 5,
-            8, 9, 8, 9, 12,13,12,13,
-            16,17,16,17,20,21,20,21,
-            24,25,24,25,28,29,28,29
+            8, 9, 8, 9, 12, 13, 12, 13,
+            16, 17, 16, 17, 20, 21, 20, 21,
+            24, 25, 24, 25, 28, 29, 28, 29
     );
 
     const __m256i negs = _mm256_setr_epi16(
-            -1,1,-1,1,-1,1,-1,1,
-            -1,1,-1,1,-1,1,-1,1);
+            -1, 1, -1, 1, -1, 1, -1, 1,
+            -1, 1, -1, 1, -1, 1, -1, 1);
 
     __m256i vlo, vhi,//, wlo, whi,
     v = _mm256_shuffle_epi8(u, indexHiSymmetry);
@@ -212,7 +213,7 @@ void *processMatrix(void *ctx) {
         if (*(float *) &args->gain) {
             _mm256_mul_ps(*(__m256 *) &result, gain);
         }
-        fwrite(result, sizeof(float),  DEFAULT_BUF_SIZE >> 5, args->outFile);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 5, args->outFile);
     }
 
     _mm_free(buf);
@@ -220,5 +221,6 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
+
     *buf = _mm_malloc(len, 32);
 }
