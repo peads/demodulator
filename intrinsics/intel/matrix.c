@@ -26,14 +26,12 @@
 #include <immintrin.h>
 #include "matrix.h"
 
-#define SHUF_INDEX _MM_SHUFFLE(1,3,0,2)
-
 typedef union {
     __m256i v;
     int8_t buf[32];
 } m256i_pun_t;
 
-static inline __m256i shiftAxisConvert_epu8_epi8(__m256i u) {
+static inline __m256i shiftOrigin(__m256i u) {
 
     static const __m256i shift = {
             -0x7f7f7f7f7f7f7f7f,
@@ -50,7 +48,7 @@ static inline void convert_epi8_epi16(__m256i u, __m256i *hi, __m256i *lo) {
     *lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 }
 
-static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
+static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
 
     __m256i w;
 
@@ -96,7 +94,7 @@ static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
             -1, 1, -1, 1, -1, 1, -1, 1,
             -1, 1, -1, 1, -1, 1, -1, 1);
 
-    __m256i vlo, vhi,//, wlo, whi,
+    __m256i vlo, vhi,
     v = _mm256_shuffle_epi8(u, indexHiSymmetry);
     u = _mm256_shuffle_epi8(u, indexLoDuplicateReverse);
     convert_epi8_epi16(u, uhi, ulo);
@@ -161,7 +159,7 @@ static inline float demodEpi8(__m256i u) {
     m256i_pun_t lo;
     __m256 U[2];
 
-    u = boxcarEpi8(shiftAxisConvert_epu8_epi8(u));
+    u = boxcarEpi8(shiftOrigin(u));
 
     hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
     lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
@@ -170,18 +168,18 @@ static inline float demodEpi8(__m256i u) {
     prev.buf[29] = lo.buf[1];
 
     complexMultiply(prev.v, &ulo, &uhi);
-    convert_epi8_ps(ulo, U);
+    convert_epi16_ps(ulo, U);
     fmDemod(U[0]);
     fmDemod(U[1]);
-    convert_epi8_ps(uhi, U);
+    convert_epi16_ps(uhi, U);
     fmDemod(U[0]);
     result = fmDemod(U[1]);
 
     complexMultiply(lo.v, &ulo, &uhi);
-    convert_epi8_ps(ulo, U);
+    convert_epi16_ps(ulo, U);
     fmDemod(U[0]);
     fmDemod(U[1]);
-    convert_epi8_ps(uhi, U);
+    convert_epi16_ps(uhi, U);
     fmDemod(U[0]);
     fmDemod(U[1]);
 
