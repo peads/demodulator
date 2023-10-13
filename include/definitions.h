@@ -25,10 +25,11 @@
 #include <stdint.h>
 #endif
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 262144
+#define DEFAULT_BUF_SIZE 262144L
 #endif
 
 #if (defined(__AVX__) || defined(__AVX2__))
+#define ALIGNMENT 32
 #define HAS_AVX
 #endif
 
