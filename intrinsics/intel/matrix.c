@@ -89,10 +89,6 @@ static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
             8, 9, 8, 9, 12,13,12,13,
             16,17,16,17,20,21,20,21,
             24,25,24,25,28,29,28,29
-//            1, 1, 0, 0, 5, 5, 4, 4,
-//            9, 9, 8, 8, 13,13,12,12,
-//            17,17,16,16,21,21,20,20,
-//            25,25,24,24,29,29,28,28
     );
 
     const __m256i negs = _mm256_setr_epi16(
@@ -123,8 +119,7 @@ static float fmDemod(__m256 u) {
 
     __m256 w;
 
-//    u = _mm256_mul_ps(_mm256_permute_ps(u, 0x5), _mm256_permute_ps(u, 0xEB));
-//    u = _mm256_addsub_ps(u, _mm256_permute_ps(u, 0x8D));
+    // norm
     w = _mm256_mul_ps(u, u);
     w = _mm256_rsqrt_ps(_mm256_add_ps(w, _mm256_permute_ps(w, 0x1B)));
     u = _mm256_mul_ps(u, w);
@@ -139,12 +134,6 @@ static float fmDemod(__m256 u) {
 
     return u[5];
 }
-
-//static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
-//
-//    result[0] = fmDemod(M);
-//    result[1] = fmDemod(&M[1]);
-//}
 
 static inline float demodEpi8(__m256i u) {
 

@@ -97,7 +97,7 @@ for compiler in ${compilers[@]}; do
   executeRun $compiler "128k" 1
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
-  executeRun $compiler "128k" 1
+  executeRun $compiler "32k" 1
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
   executeRun $compiler "256k" $gain
