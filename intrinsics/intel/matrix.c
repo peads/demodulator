@@ -105,11 +105,9 @@ static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
     *uhi = _mm256_mullo_epi16(*uhi, vhi);
 
     vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, SHUF_INDEX), SHUF_INDEX); // 2031_4
-    __m256i temp = _mm256_sign_epi16(vlo, negs);
-    *ulo = _mm256_add_epi16(*ulo, temp);
+    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, negs));
     vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, SHUF_INDEX), SHUF_INDEX); // 2031_4
-    temp = _mm256_sign_epi16(vhi, negs);
-    *uhi = _mm256_add_epi16(*uhi, temp);
+    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, negs));
 }
 
 static float fmDemod(__m256 u) {
