@@ -23,6 +23,7 @@ import threading
 from enum import Enum
 from struct import pack
 from struct import error as StructError
+from contextlib import closing
 import typer
 
 
@@ -89,13 +90,21 @@ class ControlRtlTcp:
                 raise UnrecognizedInputError(param, e)
 
 
+# taken from https://stackoverflow.com/a/45690594
+def findPort(host='localhost'):
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind((host, 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
+
+
 class OutputServer:
     def __init__(self, rs: socket.socket, port: int, host='localhost', bufSize=8192):
         self.ss = None
         self.rs = rs
         self.host = host
         self.port = port
-        self.serverport = port + 1
+        self.serverport = findPort(host)
         self.exitFlag = False
         self.bufSize=bufSize
         self.buffer = queue.Queue(maxsize=bufSize)
@@ -126,12 +135,11 @@ class OutputServer:
             print('Producer quitting')
 
     def runServer(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.ss:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as self.ss:
             self.ss.bind((self.host, self.serverport))
             self.ss.listen(2)
             ct = None
             pt = None
-            cs = None
             try:
                 while self.isNotDead():
                     print(f'Awaiting connection on port {self.serverport}')
@@ -145,8 +153,6 @@ class OutputServer:
             except (OSError, SelbstmortError):
                 print('Joining producer/consumer threads')
                 self.ss = None
-                if cs is not None:
-                    cs.shutdown(socket.SHUT_RDWR)
                 if ct is not None:
                     ct.join(timeout=1)
                 if pt is not None:
