@@ -20,16 +20,27 @@
 
 #ifndef DEMODULATOR_DEFINITIONS_H
 #define DEMODULATOR_DEFINITIONS_H
-#if __GNUC__ < 10
-#include <math.h>
-#include <stdint.h>
-#endif
+
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 262144
+#define DEFAULT_BUF_SIZE 262144L
 #endif
 
-#if (defined(__AVX__) || defined(__AVX2__))
+#define ADBC_INDEX _MM_SHUFFLE(1,3,0,2)
+
+#if (!(defined(NO_INTRINSICS) || defined(NO_AVX2)) && (defined(__AVX__) || defined(__AVX2__)))
+#define ALIGNMENT 32
 #define HAS_AVX
+#endif
+
+#if (!(defined(NO_INTRINSICS) || defined(NO_AVX512)) && defined(__AVX512BW__) && defined(__AVX512F__) && defined(__AVX512DQ__))
+#ifdef ALIGNMENT
+#undef ALIGNMENT
+#define ALIGNMENT 64
+#endif
+#ifndef HAS_AVX
+#define HAS_AVX
+#endif
+#define HAS_AVX512
 #endif
 
 #if (defined(__SSE__) || defined(__SSE2__) || defined(__SSE3__) || defined(__SSE4_1__) \

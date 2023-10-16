@@ -19,49 +19,33 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "definitions.h"
 #include "matrix.h"
 #include "fmath.h"
 
-static inline void convertUint8ToFloat(const void *__restrict__ in, const uint32_t index,
-                                float *__restrict__ out) {
-
-    const uint8_t *buf = (uint8_t *) in;
-    float magA, magB;
-    out[0] = (float) (buf[index] + buf[index + 2] - 254);       // ar
-    out[1] = (float) (buf[index + 1] + buf[index + 3] - 254);   // aj
-    magA = frsqrtf(out[0] * out[0] + out[1] * out[1]);
-    out[0] *= magA;
-    out[1] *= magA;
-    out[2] = (float) (buf[index + 4] + buf[index + 6] - 254);   // br
-    out[3] = (float) -(buf[index + 5] + buf[index + 7] - 254);   // bj
-    magB = frsqrtf(out[2] * out[2] + out[3] * out[3]);
-    out[2] *= magB;
-    out[3] *= magB;
-}
-
-static inline void fmDemod(const void *__restrict__ buf,
+static inline void fmDemod(const void *__restrict__ in,
                            const uint32_t len,
                            const float gain,
                            float *__restrict__ result) {
 
-    static float out[4] = {0.f, 0.f, 0.f, 0.f};
-
+    float temp[4] = {0.f, 0.f, 0.f, 0.f};
+    const uint8_t *buf = in;
     uint32_t i;
-    float zr, zj, ac, bd, mag;
+    float zr, zj, ac, bd;
 
-    for (i = 0; i < len; i += 2) {
+    for (i = 0; i < len; i += 4) {
 
-        convertUint8ToFloat(buf, i, out);
+        temp[0] = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);       // ar
+        temp[1] = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);   // aj
+        temp[2] = (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
+        temp[3] = (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
 
-        ac = out[0] * out[2];
-        bd = out[1] * out[3];
+        ac = temp[0] * temp[2];
+        bd = temp[1] * temp[3];
         zr = ac - bd;
-        zj = (out[0] + out[1]) * (out[2] + out[3]) - (ac + bd);
-        mag = frsqrtf(zr*zr + zj*zj);
-        zr = 64.f * zj*mag * frcpf(23.f * zr*mag + 41.f);
+        zj = (temp[0] + temp[1]) * (temp[2] + temp[3]) - (ac + bd);
+        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
 
-        result[i >> 2] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
+        result[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
 }
 
@@ -69,7 +53,7 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
-    float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
+    float *result = calloc(DEFAULT_BUF_SIZE >> 3, sizeof(float));
 
     while (!args->exitFlag) {
 
@@ -80,7 +64,7 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         fmDemod(buf, DEFAULT_BUF_SIZE, args->gain, result);
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
     }
     free(buf);
     free(result);
@@ -89,5 +73,6 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
+
     *buf = calloc(len, 1);
 }

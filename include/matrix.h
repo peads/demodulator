@@ -20,13 +20,22 @@
 
 #ifndef DEMODULATOR_MATRIX_H
 #define DEMODULATOR_MATRIX_H
-#include <stdint.h>
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
 #include "prototypes.h"
 #include "definitions.h"
+#ifdef HAS_AVX
+#include <immintrin.h>
+#endif
+#if __GNUC__ < 10
+#include <math.h>
+#include <stdint.h>
+#endif
+#ifdef __INTEL_COMPILER
+#include <stdlib.h>
+#endif
 
 typedef struct {
     sem_t full, empty;
@@ -37,6 +46,17 @@ typedef struct {
     pthread_mutex_t mutex;
     float gain;
 } consumerArgs;
-
+#ifdef HAS_AVX
+typedef union {
+    __m256i v;
+    int8_t buf[32];
+} m256i_pun_t;
+#endif
+#ifdef HAS_AVX512
+typedef union {
+    __m512i v;
+    int8_t buf[64];
+} m512i_pun_t;
+#endif
 typedef void (*conversionFunction_t)(const void *__restrict__, const uint32_t, float *__restrict__);
 #endif //DEMODULATOR_MATRIX_H

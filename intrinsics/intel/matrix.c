@@ -17,29 +17,34 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
-
-#ifdef __INTEL_COMPILER
-#include <stdlib.h>
-#endif
-
-#include <immintrin.h>
 #include "matrix.h"
 
-typedef union {
-    __m256i v;
-    int8_t buf[32];
-} m256i_pun_t;
+static inline __m256i shiftOrigin(__m256i u) {
 
-static inline __m256i convert_epu8_epi8(__m256i u) {
-
-    static const __m256i Z = {
+    static const __m256i shift = {
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f};
 
-    return _mm256_add_epi8(u, Z);
+    return _mm256_add_epi8(u, shift);
+}
+
+static inline void convert_epi8_epi16(__m256i u, __m256i *hi, __m256i *lo) {
+
+    *hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
+    *lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+}
+
+static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
+
+    __m256i w;
+
+    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
+    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
+
+    ret[0] = _mm256_cvtepi32_ps(u);
+    ret[1] = _mm256_cvtepi32_ps(w);
 }
 
 static inline __m256i boxcarEpi8(__m256i u) {
@@ -57,75 +62,65 @@ static inline __m256i boxcarEpi8(__m256i u) {
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
-static inline void preNormMult(__m256 *u, __m256 *v) {
+static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
 
-    *v = _mm256_permute_ps(*u, 0xEB);
-    *u = _mm256_mul_ps(_mm256_permute_ps(*u, 0x5), *v);
+    const __m256i indexDCCD = _mm256_setr_epi8(
+            3, 2, 2, 3, 7, 6, 6, 7,
+            11, 10, 10, 11, 15, 14, 14, 15,
+            19, 18, 18, 19, 23, 22, 22, 23,
+            27, 26, 26, 27, 31, 30, 30, 31
+    );
+
+    const __m256i indexAB = _mm256_setr_epi8(
+            0, 1, 0, 1, 4, 5, 4, 5,
+            8, 9, 8, 9, 12, 13, 12, 13,
+            16, 17, 16, 17, 20, 21, 20, 21,
+            24, 25, 24, 25, 28, 29, 28, 29
+    );
+
+    const __m256i addSubIndex = _mm256_setr_epi16(
+            -1, 1, -1, 1, -1, 1, -1, 1,
+            -1, 1, -1, 1, -1, 1, -1, 1);
+
+    __m256i vlo, vhi,
+    v = _mm256_shuffle_epi8(u, indexDCCD);
+    u = _mm256_shuffle_epi8(u, indexAB);
+    convert_epi8_epi16(u, uhi, ulo);
+    convert_epi8_epi16(v, &vhi, &vlo);
+    *ulo = _mm256_mullo_epi16(*ulo, vlo);
+    *uhi = _mm256_mullo_epi16(*uhi, vhi);
+
+    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, ADBC_INDEX), ADBC_INDEX);
+    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, addSubIndex));
+    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, ADBC_INDEX), ADBC_INDEX);
+    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, addSubIndex));
 }
 
-static inline void preNormAddSubAdd(__m256 *u, __m256 *v, __m256 *w) {
-
-    *w = _mm256_permute_ps(*u, 0x8D);
-    *u = _mm256_addsub_ps(*u, *w);
-    *v = _mm256_mul_ps(*u, *u);
-    *w = _mm256_permute_ps(*v, 0x1B);
-    *v = _mm256_add_ps(*v, *w);
-}
-
-static float fmDemod(__m256 *M) {
+static float fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m256 w, y,
-            u = M[0],
-            v = M[2];
+    __m256 w;
 
-    // Norm
-    preNormMult(&u, &w);
-    preNormAddSubAdd(&u, &v, &w);
-    v = _mm256_rsqrt_ps(v);
-    u = _mm256_mul_ps(u, v);
+    // norm
+    w = _mm256_mul_ps(u, u);
+    w = _mm256_rsqrt_ps(_mm256_add_ps(w, _mm256_permute_ps(w, 0x1B)));
+    u = _mm256_mul_ps(u, w);
 
-    // fast atan2 -> atan2(x,y) = 64y/(23x+41)
+    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
     w = _mm256_mul_ps(u, all64s);                  // 64*zj
-    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41s
-    y = _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B));
-    u = _mm256_mul_ps(w, y);
+    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41
+    u = _mm256_mul_ps(w, _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B)));
 
-    v = _mm256_cmp_ps(u, u, 0);                           // NAN check
-    u = _mm256_and_ps(u, v);
+    w = _mm256_cmp_ps(u, u, 0);                           // NAN check
+    u = _mm256_and_ps(u, w);
 
     return u[5];
 }
 
-static inline void convert_epi8_ps(__m256i u, __m256 *__restrict__ ret) {
-
-    __m256i w,
-            v = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
-    u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
-
-    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
-    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
-
-    ret[0] = _mm256_cvtepi32_ps(u);
-    ret[1] = _mm256_cvtepi32_ps(w);
-
-    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(v, 1));
-    v = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(v));
-
-    ret[2] = _mm256_cvtepi32_ps(v);
-    ret[3] = _mm256_cvtepi32_ps(w);
-}
-
-static inline void demod(__m256 *__restrict__ M, float *__restrict__ result) {
-
-    result[0] = fmDemod(M);
-    result[1] = fmDemod(&M[1]);
-}
-
-static inline void demodEpi8(__m256i u, float *__restrict__ result) {
+static inline float demodEpi8(__m256i u) {
 
     static const __m256i negateBIm = {
             (int64_t) 0xff010101ff010101,
@@ -147,12 +142,12 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
 
     static m256i_pun_t prev;
 
-    __m256i hi;
+    float result;
+    __m256i hi, uhi, ulo;
     m256i_pun_t lo;
+    __m256 U[2];
 
-    __m256 M[4];
-
-    u = boxcarEpi8(convert_epu8_epi8(u));
+    u = boxcarEpi8(shiftOrigin(u));
 
     hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
     lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
@@ -160,23 +155,20 @@ static inline void demodEpi8(__m256i u, float *__restrict__ result) {
     prev.buf[28] = lo.buf[0];
     prev.buf[29] = lo.buf[1];
 
-    convert_epi8_ps(prev.v, M);
-    demod(M, result);
-    demod(&M[2], result);
-
-    convert_epi8_ps(lo.v, M);
-    demod(M, &result[2]);
-    demod(&M[2], &result[2]);
+    complexMultiply(prev.v, &ulo, &uhi);
+    convert_epi16_ps(uhi, U);
+    result = fmDemod(U[1]);
 
     prev.v = hi;
+    return result;
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    size_t i, j;
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, 32);
-    float result[DEFAULT_BUF_SIZE >> 3];
+    size_t i;
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
+    float result[DEFAULT_BUF_SIZE >> 5];
     __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
@@ -186,14 +178,14 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 32, j += 4) {
-            demodEpi8(*(__m256i *) (buf + i), result + j);
-
-            if (*(float *) &args->gain) {
-                _mm256_mul_ps(*(__m256 *) &result, gain);
-            }
+        for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
+            result[i >> 5] = demodEpi8(*(__m256i *) (buf + i));
         }
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
+
+        if (*(float *) &args->gain) {
+            _mm256_mul_ps(*(__m256 *) &result, gain);
+        }
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 5, args->outFile);
     }
 
     _mm_free(buf);
@@ -201,5 +193,6 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
-    *buf = _mm_malloc(len, 32);
+
+    *buf = _mm_malloc(len, ALIGNMENT);
 }

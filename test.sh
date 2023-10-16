@@ -56,6 +56,10 @@ function findCompiler() {
   eval $__resultvar="'$result'"
 }
 
+function executeTimedRun() {
+   time build/demodulator -i uint8.dat -o file
+}
+
 function executeRun() {
   sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r512k - 2>/dev/null \
     | tee -i uint8.dat \
@@ -96,14 +100,42 @@ for compiler in ${compilers[@]}; do
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=OFF" | grep "The C compiler identification"
   executeRun $compiler "128k" 1
 
+  echo ":: STARTING TIMED RUNS FOR: ${compiler} (default options)"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} (default options)"
+  rm -rf file uint8.dat
+
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
-  executeRun $compiler "128k" 1
+  executeRun $compiler "32k" 1
+
+  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
+  rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
-  executeRun $compiler "256k" $gain
+  executeRun $compiler "128k" 1
+
+  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+  rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
-  executeRun $compiler "256k" 1
+  executeRun $compiler "128k" 1
+
+  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_INTRINSICS=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DNO_INTRINSICS=ON"
+  rm -rf file uint8.dat
 
   i=$(( i + 1 ))
 #  waitForUserIntput $i
