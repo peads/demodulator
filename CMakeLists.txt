@@ -16,18 +16,6 @@ if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 endif()
 
-if(NO_AVX2)
-    add_compile_definitions(NO_AVX2=${NO_AVX2})
-endif()
-
-if(NO_AVX512)
-    add_compile_definitions(NO_AVX512=${NO_AVX512})
-endif()
-
-if(NO_INTRINSICS)
-    add_compile_definitions(NO_INTRINSICS=${NO_INTRINSICS})
-endif()
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
 target_architecture(TARGET_ARCH)
@@ -124,6 +112,7 @@ else()
     set(NO_INTRINSICS ON)
     set(NO_AVX2 ON)
     set(NO_AVX512 ON)
+    set(NO_NEON ON)
 endif()
 
 if (IS_VERBOSE)
@@ -186,4 +175,16 @@ if (IS_VERBOSE)
     message("-- CMAKE_C_FLAGS=${CMAKE_C_FLAGS}")
     message("-- CMAKE_ASM_FLAGS=${CMAKE_ASM_FLAGS}")
     message("-- CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS}")
+endif()
+
+if(NO_AVX2)
+    add_compile_definitions(NO_AVX2=${NO_AVX2})
+endif()
+
+if(NO_AVX512)
+    add_compile_definitions(NO_AVX512=${NO_AVX512})
+endif()
+
+if(NO_INTRINSICS)
+    add_compile_definitions(NO_INTRINSICS=${NO_INTRINSICS})
 endif()

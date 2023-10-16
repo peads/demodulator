@@ -187,7 +187,7 @@ static inline void demodEpi8(uint8x16_t buf, float *__restrict__ result) {
     };
 
     int16x8_t M[4];
-    int8x16_t lo, hi, u = heterodyne(buf);
+    int8x16_t lo, hi, u = convert_epu8_epi8(buf);
     u = boxcarEpi8(u);
     hi = vqtbl1q_s8(u, indexHi);
     hi = vmulq_s8(hi, negateBIm);

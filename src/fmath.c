@@ -58,6 +58,8 @@ float frsqrtf(float x) {
     return x;
 }
 #else
+#include <stdint.h>
+#include <math.h>
 // both of the following are first-order Newton-Raphson approximations
 // that have been modified from the original to use a union to prevent
 // undefined behavior inherent with lax aliasing
@@ -67,7 +69,7 @@ float frsqrtf(float x) {
 float frcpf(float x) {
 
     union {
-        float fits;
+        float f;
         uint32_t i;
     } v = {x};
     const uint8_t sgn = signbit(x);

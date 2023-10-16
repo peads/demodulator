@@ -27,12 +27,12 @@
 
 #define ADBC_INDEX _MM_SHUFFLE(1,3,0,2)
 
-#if (!defined(NO_INTRINSICS) && !defined(NO_AVX2) && (defined(__AVX__) || defined(__AVX2__)))
+#if (!(defined(NO_INTRINSICS) || defined(NO_AVX2)) && (defined(__AVX__) || defined(__AVX2__)))
 #define ALIGNMENT 32
 #define HAS_AVX
 #endif
 
-#if (!defined(NO_INTRINSICS) && !defined(NO_AVX512) && defined(__AVX512BW__) && defined(__AVX512F__) && defined(__AVX512DQ__))
+#if (!(defined(NO_INTRINSICS) || defined(NO_AVX512)) && defined(__AVX512BW__) && defined(__AVX512F__) && defined(__AVX512DQ__))
 #ifdef ALIGNMENT
 #undef ALIGNMENT
 #define ALIGNMENT 64

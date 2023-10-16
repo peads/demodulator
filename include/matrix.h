@@ -20,7 +20,6 @@
 
 #ifndef DEMODULATOR_MATRIX_H
 #define DEMODULATOR_MATRIX_H
-#include <stdint.h>
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
