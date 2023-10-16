@@ -16,6 +16,18 @@ if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 endif()
 
+if(NO_AVX2)
+    add_compile_definitions(NO_AVX2=${NO_AVX2})
+endif()
+
+if(NO_AVX512)
+    add_compile_definitions(NO_AVX512=${NO_AVX512})
+endif()
+
+if(NO_INTRINSICS)
+    add_compile_definitions(NO_INTRINSICS=${NO_INTRINSICS})
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
 target_architecture(TARGET_ARCH)

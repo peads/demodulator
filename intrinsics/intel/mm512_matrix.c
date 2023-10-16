@@ -17,19 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
-
-#ifdef __INTEL_COMPILER
-#include <stdlib.h>
-#endif
-
-#include <immintrin.h>
 #include "matrix.h"
-
-typedef union {
-    __m512i v;
-    int8_t buf[64];
-} m512i_pun_t;
 
 // taken from https://stackoverflow.com/a/55745816
 static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
@@ -147,9 +135,8 @@ static inline __m512 fmDemod(__m512 *M) {
     v = _mm512_sqrt_ps(v);
     u = _mm512_mul_ps(u, v);
 
-    // fast atan2 -> atan2(x,y) = 64y/(23x+41)
-    w = _mm512_mul_ps(u, all64s);                  // 64*zj
-    u = _mm512_fmadd_ps(all23s, u, all41s);     // 23*zr + 41s
+    w = _mm512_mul_ps(u, all64s);
+    u = _mm512_fmadd_ps(all23s, u, all41s);
     y = _mm512_rcp14_ps(_mm512_permute_ps(u, 0x1B));
     u = _mm512_mul_ps(w, y);
 
@@ -239,8 +226,8 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i, j;
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, 64);
-    __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(64))); // TODO change this to a float array
+    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
+    __m64 result[DEFAULT_BUF_SIZE >> 4] __attribute__((aligned(ALIGNMENT))); // TODO change this to a float array
     __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
 
     while (!args->exitFlag) {

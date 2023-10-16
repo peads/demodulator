@@ -17,19 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
-
-#ifdef __INTEL_COMPILER
-#include <stdlib.h>
-#endif
-
-#include <immintrin.h>
 #include "matrix.h"
-size_t iterations = 0;
-typedef union {
-    __m256i v;
-    int8_t buf[32];
-} m256i_pun_t;
 
 static inline __m256i shiftOrigin(__m256i u) {
 
@@ -76,36 +64,36 @@ static inline __m256i boxcarEpi8(__m256i u) {
 
 static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
 
-    const __m256i indexHiSymmetry = _mm256_setr_epi8(
+    const __m256i indexDCCD = _mm256_setr_epi8(
             3, 2, 2, 3, 7, 6, 6, 7,
             11, 10, 10, 11, 15, 14, 14, 15,
             19, 18, 18, 19, 23, 22, 22, 23,
             27, 26, 26, 27, 31, 30, 30, 31
     );
 
-    const __m256i indexLoDuplicateReverse = _mm256_setr_epi8(
+    const __m256i indexAB = _mm256_setr_epi8(
             0, 1, 0, 1, 4, 5, 4, 5,
             8, 9, 8, 9, 12, 13, 12, 13,
             16, 17, 16, 17, 20, 21, 20, 21,
             24, 25, 24, 25, 28, 29, 28, 29
     );
 
-    const __m256i negs = _mm256_setr_epi16(
+    const __m256i addSubIndex = _mm256_setr_epi16(
             -1, 1, -1, 1, -1, 1, -1, 1,
             -1, 1, -1, 1, -1, 1, -1, 1);
 
     __m256i vlo, vhi,
-    v = _mm256_shuffle_epi8(u, indexHiSymmetry);
-    u = _mm256_shuffle_epi8(u, indexLoDuplicateReverse);
+    v = _mm256_shuffle_epi8(u, indexDCCD);
+    u = _mm256_shuffle_epi8(u, indexAB);
     convert_epi8_epi16(u, uhi, ulo);
     convert_epi8_epi16(v, &vhi, &vlo);
     *ulo = _mm256_mullo_epi16(*ulo, vlo);
     *uhi = _mm256_mullo_epi16(*uhi, vhi);
 
-    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, SHUF_INDEX), SHUF_INDEX); // 2031_4
-    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, negs));
-    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, SHUF_INDEX), SHUF_INDEX); // 2031_4
-    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, negs));
+    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, ADBC_INDEX), ADBC_INDEX);
+    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, addSubIndex));
+    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, ADBC_INDEX), ADBC_INDEX);
+    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, addSubIndex));
 }
 
 static float fmDemod(__m256 u) {
@@ -121,14 +109,14 @@ static float fmDemod(__m256 u) {
     w = _mm256_rsqrt_ps(_mm256_add_ps(w, _mm256_permute_ps(w, 0x1B)));
     u = _mm256_mul_ps(u, w);
 
-    // fast atan2 -> atan2(x,y) = 64y/(23x+41)
+    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
     w = _mm256_mul_ps(u, all64s);                  // 64*zj
-    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41s
+    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41
     u = _mm256_mul_ps(w, _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B)));
 
     w = _mm256_cmp_ps(u, u, 0);                           // NAN check
     u = _mm256_and_ps(u, w);
-    iterations++;
+
     return u[5];
 }
 
@@ -154,7 +142,7 @@ static inline float demodEpi8(__m256i u) {
 
     static m256i_pun_t prev;
 
-    float result[8];
+    float result;
     __m256i hi, uhi, ulo;
     m256i_pun_t lo;
     __m256 U[2];
@@ -168,23 +156,11 @@ static inline float demodEpi8(__m256i u) {
     prev.buf[29] = lo.buf[1];
 
     complexMultiply(prev.v, &ulo, &uhi);
-    convert_epi16_ps(ulo, U);
-    result[0] =fmDemod(U[0]);
-    result[1] =fmDemod(U[1]);
     convert_epi16_ps(uhi, U);
-    result[2] =fmDemod(U[0]);
-    result[3] = fmDemod(U[1]);
-
-    complexMultiply(lo.v, &ulo, &uhi);
-    convert_epi16_ps(ulo, U);
-    result[4] =fmDemod(U[0]);
-    result[5] =fmDemod(U[1]);
-    convert_epi16_ps(uhi, U);
-    result[6] =fmDemod(U[0]);
-    result[7] = fmDemod(U[1]);
+    result = fmDemod(U[1]);
 
     prev.v = hi;
-    return result[3];
+    return result;
 }
 
 void *processMatrix(void *ctx) {

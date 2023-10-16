@@ -58,11 +58,16 @@ float frsqrtf(float x) {
     return x;
 }
 #else
-
+// both of the following are first-order Newton-Raphson approximations
+// that have been modified from the original to use a union to prevent
+// undefined behavior inherent with lax aliasing
+/// taken from https://stackoverflow.com/a/43245460 and modified as above, but
+/// also replaces multiplication by the unit-sign value of the input with using
+/// the sign-bit to conditionally assign the necessary values, or their negation
 float frcpf(float x) {
 
     union {
-        float f;
+        float fits;
         uint32_t i;
     } v = {x};
     const uint8_t sgn = signbit(x);
@@ -72,12 +77,16 @@ float frcpf(float x) {
     v.i = -v.i + 0x7EF127EA;
 
     // Efficient Iterative Approximation Improvement in horner polynomial form.
-    v.f = v.f * (-x * -v.f + 2.f);     // Single iteration, Err = -3.36e-3 * 2^(-flr(log2(x)))
-    // v.f = v.f * ( 4 + w * (-6 + w * (4 - w)));  // Second iteration, Err = -1.13e-5 * 2^(-flr(log2(x)))
-    // v.f = v.f * (8 + w * (-28 + w * (56 + w * (-70 + w *(56 + w * (-28 + w * (8 - w)))))));  // Third Iteration, Err = +-6.8e-8 *  2^(-flr(log2(x)))
+    // Single iteration, Err = -3.36e-3 * 2^(-flr(log2(x)))
+    v.f = v.f * (-x * -v.f + 2.f);
+    // Second iteration, Err = -1.13e-5 * 2^(-flr(log2(x)))
+    // v.f = v.f * ( 4 + w * (-6 + w * (4 - w)));
+    // Third Iteration, Err = +-6.8e-8 *  2^(-flr(log2(x)))
+    // v.f = v.f * (8 + w * (-28 + w * (56 + w * (-70 + w *(56 + w * (-28 + w * (8 - w)))))));
 
     return sgn ? -v.f : v.f ;
 }
+/// John Carmack's Quake fast reciprocal square-root
 float frsqrtf(float y) {
 
     union {
