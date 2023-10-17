@@ -112,15 +112,19 @@ static inline __m512 fmDemod(__m512 u) {
     __m512 w, v;
 
     u = complexMult(u);
-    // Norm
+    // Norm(z)+41
     v = _mm512_mul_ps(u, u);
-    v = _mm512_add_ps(v, _mm512_permute_ps(v, 0x1B));
-    v = _mm512_sqrt_ps(v);
-    u = _mm512_mul_ps(u, v);
+    v = _mm512_mul_ps(_mm512_sqrt_ps(_mm512_add_ps(v, _mm512_permute_ps(v, 0x1B))), all41s);
+//    u = _mm512_mul_ps(u, v);
 
+    // fatan2(y,x) = 64*y/(23*x+41), x > 0 || y != 0
+    // => fatan2(zj/||z||, zr/||z||) = 64*zj/Sqrt[zr^2+zj^2]/(23*zr/Sqrt[zr^2+zj^2]+41)
+    // = 64*zj/(Sqrt[zr^2+zj^2]*(23*zr/Sqrt[zr^2+zj^2]+41)) = 64*zj/(23*zr+41*||z||)
     w = _mm512_mul_ps(u, all64s);
-    u = _mm512_fmadd_ps(all23s, u, all41s);
-    u = _mm512_mul_ps(w, _mm512_rcp14_ps(_mm512_permute_ps(u, 0x1B)));
+//    u = _mm512_mul_ps(w, _mm512_rcp14_ps(_mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B)));
+    u = _mm512_div_ps(w, _mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B));
+
+//    u = _mm512_mul_ps(w, _mm512_rcp14_ps(_mm512_permute_ps(u, 0x1B)));
 
     // NAN check
     return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
