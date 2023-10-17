@@ -27,7 +27,7 @@ static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
     return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
 }
 
-static inline __m512i convert_epu8_epi8(__m512i u) {
+static inline __m512i shiftOrigin(__m512i u) {
 
     static const __m512i Z = {
             -0x7f7f7f7f7f7f7f7f,
@@ -42,23 +42,23 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convert_epi8_ps(__m512i u, __m512 *ret) {
+static void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
 
-    __m512i w,
-            v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
+    __m512i uHi32,
+            uHi16 = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
     u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
 
-    w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
+    uHi32 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
     u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
 
     ret[0] = _mm512_cvtepi32_ps(u);
-    ret[1] = _mm512_cvtepi32_ps(w);
+    ret[1] = _mm512_cvtepi32_ps(uHi32);
 
-    w = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1));
-    v = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(v));
+    uHi32 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(uHi16, 1));
+    uHi16 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(uHi16));
 
-    ret[2] = _mm512_cvtepi32_ps(v);
-    ret[3] = _mm512_cvtepi32_ps(w);
+    ret[2] = _mm512_cvtepi32_ps(uHi16);
+    ret[3] = _mm512_cvtepi32_ps(uHi32);
 }
 
 static inline __m512i boxcarEpi8(__m512i u) {
@@ -95,7 +95,7 @@ static inline __m512 complexMult(__m512 u) {
     return _mm512_fmaddsub_ps(ONES, u, _mm512_permute_ps(u, 0x8D));
 }
 
-static inline __m512 fmDemod(__m512 u) {
+static __m512 fmDemod(__m512 u) {
 
     static const __m512 all64s = {
             64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
@@ -123,19 +123,7 @@ static inline __m512 fmDemod(__m512 u) {
     return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
 }
 
-static inline void demod(__m512 *M, float *result) {
-
-    __m512 res;
-
-    res = fmDemod(M[0]);
-    result[0] = res[5];
-    result[1] = res[13];
-    res = fmDemod(M[1]);
-    result[2] = res[5];
-    result[3] = res[13];
-}
-
-static inline void demodEpi8(__m512i u, float *result) {
+static void demodEpi8(__m512i u, float *__restrict__ result) {
 
     static const __m512i negateBIm = {
             (int64_t) 0xff010101ff010101,
@@ -170,11 +158,10 @@ static inline void demodEpi8(__m512i u, float *result) {
     static m512i_pun_t prev;
 
     __m512i hi;
+    __m512 res, M[4];
     m512i_pun_t lo;
 
-    __m512 M[4];
-
-    u = boxcarEpi8(convert_epu8_epi8(u));
+    u = boxcarEpi8(shiftOrigin(u));
     hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
     lo.v = conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm);
 
@@ -182,12 +169,34 @@ static inline void demodEpi8(__m512i u, float *result) {
     prev.buf[61] = lo.buf[1];
 
     convert_epi8_ps(prev.v, M);
-    demod(M, result);
-    demod(&M[2], &(result[4]));
+    res = fmDemod(M[0]);
+    result[0] = res[5];
+    result[1] = res[13];
+    res = fmDemod(M[1]);
+    result[2] = res[5];
+    result[3] = res[13];
+
+    res = fmDemod(M[2]);
+    result[4] = res[5];
+    result[5] = res[13];
+    res = fmDemod(M[3]);
+    result[6] = res[5];
+    result[7] = res[13];
 
     convert_epi8_ps(lo.v, M);
-    demod(M, &(result[8]));
-    demod(&M[2], &(result[12]));
+    res = fmDemod(M[0]);
+    result[8] = res[5];
+    result[9] = res[13];
+    res = fmDemod(M[1]);
+    result[10] = res[5];
+    result[11] = res[13];
+
+    res = fmDemod(M[2]);
+    result[12] = res[5];
+    result[13] = res[13];
+    res = fmDemod(M[3]);
+    result[14] = res[5];
+    result[15] = res[13];
 
     prev.v = hi;
 }
