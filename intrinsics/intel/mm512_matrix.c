@@ -82,7 +82,7 @@ static inline __m512i boxcarEpi8(__m512i u) {
     return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
 }
 
-static inline void complexMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
+static inline __m512 complexMult(__m512 u) {
 
     static const __m512 ONES = {
             1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
@@ -92,24 +92,12 @@ static inline void complexMult(__m512 *__restrict__ u, __m512 *__restrict__ v) {
     // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
     // {aj, bj, ar, br, cj, dj, cr, dr}
     // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    *v = _mm512_permute_ps(*u, 0xEB);
-    *u = _mm512_mul_ps(_mm512_permute_ps(*u, 0x5), *v);
-    *u = _mm512_fmaddsub_ps(ONES, *u, _mm512_permute_ps(*u, 0x8D));
+    __m512 v = _mm512_permute_ps(u, 0xEB);
+    u = _mm512_mul_ps(_mm512_permute_ps(u, 0x5), v);
+    return _mm512_fmaddsub_ps(ONES, u, _mm512_permute_ps(u, 0x8D));
 }
 
-static inline void preNorm(__m512 *__restrict__ u, __m512 *__restrict__ v) {
-
-    // {(ar-aj)^2, (aj+bj)^2, (br-ar)^2, (bj+br)^2, (cr-cj)^2, (cj+dj)^2, (dr-cr)^2, (dj+dr)^2}
-    // {ar^2, aj^2, br^2, bj^2, cr^2, cj^2, dr^2, dj^2} + {bj^2, br^2, aj^2, ar^2, ... }
-    // = {ar^2+bj^2, aj^2+br^2, br^2+aj^2, bj^2+ar^2, ... }
-    *v = _mm512_mul_ps(*u, *u);
-    *v = _mm512_add_ps(*v, _mm512_permute_ps(*v, 0x1B));
-}
-
-static inline __m512 fmDemod(__m512 *M) {
-
-    //_mm512_setr_epi32(5,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
-//    static const __m512i index = {0xd00000005};
+static inline __m512 fmDemod(__m512 u) {
 
     static const __m512 all64s = {
             64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
@@ -121,11 +109,12 @@ static inline __m512 fmDemod(__m512 *M) {
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m512 w, u = M[0], v = M[2];
+    __m512 w, v;
 
+    u = complexMult(u);
     // Norm
-    complexMult(&u, &v);
-    preNorm(&u, &v);
+    v = _mm512_mul_ps(u, u);
+    v = _mm512_add_ps(v, _mm512_permute_ps(v, 0x1B));
     v = _mm512_sqrt_ps(v);
     u = _mm512_mul_ps(u, v);
 
@@ -135,22 +124,21 @@ static inline __m512 fmDemod(__m512 *M) {
 
     // NAN check
     return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
-//    return _mm512_permutexvar_ps(index, _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u));
 }
 
-static inline void demod(__m512 *__restrict__ M, float *__restrict__ result) {
+static inline void demod(__m512 *__restrict__ M, float *result) {
 
     __m512 res;
 
-    res = fmDemod(M);
+    res = fmDemod(M[0]);
     result[0] = res[5];
     result[1] = res[13];
-    res = fmDemod(&M[1]);
+    res = fmDemod(M[1]);
     result[2] = res[5];
     result[3] = res[13];
 }
 
-static inline void demodEpi8(__m512i u, float *__restrict__ result) {
+static inline void demodEpi8(__m512i u, float *result) {
 
     static const __m512i negateBIm = {
             (int64_t) 0xff010101ff010101,
@@ -223,7 +211,7 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
     size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    float result[DEFAULT_BUF_SIZE >> 3] __attribute__((aligned(ALIGNMENT))); // TODO change this to a float array
+    float result[DEFAULT_BUF_SIZE >> 3] __attribute__((aligned(ALIGNMENT)));
     __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
 
     while (!args->exitFlag) {
