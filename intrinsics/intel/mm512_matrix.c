@@ -29,7 +29,7 @@ static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
 
 static inline __m512i shiftOrigin(__m512i u) {
 
-    static const __m512i Z = {
+    static const __m512i shift = {
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f,
@@ -39,7 +39,7 @@ static inline __m512i shiftOrigin(__m512i u) {
             -0x7f7f7f7f7f7f7f7f,
             -0x7f7f7f7f7f7f7f7f};
 
-    return _mm512_add_epi8(u, Z);
+    return _mm512_add_epi8(u, shift);
 }
 
 static void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
@@ -117,7 +117,8 @@ static __m512 fmDemod(__m512 u) {
     // fatan2(y,x) = 64*y/(23*x+41), x > 0 || y != 0
     // => fatan2(zj/||z||, zr/||z||) = 64*zj/Sqrt[zr^2+zj^2]/(23*zr/Sqrt[zr^2+zj^2]+41)
     // = 64*zj/(Sqrt[zr^2+zj^2]*(23*zr/Sqrt[zr^2+zj^2]+41)) = 64*zj/(23*zr+41*||z||)
-    u = _mm512_div_ps(_mm512_mul_ps(u, all64s), _mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B));
+//    u = _mm512_div_ps(_mm512_mul_ps(u, all64s), _mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B));
+    u = _mm512_mul_ps(_mm512_mul_ps(u, all64s), _mm512_rcp14_ps(_mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B)));
 
     // NAN check
     return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
