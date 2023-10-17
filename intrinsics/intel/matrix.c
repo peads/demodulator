@@ -36,7 +36,7 @@ static inline void convert_epi8_epi16(__m256i u, __m256i *hi, __m256i *lo) {
     *lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 }
 
-static inline void convert_epi16_ps(__m256i u, __m256 *__restrict__ ret) {
+static inline void convert_epi16_ps(__m256i u, __m256 *ret) {
 
     __m256i w;
 
@@ -62,7 +62,7 @@ static inline __m256i boxcarEpi8(__m256i u) {
     return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
 }
 
-static inline void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
+static void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
 
     const __m256i indexDCCD = _mm256_setr_epi8(
             3, 2, 2, 3, 7, 6, 6, 7,
@@ -102,20 +102,16 @@ static float fmDemod(__m256 u) {
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    __m256 w;
-
     // norm
-    w = _mm256_mul_ps(u, u);
-    w = _mm256_rsqrt_ps(_mm256_add_ps(w, _mm256_permute_ps(w, 0x1B)));
-    u = _mm256_mul_ps(u, w);
+    __m256 v = _mm256_mul_ps(u, u);
+    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
 
     // fast atan2 -> atan2(y,x) = 64y/(23x+41)
-    w = _mm256_mul_ps(u, all64s);                  // 64*zj
-    u = _mm256_fmadd_ps(all23s, u, all41s);     // 23*zr + 41
-    u = _mm256_mul_ps(w, _mm256_rcp_ps(_mm256_permute_ps(u, 0x1B)));
+    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
+            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
 
-    w = _mm256_cmp_ps(u, u, 0);                           // NAN check
-    u = _mm256_and_ps(u, w);
+    // NAN check
+    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
 
     return u[5];
 }
