@@ -42,7 +42,7 @@ static inline __m512i convert_epu8_epi8(__m512i u) {
     return _mm512_add_epi8(u, Z);
 }
 
-static inline void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
+static inline void convert_epi8_ps(__m512i u, __m512 *ret) {
 
     __m512i w,
             v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
@@ -87,13 +87,11 @@ static inline __m512 complexMult(__m512 u) {
     static const __m512 ONES = {
             1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
             1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
-    //  {bj, br, br, bj, bj, br, br, bj} *
-    //  {aj, aj, ar, ar, cj, cj, cr, cr}
-    // = {aj*bj, aj*br, ar*br, ar*bj, bj*cj, br*cj, br*cr, bj*cr}
-    // {aj, bj, ar, br, cj, dj, cr, dr}
-    // {ar-aj, aj+bj, br-ar, bj+br, cr-cj, cj+dj, dr-cr, dj+dr}
-    __m512 v = _mm512_permute_ps(u, 0xEB);
-    u = _mm512_mul_ps(_mm512_permute_ps(u, 0x5), v);
+    // input: z := {a, b, c, d, ...}, z in Complex
+    // {d, c, c, d, ...} * {a, b, a, b, ...} = {da, cb, ca, bd, ...}
+    // {ad, bc, ac, bd, ...} (addsub) {ac, ad, bd, bc, ...}
+    // = {ad - ac, ad + bc, ac - bd, bd + bc, ... }
+    u = _mm512_mul_ps(_mm512_permute_ps(u, 0x5), _mm512_permute_ps(u, 0xEB));
     return _mm512_fmaddsub_ps(ONES, u, _mm512_permute_ps(u, 0x8D));
 }
 
@@ -125,7 +123,7 @@ static inline __m512 fmDemod(__m512 u) {
     return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
 }
 
-static inline void demod(__m512 *__restrict__ M, float *result) {
+static inline void demod(__m512 *M, float *result) {
 
     __m512 res;
 
@@ -174,8 +172,7 @@ static inline void demodEpi8(__m512i u, float *result) {
     __m512i hi;
     m512i_pun_t lo;
 
-    __m512 M[6];
-    __m512 temp[2];
+    __m512 M[4];
 
     u = boxcarEpi8(convert_epu8_epi8(u));
     hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
@@ -185,22 +182,12 @@ static inline void demodEpi8(__m512i u, float *result) {
     prev.buf[61] = lo.buf[1];
 
     convert_epi8_ps(prev.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
     demod(M, result);
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[4]));
+    demod(&M[2], &(result[4]));
 
     convert_epi8_ps(lo.v, M);
-    temp[0] = M[2];
-    temp[1] = M[3];
-
     demod(M, &(result[8]));
-    M[0] = temp[0];
-    M[1] = temp[1];
-    demod(M, &(result[12]));
+    demod(&M[2], &(result[12]));
 
     prev.v = hi;
 }
