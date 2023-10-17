@@ -169,32 +169,34 @@ static void demodEpi8(__m512i u, float *__restrict__ result) {
     prev.buf[61] = lo.buf[1];
 
     convert_epi8_ps(prev.v, M);
-    res = fmDemod(M[0]);
+    res = fmDemod(M[1]);
     result[0] = res[5];
     result[1] = res[13];
-    res = fmDemod(M[1]);
-    result[2] = res[5];
-    result[3] = res[13];
 
     res = fmDemod(M[2]);
+    result[2] = res[5];
+    result[3] = res[13];
+    res = fmDemod(M[3]);
     result[4] = res[5];
     result[5] = res[13];
-    res = fmDemod(M[3]);
-    result[6] = res[5];
-    result[7] = res[13];
 
     convert_epi8_ps(lo.v, M);
     res = fmDemod(M[0]);
+    result[6] = res[5];
+    result[7] = res[13];
+    res = fmDemod(M[1]);
     result[8] = res[5];
     result[9] = res[13];
-    res = fmDemod(M[1]);
-    result[10] = res[5];
-    result[11] = res[13];
 
     res = fmDemod(M[2]);
+    result[10] = res[5];
+    result[11] = res[13];
+    res = fmDemod(M[3]);
     result[12] = res[5];
     result[13] = res[13];
-    res = fmDemod(M[3]);
+
+    convert_epi8_ps(hi, M);
+    res = fmDemod(M[0]);
     result[14] = res[5];
     result[15] = res[13];
 
