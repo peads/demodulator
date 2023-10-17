@@ -221,7 +221,7 @@ static inline void demodEpi8(__m512i u, float *__restrict__ result) {
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
-    size_t i, j;
+    size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     float result[DEFAULT_BUF_SIZE >> 3] __attribute__((aligned(ALIGNMENT))); // TODO change this to a float array
     __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
@@ -233,14 +233,14 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-        for (i = 0, j = 0; i < DEFAULT_BUF_SIZE; i += 64, j += 8) {
-            demodEpi8(*(__m512i *) (buf + i), result + j);
+        for (i = 0; i < DEFAULT_BUF_SIZE; i += 64) {
+            demodEpi8(*(__m512i *) (buf + i), result + (i >> 3));
 
             if (*(float *) &args->gain) {
                 _mm512_mul_ps(*(__m512 *) &result, gain);
             }
         }
-        fwrite(result, sizeof(__m64), DEFAULT_BUF_SIZE >> 4, args->outFile);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
     }
 
     _mm_free(buf);
