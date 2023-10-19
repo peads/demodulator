@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     73671,       1462]
-NotebookOptionsPosition[      9214,        216]
-NotebookOutlinePosition[     73717,       1464]
-CellTagsIndexPosition[     73674,       1461]
+NotebookDataLength[     73274,       1449]
+NotebookOptionsPosition[      8813,        203]
+NotebookOutlinePosition[     73320,       1451]
+CellTagsIndexPosition[     73277,       1448]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -165,20 +165,7 @@ Cell[BoxData[
     RowBox[{
      RowBox[{"f", "[", "t", "]"}], ",", 
      RowBox[{"{", 
-      RowBox[{"t", ",", "0", ",", "2"}], "}"}]}], "]"}], 
-   "\[IndentingNewLine]", 
-   RowBox[{"(*", 
-    RowBox[{
-     RowBox[{"m", "[", "t_", "]"}], ":=", 
-     RowBox[{"Integrate", "[", 
-      RowBox[{
-       RowBox[{
-        RowBox[{"Sin", "[", 
-         RowBox[{"2", " ", "Pi", " ", "t", " ", "30"}], "]"}], "+", 
-        RowBox[{"2", " ", 
-         RowBox[{"Sin", "[", 
-          RowBox[{"2", "Pi", " ", "t", " ", "60"}], "]"}]}]}], ",", " ", 
-       "t"}], "]"}]}], "*)"}]}]}]], "Input",
+      RowBox[{"t", ",", "0", ",", "2"}], "}"}]}], "]"}]}]}]], "Input",
  CellChangeTimes->{{3.9066553339490595`*^9, 3.9066553949607086`*^9}, {
    3.906655448993554*^9, 3.9066555494737225`*^9}, {3.9066555889937572`*^9, 
    3.9066557150805693`*^9}, {3.90665575218824*^9, 3.9066558221546764`*^9}, {
@@ -210,12 +197,12 @@ Cell[BoxData[
    3.906664570847831*^9}, {3.906664606447692*^9, 3.906664702645239*^9}, {
    3.9066647516999035`*^9, 3.9066647591111403`*^9}, {3.906664981481186*^9, 
    3.906664991804371*^9}, {3.906665041343601*^9, 3.906665052315037*^9}, {
-   3.9066651162556677`*^9, 3.906665126855527*^9}},
+   3.9066651162556677`*^9, 3.906665126855527*^9}, 3.9066763510744915`*^9},
  CellLabel->
-  "In[1295]:=",ExpressionUUID->"3d02c242-9e96-47c4-8753-6d3fd21d791f"]
+  "In[2168]:=",ExpressionUUID->"3d02c242-9e96-47c4-8753-6d3fd21d791f"]
 },
-WindowSize->{1142.25, 648.75},
-WindowMargins->{{0, Automatic}, {Automatic, 0}},
+WindowSize->{574.5, 652.875},
+WindowMargins->{{Automatic, -4.125}, {Automatic, 0}},
 DockedCells->{
   Cell[
    BoxData[
@@ -1463,7 +1450,7 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 8652, 194, 595, "Input",ExpressionUUID->"3d02c242-9e96-47c4-8753-6d3fd21d791f"]
+Cell[558, 20, 8251, 181, 747, "Input",ExpressionUUID->"3d02c242-9e96-47c4-8753-6d3fd21d791f"]
 }
 ]
 *)
