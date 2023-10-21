@@ -21,11 +21,16 @@
 
 static inline __m256i shiftOrigin(__m256i u) {
 
-    static const __m256i shift = {
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f};
+//    static const __m256i shift = {
+//            -0x7f7f7f7f7f7f7f7f,
+//            -0x7f7f7f7f7f7f7f7f,
+//            -0x7f7f7f7f7f7f7f7f,
+//            -0x7f7f7f7f7f7f7f7f};
+    const __m256i shift = _mm256_setr_epi8(
+            -127,-127,-127,-127,-127,-127,-127,-127,
+            -127,-127,-127,-127,-127,-127,-127,-127,
+            -127,-127,-127,-127,-127,-127,-127,-127,
+            -127,-127,-127,-127,-127,-127,-127,-127);
 
     return _mm256_add_epi8(u, shift);
 }
