@@ -101,7 +101,7 @@ static __m256 fmDemod(__m256 u) {
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-    
+
     // fast atan2 -> atan2(y,x) = 64y/(23x+41*Sqrt[x^2+y^2])
     // 1/23*x+41*hypot
     __m256 v = _mm256_mul_ps(u, u);
@@ -113,7 +113,7 @@ static __m256 fmDemod(__m256 u) {
     // NAN check
     u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
 
-    return u;
+    return _mm256_permutevar8x32_ps(u, _mm256_setr_epi32(1,3,5,7,0,2,3,6));
 }
 
 //TODO implement a lowpass filter
@@ -137,7 +137,7 @@ void *processMatrix(void *ctx) {
             if (*(float *) &args->gain) {
                 _mm256_mul_ps(*(__m256 *) &result, gain);
             }
-            fwrite(&result, sizeof(__m256), 1, args->outFile);
+            fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
 
     }
