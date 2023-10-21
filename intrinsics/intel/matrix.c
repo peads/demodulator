@@ -30,24 +30,26 @@ static inline __m256i shiftOrigin(__m256i u) {
     return _mm256_add_epi8(u, shift);
 }
 
-static inline void convert_epi8_epi16(__m256i u, __m256i *hi, __m256i *lo) {
+static inline void convert_epi16_ps(__m256i u, __m256 *uhi, __m256 *ulo) {
 
-    *hi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
-    *lo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+    *ulo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(u)));
+    *uhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1)));
 }
+static __m256 decimate(__m256i u/*TODO ideally this will allow variable decimation iterations*/) {
 
-static inline void convert_epi16_ps(__m256i u, __m256 *ret) {
+    __m256 uhi, ulo,
+    vhi, vlo;
+    __m256i v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
+    convert_epi16_ps(v, &vhi, &vlo);
+    convert_epi16_ps(u, &uhi, &ulo);
+    ulo = _mm256_add_ps(ulo, vlo);
+    uhi = _mm256_add_ps(uhi, vhi);
 
-    __m256i w;
-
-    w = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
-    u = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
-
-    ret[0] = _mm256_cvtepi32_ps(u);
-    ret[1] = _mm256_cvtepi32_ps(w);
+    ulo = _mm256_blend_ps(ulo,uhi,0b11001100);
+    ulo = _mm256_permutevar8x32_ps(ulo, _mm256_setr_epi32(0,1,4,5,2,3,6,7));
+    return ulo;//0b00110011);
 }
-
-static __m256i complexMultiply(__m256i u) {
+static __m256i hComplexMultiply(__m256i u) {
 
     const __m256i indexCD = _mm256_setr_epi8(
             2, 3, 6, 7, 10, 11, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -161,6 +163,7 @@ void *processMatrix(void *ctx) {
     size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     __m256i temp;
+    __m256 temp1;
 //    float *result;
 //    __m256 gain = _mm256_broadcast_ss(&args->gain);
 
@@ -172,8 +175,9 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            temp = complexMultiply(shiftOrigin(*(__m256i *) (buf + i)));
-            temp = temp;
+            temp = hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)));
+            temp1 = decimate(temp);
+            temp1=temp1;
         }
 
         if (*(float *) &args->gain) {
