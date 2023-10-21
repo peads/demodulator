@@ -114,57 +114,13 @@ static __m256 fmDemod(__m256 u) {
     return u;
 }
 
-//static inline float demodEpi8(__m256i u) {
-//
-//    static const __m256i negateBIm = {
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101};
-//
-//    static const __m256i indexHi = {
-//            0x1312151413121110,
-//            0x1716191815161514,
-//            0x1b1a1d1c1b1a1918,
-//            0x1f1e21201f1e1d1c};
-//
-//    static const __m256i indexLo = {
-//            0x302050403020100,
-//            0x706090807060504,
-//            0xb0a0d0c0b0a0908,
-//            0xf0e11100f0e0d0c};
-//
-//    static m256i_pun_t prev;
-//
-//    float result;
-//    __m256i hi, uhi, ulo;
-//    m256i_pun_t lo;
-//    __m256 U[2];
-//
-//    u = boxcarEpi8(shiftOrigin(u));
-//
-//    hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
-//    lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
-//
-//    prev.buf[28] = lo.buf[0];
-//    prev.buf[29] = lo.buf[1];
-//
-//    complexMultiply(prev.v, &ulo, &uhi);
-//    convert_epi16_ps(uhi, U);
-//    result = fmDemod(U[1]);
-//
-//    prev.v = hi;
-//    return result;
-//}
-
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    __m256i temp;
-    __m256 temp1, result;
-//    __m256 gain = _mm256_broadcast_ss(&args->gain);
+    __m256 result;
+    __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -174,15 +130,13 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            temp = hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)));
-            temp1 = decimate(temp);
-            result = fmDemod(temp1);
+            result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
+            if (*(float *) &args->gain) {
+                _mm256_mul_ps(*(__m256 *) &result, gain);
+            }
             fwrite(&result, sizeof(__m256), 1, args->outFile);
         }
 
-//        if (*(float *) &args->gain) {
-//            _mm256_mul_ps(*(__m256 *) &result, gain);
-//        }
     }
 
     _mm_free(buf);
