@@ -47,7 +47,7 @@ static __m256 decimate(__m256i u/*TODO ideally this will allow variable decimati
 
     ulo = _mm256_blend_ps(ulo,uhi,0b11001100);
     ulo = _mm256_permutevar8x32_ps(ulo, _mm256_setr_epi32(0,1,4,5,2,3,6,7));
-    return ulo;//0b00110011);
+    return ulo;
 }
 static __m256i hComplexMultiply(__m256i u) {
 
@@ -94,25 +94,25 @@ static __m256i hComplexMultiply(__m256i u) {
     return _mm256_shuffle_epi8(_mm256_blend_epi16(zr, zj, 0b11110000),indexInterleaveRealAndImag);
 }
 
-//static float fmDemod(__m256 u) {
-//
-//    static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
-//    static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
-//    static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-//
-//    // norm
-//    __m256 v = _mm256_mul_ps(u, u);
-//    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
-//
-//    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
-//    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
-//            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
-//
-//    // NAN check
-//    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
-//
-//    return u[5];
-//}
+static __m256 fmDemod(__m256 u) {
+
+    static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
+    static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
+    static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+
+    // norm
+    __m256 v = _mm256_mul_ps(u, u);
+    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
+
+    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
+    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
+            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
+
+    // NAN check
+    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
+
+    return u;
+}
 
 //static inline float demodEpi8(__m256i u) {
 //
@@ -163,8 +163,7 @@ void *processMatrix(void *ctx) {
     size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     __m256i temp;
-    __m256 temp1;
-//    float *result;
+    __m256 temp1, result;
 //    __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
@@ -177,13 +176,13 @@ void *processMatrix(void *ctx) {
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
             temp = hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)));
             temp1 = decimate(temp);
-            temp1=temp1;
+            result = fmDemod(temp1);
+            fwrite(&result, sizeof(__m256), 1, args->outFile);
         }
 
-        if (*(float *) &args->gain) {
+//        if (*(float *) &args->gain) {
 //            _mm256_mul_ps(*(__m256 *) &result, gain);
-        }
-//        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 5, args->outFile);
+//        }
     }
 
     _mm_free(buf);
