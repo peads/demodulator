@@ -47,125 +47,189 @@ static inline void convert_epi16_ps(__m256i u, __m256 *ret) {
     ret[1] = _mm256_cvtepi32_ps(w);
 }
 
-static inline __m256i boxcarEpi8(__m256i u) {
+//static inline __m256i boxcarEpi8(__m256i u) {
+//
+//    static const __m256i Z = {
+//            (int64_t) 0xff01ff01ff01ff01,
+//            (int64_t) 0xff01ff01ff01ff01,
+//            (int64_t) 0xff01ff01ff01ff01,
+//            (int64_t) 0xff01ff01ff01ff01};
+//    static const __m256i mask = {
+//            0x0504070601000302, 0x0d0c0f0e09080b0a,
+//            0x0504070601000302, 0x0d0c0f0e09080b0a};
+//
+//    u = _mm256_sign_epi8(u, Z);
+//    return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
+//}
 
-    static const __m256i Z = {
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01};
-    static const __m256i mask = {
-            0x0504070601000302, 0x0d0c0f0e09080b0a,
-            0x0504070601000302, 0x0d0c0f0e09080b0a};
+static __m256i complexMultiply(__m256i u) {
 
-    u = _mm256_sign_epi8(u, Z);
-    return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
-}
-
-static void complexMultiply(__m256i u, __m256i *ulo, __m256i *uhi) {
-
-    const __m256i indexDCCD = _mm256_setr_epi8(
-            3, 2, 2, 3, 7, 6, 6, 7,
-            11, 10, 10, 11, 15, 14, 14, 15,
-            19, 18, 18, 19, 23, 22, 22, 23,
-            27, 26, 26, 27, 31, 30, 30, 31
+    const __m256i indexCD = _mm256_setr_epi8(
+            2, 3, 6, 7, 10, 11, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1,
+            18, 19, 22, 23, 26, 27, 30, 31, -1, -1, -1, -1, -1, -1, -1, -1
     );
-
     const __m256i indexAB = _mm256_setr_epi8(
-            0, 1, 0, 1, 4, 5, 4, 5,
-            8, 9, 8, 9, 12, 13, 12, 13,
-            16, 17, 16, 17, 20, 21, 20, 21,
-            24, 25, 24, 25, 28, 29, 28, 29
+            0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1,
+            16, 17, 20, 21, 24, 25, 28, 29, -1, -1, -1, -1, -1, -1, -1, -1
+    );
+    const __m256i indexDC = _mm256_setr_epi8(
+            2, 3, 0, 1, 6, 7, 4, 5,
+            10, 11, 8, 9, 14, 15, 12, 13,
+            18, 19, 16, 17, 22, 23, 20, 21,
+            26, 27, 24, 25, 30, 31, 28, 29
     );
 
-    const __m256i addSubIndex = _mm256_setr_epi16(
-            -1, 1, -1, 1, -1, 1, -1, 1,
-            -1, 1, -1, 1, -1, 1, -1, 1);
+    const __m256i indexInterleaveRealAndImag = _mm256_setr_epi8(
+            0,1, 8,9, 2,3, 10,11, 4,5, 12,13, 6,7, 14,15,
+            0,1, 8,9, 2,3, 10,11, 4,5, 12,13, 6,7, 14,15
+    );
+    static const __m256i indexComplexConjugate = {
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001,
+            (int64_t) 0xffff0001ffff0001
+    };
 
-    __m256i vlo, vhi,
-    v = _mm256_shuffle_epi8(u, indexDCCD);
-    u = _mm256_shuffle_epi8(u, indexAB);
-    convert_epi8_epi16(u, uhi, ulo);
-    convert_epi8_epi16(v, &vhi, &vlo);
-    *ulo = _mm256_mullo_epi16(*ulo, vlo);
-    *uhi = _mm256_mullo_epi16(*uhi, vhi);
+    // given u := {a,b, c, d, ...}
+    // let v :=   {c,d, a, b, ...}
+    // {u, conj(v),... = {ac,-b(-d),...} = {ac, bd,...}
+    // u*conj(v) = {ac+bd,...}
+    u = _mm256_setr_epi8(0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31);
+    __m256i zr, zj,
+            v = _mm256_shuffle_epi8(u, indexCD),
+            w = _mm256_shuffle_epi8(u, indexAB);
+    v = _mm256_setr_m128i( // c,d,...
+            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(v))),
+            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1))));
+    w = _mm256_setr_m128i( // a,b,...
+            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(w))),
+            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1))));
+    zr = _mm256_mullo_epi16(w, v); // ac, bd
+    zr = _mm256_hadd_epi16(zr, zr); // ac-bd, ac-bd
 
-    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, ADBC_INDEX), ADBC_INDEX);
-    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, addSubIndex));
-    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, ADBC_INDEX), ADBC_INDEX);
-    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, addSubIndex));
+
+    v = _mm256_shuffle_epi8(_mm256_sign_epi16(v, indexComplexConjugate), indexDC); // d,c,...
+    zj = _mm256_mullo_epi16(w, v); // ad,-bc
+    zj = _mm256_hadd_epi16(zj, zj);// ad+(-bc)
+    // TODO merge zr and zj
+    u = _mm256_blend_epi16(zr, zj, 0b11110000);
+    v = _mm256_shuffle_epi8(u,indexInterleaveRealAndImag);
+    return zr;
+
+//    u = _mm256_shuffle_epi8(u, indexAB);
+//    convert_epi8_epi16(u, uhi, ulo);
+//    convert_epi8_epi16(v, &vhi, &vlo);
+//    *ulo = _mm256_mullo_epi16(*ulo, vlo);
+//    *uhi = _mm256_mullo_epi16(*uhi, vhi);
+//
+//    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, ADBC_INDEX), ADBC_INDEX);
+//    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, addSubIndex));
+//    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, ADBC_INDEX), ADBC_INDEX);
+//    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, addSubIndex));
 }
 
-static float fmDemod(__m256 u) {
+//static float fmDemod(__m256 u) {
+//
+//    static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
+//    static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
+//    static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+//
+//    // norm
+//    __m256 v = _mm256_mul_ps(u, u);
+//    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
+//
+//    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
+//    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
+//            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
+//
+//    // NAN check
+//    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
+//
+//    return u[5];
+//}
 
-    static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
-    static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
-    static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-
-    // norm
-    __m256 v = _mm256_mul_ps(u, u);
-    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
-
-    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
-    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
-            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
-
-    // NAN check
-    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
-
-    return u[5];
-}
-
-static inline float demodEpi8(__m256i u) {
-
-    static const __m256i negateBIm = {
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101};
-
-    static const __m256i indexHi = {
-            0x1312151413121110,
-            0x1716191815161514,
-            0x1b1a1d1c1b1a1918,
-            0x1f1e21201f1e1d1c};
-
-    static const __m256i indexLo = {
-            0x302050403020100,
-            0x706090807060504,
-            0xb0a0d0c0b0a0908,
-            0xf0e11100f0e0d0c};
-
-    static m256i_pun_t prev;
-
-    float result;
-    __m256i hi, uhi, ulo;
-    m256i_pun_t lo;
-    __m256 U[2];
-
-    u = boxcarEpi8(shiftOrigin(u));
-
-    hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
-    lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
-
-    prev.buf[28] = lo.buf[0];
-    prev.buf[29] = lo.buf[1];
-
-    complexMultiply(prev.v, &ulo, &uhi);
-    convert_epi16_ps(uhi, U);
-    result = fmDemod(U[1]);
-
-    prev.v = hi;
-    return result;
-}
+//static inline float demodEpi8(__m256i u) {
+//
+//    static const __m256i negateBIm = {
+//            (int64_t) 0xff010101ff010101,
+//            (int64_t) 0xff010101ff010101,
+//            (int64_t) 0xff010101ff010101,
+//            (int64_t) 0xff010101ff010101};
+//
+//    static const __m256i indexHi = {
+//            0x1312151413121110,
+//            0x1716191815161514,
+//            0x1b1a1d1c1b1a1918,
+//            0x1f1e21201f1e1d1c};
+//
+//    static const __m256i indexLo = {
+//            0x302050403020100,
+//            0x706090807060504,
+//            0xb0a0d0c0b0a0908,
+//            0xf0e11100f0e0d0c};
+//
+//    static m256i_pun_t prev;
+//
+//    float result;
+//    __m256i hi, uhi, ulo;
+//    m256i_pun_t lo;
+//    __m256 U[2];
+//
+//    u = boxcarEpi8(shiftOrigin(u));
+//
+//    hi = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexHi), negateBIm);
+//    lo.v = _mm256_sign_epi8(_mm256_permutevar8x32_epi32(u, indexLo), negateBIm);
+//
+//    prev.buf[28] = lo.buf[0];
+//    prev.buf[29] = lo.buf[1];
+//
+//    complexMultiply(prev.v, &ulo, &uhi);
+//    convert_epi16_ps(uhi, U);
+//    result = fmDemod(U[1]);
+//
+//    prev.v = hi;
+//    return result;
+//}
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    void *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    float result[DEFAULT_BUF_SIZE >> 5];
-    __m256 gain = _mm256_broadcast_ss(&args->gain);
+    uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
+    __m256i temp;
+//    float *result;
+//    __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -175,13 +239,14 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            result[i >> 5] = demodEpi8(*(__m256i *) (buf + i));
+            temp = complexMultiply(shiftOrigin(*(__m256i *) (buf + i)));
+            temp = temp;
         }
 
         if (*(float *) &args->gain) {
-            _mm256_mul_ps(*(__m256 *) &result, gain);
+//            _mm256_mul_ps(*(__m256 *) &result, gain);
         }
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 5, args->outFile);
+//        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 5, args->outFile);
     }
 
     _mm_free(buf);
