@@ -101,22 +101,14 @@ static __m256 fmDemod(__m256 u) {
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-
-    // norm
-    __m256 v = _mm256_mul_ps(u, u);
-
+    
     // fast atan2 -> atan2(y,x) = 64y/(23x+41*Sqrt[x^2+y^2])
-//    v = _mm256_div_ps(u, _mm256_sqrt_ps(_mm256_add_ps(v, w)));
-//    u = _mm256_div_ps(_mm256_mul_ps(v, all64s), _mm256_fmadd_ps(all23s, v, all41s));
-
     // 1/23*x+41*hypot
+    __m256 v = _mm256_mul_ps(u, u);
     v = _mm256_rcp_ps(_mm256_fmadd_ps(all23s, u,
             _mm256_mul_ps(all41s, _mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))))));
     // 64*y/(23*x*41*hypot)
     u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), v);
-    // fast atan2 -> atan2(y,x) = 64y/(23x+41)
-//    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(_mm256_fmadd_ps(all23s, u, v)));
-//            _mm256_permute_ps(, 0x1B)));
 
     // NAN check
     u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
