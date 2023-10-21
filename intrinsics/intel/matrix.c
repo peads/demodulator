@@ -35,20 +35,22 @@ static inline void convert_epi16_ps(__m256i u, __m256 *uhi, __m256 *ulo) {
     *ulo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(u)));
     *uhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1)));
 }
+
 static __m256 decimate(__m256i u/*TODO ideally this will allow variable decimation iterations*/) {
 
     __m256 uhi, ulo,
-    vhi, vlo;
+            vhi, vlo;
     __m256i v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
     convert_epi16_ps(v, &vhi, &vlo);
     convert_epi16_ps(u, &uhi, &ulo);
     ulo = _mm256_add_ps(ulo, vlo);
     uhi = _mm256_add_ps(uhi, vhi);
 
-    ulo = _mm256_blend_ps(ulo,uhi,0b11001100);
-    ulo = _mm256_permutevar8x32_ps(ulo, _mm256_setr_epi32(0,1,4,5,2,3,6,7));
+    ulo = _mm256_blend_ps(ulo, uhi, 0b11001100);
+    ulo = _mm256_permutevar8x32_ps(ulo, _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7));
     return ulo;
 }
+
 static __m256i hComplexMultiply(__m256i u) {
 
     const __m256i indexCD = _mm256_setr_epi8(
@@ -67,8 +69,8 @@ static __m256i hComplexMultiply(__m256i u) {
     );
 
     const __m256i indexInterleaveRealAndImag = _mm256_setr_epi8(
-            0,1, 8,9, 2,3, 10,11, 4,5, 12,13, 6,7, 14,15,
-            0,1, 8,9, 2,3, 10,11, 4,5, 12,13, 6,7, 14,15
+            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15,
+            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15
     );
     static const __m256i indexComplexConjugate = {
             (int64_t) 0xffff0001ffff0001,
@@ -91,7 +93,7 @@ static __m256i hComplexMultiply(__m256i u) {
     v = _mm256_shuffle_epi8(_mm256_sign_epi16(v, indexComplexConjugate), indexDC); // -d,c,...
     zj = _mm256_mullo_epi16(w, v);  // a(-d),bc
     zj = _mm256_hadd_epi16(zj, zj); // a(-d)+bc
-    return _mm256_shuffle_epi8(_mm256_blend_epi16(zr, zj, 0b11110000),indexInterleaveRealAndImag);
+    return _mm256_shuffle_epi8(_mm256_blend_epi16(zr, zj, 0b11110000), indexInterleaveRealAndImag);
 }
 
 static __m256 fmDemod(__m256 u) {
@@ -102,11 +104,19 @@ static __m256 fmDemod(__m256 u) {
 
     // norm
     __m256 v = _mm256_mul_ps(u, u);
-    v = _mm256_mul_ps(_mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))), all41s);
 
+    // fast atan2 -> atan2(y,x) = 64y/(23x+41*Sqrt[x^2+y^2])
+//    v = _mm256_div_ps(u, _mm256_sqrt_ps(_mm256_add_ps(v, w)));
+//    u = _mm256_div_ps(_mm256_mul_ps(v, all64s), _mm256_fmadd_ps(all23s, v, all41s));
+
+    // 1/23*x+41*hypot
+    v = _mm256_rcp_ps(_mm256_fmadd_ps(all23s, u,
+            _mm256_mul_ps(all41s, _mm256_sqrt_ps(_mm256_add_ps(v, _mm256_permute_ps(v, 0x1B))))));
+    // 64*y/(23*x*41*hypot)
+    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), v);
     // fast atan2 -> atan2(y,x) = 64y/(23x+41)
-    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(
-            _mm256_permute_ps(_mm256_fmadd_ps(all23s, u, v), 0x1B)));
+//    u = _mm256_mul_ps(_mm256_mul_ps(u, all64s), _mm256_rcp_ps(_mm256_fmadd_ps(all23s, u, v)));
+//            _mm256_permute_ps(, 0x1B)));
 
     // NAN check
     u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
@@ -114,6 +124,7 @@ static __m256 fmDemod(__m256 u) {
     return u;
 }
 
+//TODO implement a lowpass filter
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
