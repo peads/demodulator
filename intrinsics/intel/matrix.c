@@ -47,21 +47,6 @@ static inline void convert_epi16_ps(__m256i u, __m256 *ret) {
     ret[1] = _mm256_cvtepi32_ps(w);
 }
 
-//static inline __m256i boxcarEpi8(__m256i u) {
-//
-//    static const __m256i Z = {
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01};
-//    static const __m256i mask = {
-//            0x0504070601000302, 0x0d0c0f0e09080b0a,
-//            0x0504070601000302, 0x0d0c0f0e09080b0a};
-//
-//    u = _mm256_sign_epi8(u, Z);
-//    return _mm256_add_epi8(u, _mm256_shuffle_epi8(u, mask));
-//}
-
 static __m256i complexMultiply(__m256i u) {
 
     const __m256i indexCD = _mm256_setr_epi8(
@@ -89,74 +74,22 @@ static __m256i complexMultiply(__m256i u) {
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001
     };
-
-    // given u := {a,b, c, d, ...}
-    // let v :=   {c,d, a, b, ...}
-    // {u, conj(v),... = {ac,-b(-d),...} = {ac, bd,...}
-    // u*conj(v) = {ac+bd,...}
-    u = _mm256_setr_epi8(0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            26,
-            27,
-            28,
-            29,
-            30,
-            31);
     __m256i zr, zj,
             v = _mm256_shuffle_epi8(u, indexCD),
             w = _mm256_shuffle_epi8(u, indexAB);
-    v = _mm256_setr_m128i( // c,d,...
+    v = _mm256_setr_m128i(          // c,d,...
             _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(v))),
             _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1))));
-    w = _mm256_setr_m128i( // a,b,...
+    w = _mm256_setr_m128i(          // a,b,...
             _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(w))),
             _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1))));
-    zr = _mm256_mullo_epi16(w, v); // ac, bd
-    zr = _mm256_hadd_epi16(zr, zr); // ac-bd, ac-bd
+    zr = _mm256_mullo_epi16(w, v);  // ac, bd
+    zr = _mm256_hadd_epi16(zr, zr); // ac-(-b)d = ac+bd
 
-
-    v = _mm256_shuffle_epi8(_mm256_sign_epi16(v, indexComplexConjugate), indexDC); // d,c,...
-    zj = _mm256_mullo_epi16(w, v); // ad,-bc
-    zj = _mm256_hadd_epi16(zj, zj);// ad+(-bc)
-    // TODO merge zr and zj
-    u = _mm256_blend_epi16(zr, zj, 0b11110000);
-    v = _mm256_shuffle_epi8(u,indexInterleaveRealAndImag);
-    return zr;
-
-//    u = _mm256_shuffle_epi8(u, indexAB);
-//    convert_epi8_epi16(u, uhi, ulo);
-//    convert_epi8_epi16(v, &vhi, &vlo);
-//    *ulo = _mm256_mullo_epi16(*ulo, vlo);
-//    *uhi = _mm256_mullo_epi16(*uhi, vhi);
-//
-//    vlo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, ADBC_INDEX), ADBC_INDEX);
-//    *ulo = _mm256_add_epi16(*ulo, _mm256_sign_epi16(vlo, addSubIndex));
-//    vhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, ADBC_INDEX), ADBC_INDEX);
-//    *uhi = _mm256_add_epi16(*uhi, _mm256_sign_epi16(vhi, addSubIndex));
+    v = _mm256_shuffle_epi8(_mm256_sign_epi16(v, indexComplexConjugate), indexDC); // -d,c,...
+    zj = _mm256_mullo_epi16(w, v);  // a(-d),bc
+    zj = _mm256_hadd_epi16(zj, zj); // a(-d)+bc
+    return _mm256_shuffle_epi8(_mm256_blend_epi16(zr, zj, 0b11110000),indexInterleaveRealAndImag);
 }
 
 //static float fmDemod(__m256 u) {
