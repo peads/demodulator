@@ -61,46 +61,16 @@ static __m256i hComplexMultiply(__m256i u) {
             0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1,
             16, 17, 20, 21, 24, 25, 28, 29, -1, -1, -1, -1, -1, -1, -1, -1
     );
-//    const __m256i indexDC = _mm256_setr_epi8(
-//            0, 3, 2, 1, 4, 7, 6, 5,
-//            8, 11, 10, 9, 12, 15, 14, 13,
-//            16, 19, 18, 17, 20, 23, 22, 21,
-//            24, 27, 26, 25, 28, 31, 30, 29
-////            0, 3, 1, 2, 4, 7, 5, 6,
-////            8, 11, 9, 10, 12, 15, 13, 14,
-////            16, 19, 17, 18, 20, 23, 21, 22,
-////            24, 27, 25, 26, 28, 31, 29, 30
-//    );
-
-//    const __m256i indexCD = _mm256_setr_epi8(
-//            2, 3, 0, 1, 6, 7, 4, 5,
-//            10, 11, 8, 9, 14, 15, 12, 13,
-//            18, 19, 16, 17, 22, 23, 20, 21,
-//            26, 27, 24, 25, 30, 31, 28, 29
-//    );
-//    const __m256i indexAB = _mm256_setr_epi8(
-//            0, 1, 4, 5, 2, 3, 6, 7,
-//            8, 9, 12, 13, 10, 11, 14, 15,
-//            16, 17, 20, 21, 18, 19, 22, 23,
-//            24, 25, 28, 29, 26, 27, 30, 31
-//    );
     const __m256i indexDC = _mm256_setr_epi8(
             1,0,3,2,5,4,7,6,
             9,8, 11, 10, 13, 12, 15, 14,
             17, 16, 19, 18, 21, 20, 23, 22,
             25,24, 27, 26, 29, 28, 31, 30
     );
-
-    const __m256i indexInterleaveRealAndImag = _mm256_setr_epi8(
-            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15,
-            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15
-    );
-//    static const __m256i indexComplexConjugate = {
-//            (int64_t) 0xffff0001ffff0001,
-//            (int64_t) 0xffff0001ffff0001,
-//            (int64_t) 0xffff0001ffff0001,
-//            (int64_t) 0xffff0001ffff0001
-//    };
+//    const __m256i indexInterleaveRealAndImag = _mm256_setr_epi8(
+//            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15,
+//            0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15
+//    );
     static const __m256i indexComplexConjugate = {
             (int64_t) 0x01ff01ff01ff01ff,
             (int64_t) 0x01ff01ff01ff01ff,
@@ -126,7 +96,7 @@ static __m256i hComplexMultiply(__m256i u) {
 
     // ab=>ab
     // cd=>dc
-    // a(-d)+bc // 0, 3, 2, 1
+    // a(-d)+bc
     v = _mm256_shuffle_epi8(v, indexDC);
     v = _mm256_sign_epi8(v, indexComplexConjugate);
     zj = _mm256_dpwssd_epi32(
@@ -139,19 +109,9 @@ static __m256i hComplexMultiply(__m256i u) {
                             _mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1)),
                             _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1)))), 1);
 
-//    v = _mm256_setr_m128i(          // c,d,...
-//            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(v))),
-//            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1))));
-//    w = _mm256_setr_m128i(          // a,b,...
-//            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_castsi256_si128(w))),
-//            _mm256_castsi256_si128(_mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1))));
-//    zr = _mm256_mullo_epi16(w, v);  // ac, bd
-//    zr = _mm256_hadd_epi16(zr, zr); // ac-(-b)d = ac+bd
-
-//    v = _mm256_shuffle_epi8(_mm256_sign_epi16(v, indexComplexConjugate), indexDC); // -d,c,...
-//    zj = _mm256_mullo_epi16(w, v);  // a(-d),bc
-//    zj = _mm256_hadd_epi16(zj, zj); // a(-d)+bc
-    return _mm256_shuffle_epi8(_mm256_blend_epi16(zr, zj, 0b11110000), indexInterleaveRealAndImag);
+    return _mm256_blend_epi16(_mm256_shufflelo_epi16(_mm256_shufflehi_epi16(
+            _mm256_alignr_epi8(zj, zj, 0), _MM_SHUFFLE(2,3,0,1)), _MM_SHUFFLE(2,3,0,1)),
+                    _mm256_alignr_epi8(zr, zr, 0), 0b01010101);
 }
 
 static __m128 fmDemod(__m256 u) {
