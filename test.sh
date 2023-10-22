@@ -61,7 +61,7 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
+  sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
     | build/demodulator -i - -o - -g"$3" \
     | sox -q -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
@@ -108,7 +108,7 @@ for compiler in ${compilers[@]}; do
   rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
-  executeRun $compiler "24k" 1
+  executeRun $compiler "96k" 1
 
   echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
   executeTimedRun
