@@ -21,11 +21,6 @@
 
 static inline __m256i shiftOrigin(__m256i u) {
 
-//    static const __m256i shift = {
-//            -0x7f7f7f7f7f7f7f7f,
-//            -0x7f7f7f7f7f7f7f7f,
-//            -0x7f7f7f7f7f7f7f7f,
-//            -0x7f7f7f7f7f7f7f7f};
     const __m256i shift = _mm256_setr_epi8(
             -127,-127,-127,-127,-127,-127,-127,-127,
             -127,-127,-127,-127,-127,-127,-127,-127,
@@ -121,13 +116,13 @@ static __m256 fmDemod(__m256 u) {
     return _mm256_permutevar8x32_ps(u, _mm256_setr_epi32(1,3,5,7,0,2,3,6));
 }
 
-//TODO implement a lowpass filter
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     __m256 result;
+    __m128 lpresult;
     __m256 gain = _mm256_broadcast_ss(&args->gain);
 
     while (!args->exitFlag) {
@@ -142,7 +137,14 @@ void *processMatrix(void *ctx) {
             if (*(float *) &args->gain) {
                 _mm256_mul_ps(*(__m256 *) &result, gain);
             }
-            fwrite(&result, sizeof(__m128), 1, args->outFile);
+
+            //TODO implement a better lowpass filter
+            if (i&0x20) {
+                lpresult = _mm_hadd_ps(lpresult, *(__m128 *) &result);
+                fwrite(&lpresult, sizeof(__m128), 1, args->outFile);
+            }
+            lpresult = _mm256_castps256_ps128(result);
+//            fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
 
     }
