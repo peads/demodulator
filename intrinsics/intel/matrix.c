@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <float.h>
 #include "matrix.h"
 
 static inline __m256i shiftOrigin(__m256i u) {
@@ -79,6 +78,7 @@ static __m256i hComplexMultiply(__m256i u) {
             (int64_t) 0xffff0001ffff0001,
             (int64_t) 0xffff0001ffff0001
     };
+    // TODO consider _mm256_dp* (dot product) intrinsics
     __m256i zr, zj,
             v = _mm256_shuffle_epi8(u, indexCD),
             w = _mm256_shuffle_epi8(u, indexAB);
@@ -105,18 +105,17 @@ static __m128 fmDemod(__m256 u) {
 
     // fast atan2 -> atan2(y,x) = 64y/(23x+41*Sqrt[x^2+y^2])
     // 1/23*x+41*hypot
-    __m256 v = _mm256_mul_ps(u, u),
-    hypot = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
+    __m256  v = _mm256_mul_ps(u, u),
+            hypot = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
     hypot = _mm256_add_ps(v, hypot);
-    hypot =  _mm256_sqrt_ps(hypot);
-    v = _mm256_mul_ps(all41s, hypot);
-    v = _mm256_fmadd_ps(all23s, u, v);
-    v = _mm256_rcp_ps(v);
-    v = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
+    hypot = _mm256_sqrt_ps(hypot);
+    v = _mm256_fmadd_ps(all23s, u, _mm256_mul_ps(all41s, hypot));
+    v = _mm256_permute_ps(_mm256_rcp_ps(v), _MM_SHUFFLE(2, 3, 0, 1));
+//    u_norm = _mm256_div_ps(u, hypot);
     // 64*y/(23*x*41*hypot)
-//    hypot = _mm256_div_ps(u, hypot);
     u = _mm256_mul_ps(_mm256_mul_ps(all64s, u), v);
-//    v = _mm256_div_ps(_mm256_mul_ps(all64s, hypot), _mm256_permute_ps(_mm256_fmadd_ps(all23s, hypot, all41s), _MM_SHUFFLE(2, 3, 0, 1)));
+//    v = _mm256_div_ps(_mm256_mul_ps(all64s, u_norm),
+//          _mm256_permute_ps(_mm256_fmadd_ps(all23s, u_norm, all41s), _MM_SHUFFLE(2, 3, 0, 1)));
 
     // NAN check
     u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
@@ -131,7 +130,7 @@ void *processMatrix(void *ctx) {
     size_t i;
     __m128 result = {};
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    __m128 oneHalf = _mm_set1_ps(0.5f);
+//    __m128 oneHalf = _mm_set1_ps(0.5f);
 
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -143,10 +142,9 @@ void *processMatrix(void *ctx) {
 //        result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf)))));
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-
-            result = _mm_mul_ps(oneHalf, _mm_hadd_ps(result,
-                    fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))))));
-//            result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
+//            result = _mm_mul_ps(oneHalf, _mm_hadd_ps(result,
+//                  fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))))));
+            result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
             fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
     }
