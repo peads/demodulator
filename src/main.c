@@ -22,12 +22,14 @@
 #include <stdlib.h>
 #include "matrix.h"
 
+static const uint8_t falseFilePtr = 1;
+
 #ifdef IS_NVIDIA
 extern void *processMatrix(void *ctx);
 extern void allocateBuffer(void **buf,  size_t len);
 #endif
 
-static inline int printIfError(FILE *file) {
+static inline int printIfError(void *file) {
 
     if (!file) {
         perror(NULL);
@@ -36,22 +38,51 @@ static inline int printIfError(FILE *file) {
     return 0;
 }
 
-static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const float gain, FILE* outFile) {
+static void initializeThreadContructs(consumerArgs *args) {
+#ifndef __APPLE__
+    args->exitFlag |= printIfError(
+            sem_init(&args->empty, 0, 1)
+            ? NULL
+            : (void *) &falseFilePtr);
+    args->exitFlag |= printIfError(
+            sem_init(&args->full, 0, 0)
+            ? NULL
+            : (void *) &falseFilePtr);
+#else
+#endif
+}
 
-    pthread_t pid;
+static void destroyThreadContructs(consumerArgs *args) {
+#ifndef __APPLE__
+    sem_destroy(&args->empty);
+    sem_destroy(&args->full);
+#else
+#endif
+}
+
+static inline int startProcessingMatrix(
+        FILE *inFile,
+        const uint8_t mode,
+        const float gain, FILE *outFile) {
+
     size_t elementsRead;
+    pthread_t pid;
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
-            .exitFlag = sem_init(&args.empty, 0, 1),
+            .exitFlag = 0,
             .gain = gain != 1.f ? gain : 0.f
     };
-    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
-    args.exitFlag |= sem_init(&args.full, 0, 0);
-    args.exitFlag |= pthread_create(&pid, NULL, processMatrix, &args);
+    args.exitFlag |= printIfError(
+            pthread_create(&pid, NULL, processMatrix, &args)
+                ? NULL
+                : (void *) &falseFilePtr);
+    initializeThreadContructs(&args);
+
+    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
     while (!args.exitFlag) {
 
@@ -72,11 +103,9 @@ static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const 
         sem_post(&args.full);
     }
 
-
     pthread_join(pid, NULL);
     pthread_mutex_destroy(&args.mutex);
-    sem_destroy(&args.empty);
-    sem_destroy(&args.full);
+    destroyThreadContructs(&args);
 
     fclose(outFile);
     fclose(inFile);
