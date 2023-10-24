@@ -38,28 +38,6 @@ static inline int printIfError(void *file) {
     return 0;
 }
 
-static void initializeThreadContructs(consumerArgs *args) {
-#ifndef __APPLE__
-    args->exitFlag |= printIfError(
-            sem_init(&args->empty, 0, 1)
-            ? NULL
-            : (void *) &falseFilePtr);
-    args->exitFlag |= printIfError(
-            sem_init(&args->full, 0, 0)
-            ? NULL
-            : (void *) &falseFilePtr);
-#else
-#endif
-}
-
-static void destroyThreadContructs(consumerArgs *args) {
-#ifndef __APPLE__
-    sem_destroy(&args->empty);
-    sem_destroy(&args->full);
-#else
-#endif
-}
-
 static inline int startProcessingMatrix(
         FILE *inFile,
         const uint8_t mode,
@@ -77,10 +55,19 @@ static inline int startProcessingMatrix(
     };
 
     args.exitFlag |= printIfError(
+            sem_init(&args.empty, 0, 1)
+                ? NULL
+                : (void *) &falseFilePtr);
+
+    args.exitFlag |= printIfError(
+            sem_init(&args.full, 0, 0)
+                ? NULL
+                : (void *) &falseFilePtr);
+
+    args.exitFlag |= printIfError(
             pthread_create(&pid, NULL, processMatrix, &args)
                 ? NULL
                 : (void *) &falseFilePtr);
-    initializeThreadContructs(&args);
 
     allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
@@ -105,7 +92,8 @@ static inline int startProcessingMatrix(
 
     pthread_join(pid, NULL);
     pthread_mutex_destroy(&args.mutex);
-    destroyThreadContructs(&args);
+    sem_destroy(&args.empty);
+    sem_destroy(&args.full);
 
     fclose(outFile);
     fclose(inFile);
