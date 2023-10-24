@@ -154,7 +154,7 @@ static float fmDemod(int16x8_t *M) {
     v = M[1];
     float16x8x4_t N;
 
-    complexMult(&u, &w);
+    preNormMult(&u, &w);
     preNormAddSubAdd(&u, &v, &w, (float16x8x2_t *) &N);
     N.val[1] = vrsqrteq_f16(N.val[1]);
     N.val[0] = vmulq_f16(N.val[0], N.val[1]);
