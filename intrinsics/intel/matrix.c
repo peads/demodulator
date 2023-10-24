@@ -179,36 +179,32 @@ __m128 butterWorth_ps(__m128 u) {
 
     static const __m128 A = {0.390181f, 1.11114f, 1.66294f, 1.96157f};
     static const __m128 ONES = {1.f,1.f,1.f,1.f};
-    static const __m128 OMEGA_C = {100.f,100.f,100.f,100.f};
-//    static const __m128 OMEGA_C = {0.0008f,0.0008f,0.0008f,0.0008f};
+    static const __m128 OMEGA_C = {0.0008f,0.0008f,0.0008f,0.0008f};
 
     __m128 curr[4], squared;
     size_t i, j;
 
+    u = _mm_mul_ps(OMEGA_C, u);
     for (i = 0; i < 4; ++i) {
         curr[i] = _mm_broadcast_ss(&(u[i]));
         squared = _mm_mul_ps(curr[i],curr[i]);
         curr[i] = _mm_mul_ps(A, curr[i]);
         curr[i] = _mm_add_ps(curr[i], squared);
         curr[i] = _mm_add_ps(ONES, curr[i]);
-        curr[i] = _mm_mul_ps(OMEGA_C, curr[i]);
     }
 
-//    for (i = 0; i < 4; ++i) {
-        u[0] = curr[0][0];
-        u[1] = curr[1][0];
-        u[2] = curr[2][0];
-        u[3] = curr[3][0];
-        for (j = 1; j < 4; ++j) {
-            u[0] *= curr[0][j];
-            u[3] *= curr[1][j];
-            u[1] *= curr[2][j];
-            u[2] *= curr[3][j];
-        }
-//    }
+    curr[0][0] = curr[0][0];
+    curr[1][0] = curr[1][0];
+    curr[2][0] = curr[2][0];
+    curr[3][0] = curr[3][0];
+    for (j = 1; j < 4; ++j) {
+        curr[0][0] *= curr[0][j];
+        curr[1][0] *= curr[1][j];
+        curr[2][0] *= curr[2][j];
+        curr[3][0] *= curr[3][j];
+    }
 
-    return _mm_mul_ps(OMEGA_C, _mm_rcp14_ps(u));
-//    return _mm_rcp14_ps(u);
+    return _mm_mul_ps(u, _mm_rcp14_ps(curr[0]));
 }
 
 static __m128 fmDemod(__m256 u) {
@@ -256,7 +252,7 @@ void *processMatrix(void *ctx) {
 //            result = _mm_mul_ps(oneHalf, _mm_hadd_ps(result,
 //                  fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))))));
             result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
-//            result = butterWorth_ps(result);
+            result = butterWorth_ps(result);
 //            result = _mm_mul_ps(gainz, result);
             fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
