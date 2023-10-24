@@ -84,7 +84,7 @@ elseif (TARGET_ARCH STREQUAL "x86_64")
         else()
             if (NOT NO_AVX512)
                 execute_process(
-                        COMMAND sh -c "sysctl hw.optional | grep avx512 | sed -E 's/hw\\.optional\\.avx512(bw|dq|f): 1/yes/g' | grep yes | wc -l"
+                        COMMAND sh -c "sysctl hw | grep -E 'avx512(bw|dq|f)' | grep ': 1' | wc -l"
                         OUTPUT_VARIABLE PROCINFO OUTPUT_STRIP_TRAILING_WHITESPACE)
                 if (${PROCINFO} MATCHES 3)
                     set(HAS_AVX512 ON)
@@ -95,9 +95,9 @@ elseif (TARGET_ARCH STREQUAL "x86_64")
                 endif()
             endif()
             execute_process(
-                    COMMAND sh -c "sysctl hw.optional | grep avx2 | sed -E 's/hw\\.optional\\.avx2_0: 1/yes/g' | grep yes | wc -l"
+                    COMMAND sh -c "sysctl hw | grep -E '(fma|avx2)' | grep ': 1' | wc -l"
                     OUTPUT_VARIABLE PROCINFO OUTPUT_STRIP_TRAILING_WHITESPACE)
-            if (${PROCINFO} MATCHES 1)
+            if (${PROCINFO} MATCHES 2)
                 set(HAS_AVX2 ON)
                 message("-- AVX2 detected")
             else()
