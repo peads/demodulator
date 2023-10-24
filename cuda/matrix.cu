@@ -29,10 +29,10 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
 
     for (i = index; i < len; i += step) {
 
-        a = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);          // ar
-        b = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);      // aj
-        c = (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
-        d = (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
+        a = 0.25f * (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);          // ar
+        b = 0.25f * (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);      // aj
+        c = 0.25f * (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
+        d = 0.25f * (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
 
         ac = a * c;
         bd = b * d;

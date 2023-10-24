@@ -43,8 +43,8 @@ static __m256 decimate(__m256i u) {
     __m256i v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
     convert_epi16_ps(v, &vhi, &vlo);
     convert_epi16_ps(u, &uhi, &ulo);
-    ulo = _mm256_add_epi32(ulo, vlo);
-    uhi = _mm256_add_epi32(uhi, vhi);
+    ulo = _mm256_srai_epi32(_mm256_add_epi32(ulo, vlo), 1);
+    uhi = _mm256_srai_epi32(_mm256_add_epi32(uhi, vhi), 1);
 
     result = _mm256_permutevar8x32_ps(_mm256_blend_ps(_mm256_cvtepi32_ps(ulo),
                     _mm256_cvtepi32_ps(uhi), 0b11001100),
@@ -110,105 +110,35 @@ static __m256i hComplexMultiply(__m256i u) {
             _mm256_alignr_epi8(zr, zr, 0), 0b01010101);
 }
 
-//__m256i butterWorth_epi8(__m256i u) {
-////            {0.0490825, 0.147129, 0.244821, 0.341924, 0.438202,
-////                0.533426, 0.627363, 0.71979, 0.810483, 0.899223,
-////                0.985796, 1.07, 1.15162, 1.23046, 1.30635, 1.37908,
-////                1.44849, 1.51442, 1.57669, 1.63517, 1.68971, 1.74017,
-////                1.78645, 1.82842, 1.86599, 1.89906, 1.92755, 1.9514,
-////                1.97056, 1.98496, 1.99458, 1.9994}
-////    {{
-////            0.0981353, 0.293461, 0.48596, 0.67378},
-////        {0.85511, 1.02821, 1.1914, 1.34312},
-////        {1.4819, 1.60642, 1.71546, 1.80798},
-////        {1.88309, 1.94006, 1.97835, 1.99759}}//MatrixForm
-//
-//    const __m256i Al = _mm256_setr_epi16(
-//            0,0,0,0,
-//            0,0,0,0,
-//            1,1,1,1,
-//            1,1,1,1);
-//    const __m256i Ar = _mm256_setr_epi16(
-//            4,2,1,1,
-//            0,0,0,0,
-//            0,0,0,0,
-//            0,0,0,0);
-//    const __m256i ONES = _mm256_setr_epi16(
-//            1,1,1,1,
-//            1,1,1,1,
-//            1,1,1,1,
-//            1,1,1,1);
-////     const __m256i OMEGA_C = (250.f,250.f,250.f,250.f);
-////    static const __m128 OMEGA_C = {0.0008f,0.0008f,0.0008f,0.0008f};
-//
-//    typedef union {
-//        __m256i v;
-//        int16_t buf[16];
-//    } pun;
-//    pun curr[4];
-//    __m256i squared;
-//
-//    int16_t i;
-//
-//    for (i = 0; i < 4; ++i) {
-//        curr[i].v = _mm256_shuffle_epi8(u,
-//                        _mm256_setr_epi16(i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i));
-//        squared = _mm256_mullo_epi16(curr[i].v,curr[i].v);
-//        curr[i].v = _mm256_srav_epi16(curr[i].v, Ar);
-//        curr[i].v = _mm256_sllv_epi16(curr[i].v, Al);
-//        curr[i].v = _mm256_add_epi16(curr[i].v, squared);
-//        curr[i].v = _mm256_add_epi16(ONES, curr[i].v);
-////        curr[i] = _mm_mul_ps(OMEGA_C, curr[i]);
-//    }
-//
-////    for (i = 0; i < 4; ++i) {
-//    u[0] = curr[0].buf[0];
-//    u[1] = curr[1].buf[0];
-//    u[2] = curr[2].buf[0];
-//    u[3] = curr[3].buf[0];
-//    for (i = 1; i < 4; ++i) {
-//        u[0] *= curr[0].buf[i];
-//        u[3] *= curr[1].buf[i];
-//        u[1] *= curr[2].buf[i];
-//        u[2] *= curr[3].buf[i];
-//    }
-////    }
-//
-//    return _mm_mul_ps(OMEGA_C,_mm_rcp14_ps(u));
-//}
 #ifndef NO_BUTTERWORTH
-__m128 butterWorth_ps(__m128 u) {
 
-    static const __m128 A = {0.390181f, 1.11114f, 1.66294f, 1.96157f};
+static __m128 butterWorth_ps(__m128 u) {
+
+    static const __m128 A = {0.390181f, 0.390181f, 0.390181f, 0.390181f};
+    static const __m128 B = {1.11114f, 1.11114f, 1.11114f, 1.11114f};
+    static const __m128 C = {1.66294f, 1.66294f, 1.66294f, 1.66294f};
+    static const __m128 D = {1.96157f, 1.96157f, 1.96157f, 1.96157f};
     static const __m128 ONES = {1.f, 1.f, 1.f, 1.f};
+    // technically, one over omega_c because the normalized Butterworth
+    // transfer function takes s/omega_c to account for the cutoff
     static const __m128 OMEGA_C = {0.0008f, 0.0008f, 0.0008f, 0.0008f};
 
-    __m128 curr[4], squared;
-    size_t i, j;
+    __m128 curr[4], squared, v = _mm_mul_ps(OMEGA_C, u);
 
-    u = _mm_mul_ps(OMEGA_C, u);
-    for (i = 0; i < 4; ++i) {
-        curr[i] = _mm_broadcast_ss(&(u[i]));
-        squared = _mm_mul_ps(curr[i], curr[i]);
-        curr[i] = _mm_mul_ps(A, curr[i]);
-        curr[i] = _mm_add_ps(curr[i], squared);
-        curr[i] = _mm_add_ps(ONES, curr[i]);
-    }
+    squared = _mm_mul_ps(v, v);
+    curr[0] = _mm_add_ps(ONES, _mm_add_ps(squared, _mm_mul_ps(A, v)));
+    curr[1] = _mm_add_ps(ONES, _mm_add_ps(squared, _mm_mul_ps(B, v)));
+    curr[2] = _mm_add_ps(ONES, _mm_add_ps(squared, _mm_mul_ps(C, v)));
+    curr[3] = _mm_add_ps(ONES, _mm_add_ps(squared, _mm_mul_ps(D, v)));
 
-    curr[0][0] = curr[0][0];
-    curr[1][0] = curr[1][0];
-    curr[2][0] = curr[2][0];
-    curr[3][0] = curr[3][0];
-    for (j = 1; j < 4; ++j) {
-        curr[0][0] *= curr[0][j];
-        curr[1][0] *= curr[1][j];
-        curr[2][0] *= curr[2][j];
-        curr[3][0] *= curr[3][j];
-    }
+    v = _mm_mul_ps(
+            _mm_mul_ps(curr[0], curr[1]),
+            _mm_mul_ps(curr[2], curr[3]));
 
-    return _mm_mul_ps(u, _mm_rcp14_ps(curr[0]));
+    return _mm_mul_ps(u, _mm_rcp14_ps(v));
 }
 #endif
+
 static __m128 fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -235,7 +165,6 @@ static __m128 fmDemod(__m256 u) {
 
 void *processMatrix(void *ctx) {
 
-//    static const __m128 gainz = {1000000.f,1000000.f,1000000.f,1000000.f};
     consumerArgs *args = ctx;
     size_t i;
     __m128 result = {};

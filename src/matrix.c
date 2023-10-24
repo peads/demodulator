@@ -34,18 +34,19 @@ static inline void fmDemod(const void *__restrict__ in,
 
     for (i = 0; i < len; i += 4) {
 
-        temp[0] = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);       // ar
-        temp[1] = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);   // aj
-        temp[2] = (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
-        temp[3] = (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
+        temp[0] = 0.25f * (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);       // ar
+        temp[1] = 0.25f * (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);   // aj
+        temp[2] = 0.25f * (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
+        temp[3] = 0.25f * (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
 
         ac = temp[0] * temp[2];
         bd = temp[1] * temp[3];
         zr = ac - bd;
         zj = (temp[0] + temp[1]) * (temp[2] + temp[3]) - (ac + bd);
-        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
-
-        result[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
+        result[i >> 3] = atan2f(zj, zr);
+//        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
+//
+//        result[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
 }
 
