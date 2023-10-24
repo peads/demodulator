@@ -30,24 +30,26 @@ static inline __m256i shiftOrigin(__m256i u) {
     return _mm256_add_epi8(u, shift);
 }
 
-static inline void convert_epi16_ps(__m256i u, __m256 *uhi, __m256 *ulo) {
+static inline void convert_epi16_ps(__m256i u, __m256i *uhi, __m256i *ulo) {
 
-    *ulo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(u)));
-    *uhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1)));
+    *ulo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(u));
+    *uhi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
 }
 
-static __m256 decimate(__m256i u/*TODO ideally this will allow variable decimation iterations*/) {
+static __m256 decimate(__m256i u) {
 
-    __m256 uhi, ulo, vhi, vlo;
+    __m256 result;
+    __m256i uhi, ulo, vhi, vlo;
     __m256i v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
     convert_epi16_ps(v, &vhi, &vlo);
     convert_epi16_ps(u, &uhi, &ulo);
-    ulo = _mm256_add_ps(ulo, vlo);
-    uhi = _mm256_add_ps(uhi, vhi);
+    ulo = _mm256_add_epi32(ulo, vlo);
+    uhi = _mm256_add_epi32(uhi, vhi);
 
-    ulo = _mm256_blend_ps(ulo, uhi, 0b11001100);
-    ulo = _mm256_permutevar8x32_ps(ulo, _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7));
-    return ulo;
+    result = _mm256_permutevar8x32_ps(_mm256_blend_ps(_mm256_cvtepi32_ps(ulo),
+                    _mm256_cvtepi32_ps(uhi), 0b11001100),
+            _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7));
+    return result;
 }
 
 static __m256i hComplexMultiply(__m256i u) {
@@ -174,12 +176,12 @@ static __m256i hComplexMultiply(__m256i u) {
 //
 //    return _mm_mul_ps(OMEGA_C,_mm_rcp14_ps(u));
 //}
-
+#ifndef NO_BUTTERWORTH
 __m128 butterWorth_ps(__m128 u) {
 
     static const __m128 A = {0.390181f, 1.11114f, 1.66294f, 1.96157f};
-    static const __m128 ONES = {1.f,1.f,1.f,1.f};
-    static const __m128 OMEGA_C = {0.0008f,0.0008f,0.0008f,0.0008f};
+    static const __m128 ONES = {1.f, 1.f, 1.f, 1.f};
+    static const __m128 OMEGA_C = {0.0008f, 0.0008f, 0.0008f, 0.0008f};
 
     __m128 curr[4], squared;
     size_t i, j;
@@ -187,7 +189,7 @@ __m128 butterWorth_ps(__m128 u) {
     u = _mm_mul_ps(OMEGA_C, u);
     for (i = 0; i < 4; ++i) {
         curr[i] = _mm_broadcast_ss(&(u[i]));
-        squared = _mm_mul_ps(curr[i],curr[i]);
+        squared = _mm_mul_ps(curr[i], curr[i]);
         curr[i] = _mm_mul_ps(A, curr[i]);
         curr[i] = _mm_add_ps(curr[i], squared);
         curr[i] = _mm_add_ps(ONES, curr[i]);
@@ -206,7 +208,7 @@ __m128 butterWorth_ps(__m128 u) {
 
     return _mm_mul_ps(u, _mm_rcp14_ps(curr[0]));
 }
-
+#endif
 static __m128 fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -246,14 +248,11 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(&args->empty);
 
-//        result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf)))));
-
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-//            result = _mm_mul_ps(oneHalf, _mm_hadd_ps(result,
-//                  fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))))));
             result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
+#ifndef NO_BUTTERWORTH
             result = butterWorth_ps(result);
-//            result = _mm_mul_ps(gainz, result);
+#endif
             fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
     }
