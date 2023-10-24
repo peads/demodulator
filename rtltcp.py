@@ -139,7 +139,8 @@ class OutputServer:
             self.ss.bind((self.host, self.serverport))
             self.ss.listen(2)
             ct = None
-            pt = None
+            pt = threading.Thread(target=self.produce, args=())
+            pt.start()
             try:
                 while self.isNotDead():
                     print(f'Awaiting connection on port {self.serverport}')
@@ -147,16 +148,13 @@ class OutputServer:
                     print(f'Connected to: {address}')
 
                     ct = threading.Thread(target=self.consume, args=(cs,))
-                    pt = threading.Thread(target=self.produce, args=())
-                    pt.start()
                     ct.start()
             except (OSError, SelbstmortError):
                 print('Joining producer/consumer threads')
                 self.ss = None
                 if ct is not None:
                     ct.join(timeout=1)
-                if pt is not None:
-                    pt.join(timeout=1)
+                pt.join(timeout=1)
 
     def startServer(self):
         st = threading.Thread(target=self.runServer, args=())

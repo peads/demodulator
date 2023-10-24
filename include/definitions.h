@@ -26,6 +26,10 @@
 #endif
 
 #define ADBC_INDEX _MM_SHUFFLE(1,3,0,2)
+#define ACBD_INDEX _MM_SHUFFLE(3,1,2,0)
+//0,2,1,3)
+#define CDAB_INDEX _MM_SHUFFLE(1,0,3,2)
+//2,3,0,1)
 
 #if (!(defined(NO_INTRINSICS) || defined(NO_AVX2)) && (defined(__AVX__) || defined(__AVX2__)))
 #define ALIGNMENT 32
