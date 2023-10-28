@@ -11,13 +11,9 @@ option(NO_INTRINSICS OFF)
 option(NO_AVX512 OFF)
 option(NO_AVX2 OFF)
 option(NO_NEON OFF)
-option(USE_BUTTERWORTH OFF)
 
 if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
-endif()
-if(USE_BUTTERWORTH)
-    add_compile_definitions(USE_BUTTERWORTH=${USE_BUTTERWORTH})
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)

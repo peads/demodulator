@@ -19,7 +19,7 @@
  */
 #include "matrix.h"
 
-#ifdef __AVX512VNNI__
+#if 0
     #define MM256_MADD_EPI16(X, Y) _mm256_dpwssd_epi32(_mm256_setzero_si256(), X, Y)
 #else
     #define MM256_MADD_EPI16(X, Y) _mm256_madd_epi16(X, Y)
@@ -52,82 +52,10 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vlo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(temp[1])));
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
-
-static __m256 decimate(__m256i u) {
-
-    __m256 result;
-    __m256i uhi, ulo, vhi, vlo;
-    __m256i v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
-    convert_epi16_ps(v, &vhi, &vlo);
-    convert_epi16_ps(u, &uhi, &ulo);
-    ulo = _mm256_srai_epi32(_mm256_add_epi32(ulo, vlo), 1);
-    uhi = _mm256_srai_epi32(_mm256_add_epi32(uhi, vhi), 1);
-
-    result = _mm256_permutevar8x32_ps(_mm256_blend_ps(_mm256_cvtepi32_ps(ulo),
-                    _mm256_cvtepi32_ps(uhi), 0b11001100),
-            _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7));
-    return result;
-}
-
-static __m256i hComplexMultiply(__m256i u) {
-
-    const __m256i indexCD = _mm256_setr_epi8(
-            2, 3, 6, 7, 10, 11, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1,
-            18, 19, 22, 23, 26, 27, 30, 31, -1, -1, -1, -1, -1, -1, -1, -1
-    );
-    const __m256i indexAB = _mm256_setr_epi8(
-            0, 1, 4, 5, 8, 9, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1,
-            16, 17, 20, 21, 24, 25, 28, 29, -1, -1, -1, -1, -1, -1, -1, -1
-    );
-    const __m256i indexDC = _mm256_setr_epi8(
-            1, 0, 3, 2, 5, 4, 7, 6,
-            9, 8, 11, 10, 13, 12, 15, 14,
-            17, 16, 19, 18, 21, 20, 23, 22,
-            25, 24, 27, 26, 29, 28, 31, 30
-    );
-    static const __m256i indexComplexConjugate = {
-            (int64_t) 0x01ff01ff01ff01ff,
-            (int64_t) 0x01ff01ff01ff01ff,
-            (int64_t) 0x01ff01ff01ff01ff,
-            (int64_t) 0x01ff01ff01ff01ff
-    };
-    // ab
-    // cd
-    __m256i zr, zj,
-            v = _mm256_shuffle_epi8(u, indexCD),
-            w = _mm256_shuffle_epi8(u, indexAB);
-
-    // ac-(-b)d = ac+bd
-    zr = MM256_MADD_EPI16(
-            _mm256_cvtepi8_epi16(_mm256_castsi256_si128(v)),
-            _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w)));
-    zr = _mm256_inserti128_si256(zr, _mm256_castsi256_si128(
-            MM256_MADD_EPI16(
-                    _mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1)),
-                    _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1)))), 1);
-    // ab=>ab
-    // cd=>dc
-    // a(-d)+bc
-    v = _mm256_sign_epi8(_mm256_shuffle_epi8(v, indexDC), indexComplexConjugate);
-    zj = MM256_MADD_EPI16(
-            _mm256_cvtepi8_epi16(_mm256_castsi256_si128(v)),
-            _mm256_cvtepi8_epi16(_mm256_castsi256_si128(w)));
-    zj = _mm256_inserti128_si256(zj, _mm256_castsi256_si128(
-            MM256_MADD_EPI16(
-                    _mm256_cvtepi8_epi16(_mm256_extracti128_si256(v, 1)),
-                    _mm256_cvtepi8_epi16(_mm256_extracti128_si256(w, 1)))), 1);
-
-    return _mm256_blend_epi16(zr,
-            _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(
-                            _mm256_alignr_epi8(zj, zj, 0), _MM_SHUFFLE(2, 3, 0, 1)),
-                    _MM_SHUFFLE(2, 3, 0, 1)),
-            0b10101010);
-}
-
-#ifdef USE_BUTTERWORTH
-
+#if 1
 __m128 lp_out_butterWorth_ps(__m128 u) {
 
+    // Degree 8 coefficients
     static const __m128 A = {0.390181f, 0.390181f, 0.390181f, 0.390181f};
     static const __m128 B = {1.11114f, 1.11114f, 1.11114f, 1.11114f};
     static const __m128 C = {1.66294f, 1.66294f, 1.66294f, 1.66294f};
@@ -154,6 +82,7 @@ __m128 lp_out_butterWorth_ps(__m128 u) {
 
 void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
 
+    // Degree 16 Butterworth coefficients in matrix form
     static const __m256 A[] =
             {{0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f},
              {0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f},
@@ -194,7 +123,7 @@ void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
     vlo = _mm256_rcp_ps(vlo);
 
     for (i = 0; i < 16; ++i) {
-        temp[0] = _mm256_mul_ps(temp[0], _mm256_sub_ps(ulo, A[i])); // TODO switch add negative?
+        temp[0] = _mm256_mul_ps(temp[0], _mm256_sub_ps(ulo, A[i])); // TODO switch addition of the negation?
         temp[1] = _mm256_mul_ps(temp[1], _mm256_sub_ps(uhi, A[i]));
         temp[2] = _mm256_mul_ps(temp[2], _mm256_sub_ps(vlo, A[i]));
         temp[3] = _mm256_mul_ps(temp[3], _mm256_sub_ps(vhi, A[i]));
@@ -236,19 +165,73 @@ void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
 
 #endif
 
+static void hComplexMultiply(__m256i u, __m256i *uhi, __m256i *ulo) {
+
+    static const __m256i indexComplexConjugate = {
+            (int64_t) 0x0001ffff00010001,
+            (int64_t) 0x0001ffff00010001,
+            (int64_t) 0x0001ffff00010001,
+            (int64_t) 0x0001ffff00010001
+    };
+    __m256i tmp, v, w;
+    hp_butterWorth_ps256(shiftOrigin(u), &v, &w);
+
+    // abab
+    // cddc
+//    v = _mm256_setr_epi16(
+//            0,1,2,3,4,5,6,7,8,9,10,
+//            11,12,13,14,15
+//    );
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0)); // Closest
+//    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(0, 1, 0, 1)), _MM_SHUFFLE(0, 1, 0, 1));
+    v = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+//    v = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(3, 2, 2, 3)), _MM_SHUFFLE(3, 2, 2, 3)); // Closest
+    // because z w* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
+    v = _mm256_sign_epi16(v, indexComplexConjugate);
+    *ulo = MM256_MADD_EPI16(tmp, v);
+
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0)); // Closest
+    w = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+    w = _mm256_sign_epi16(w, indexComplexConjugate);
+    *uhi = MM256_MADD_EPI16(tmp, w);
+}
+
+static __m256 decimate(__m256i u) {
+
+    __m256 result;
+    __m256i uhi, ulo, vhi, vlo;
+    __m256i v;
+    hComplexMultiply(u, &u, &v);
+
+    // Also serves as the simplest (crudest) lowpass filter (i.e. s[n-1] + s[n])
+    // I just like the averaging bit, and it only costs a shift
+    v = _mm256_shufflehi_epi16(_mm256_shufflelo_epi16(u, CDAB_INDEX), CDAB_INDEX);
+    convert_epi16_ps(v, &vhi, &vlo);
+    convert_epi16_ps(u, &uhi, &ulo);
+    ulo = _mm256_srai_epi32(_mm256_add_epi32(ulo, vlo), 1);
+    uhi = _mm256_srai_epi32(_mm256_add_epi32(uhi, vhi), 1);
+
+    result = _mm256_permutevar8x32_ps(_mm256_blend_ps(_mm256_cvtepi32_ps(ulo),
+                    _mm256_cvtepi32_ps(uhi), 0b11001100),
+            _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7));
+    return result;
+}
+
 static __m128 fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
 
-    // fast atan2 -> atan2(y,x) = 64y/(23x+41*Sqrt[x^2+y^2])
-    // 1/23*x+41*hypot
+    // fast atan2(y,x) := 64y/(23x+41*Sqrt[x^2+y^2])
     __m256 v = _mm256_mul_ps(u, u),
             hypot = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
     hypot = _mm256_add_ps(v, hypot);
     hypot = _mm256_sqrt_ps(hypot);
+
+    // 64*y
     v = _mm256_fmadd_ps(all23s, u, _mm256_mul_ps(all41s, hypot));
+    // 1/(23*x+41*hypot)
     v = _mm256_permute_ps(_mm256_rcp_ps(v), _MM_SHUFFLE(2, 3, 0, 1));
     // 64*y/(23*x*41*hypot)
     u = _mm256_mul_ps(_mm256_mul_ps(all64s, u), v);
@@ -264,7 +247,6 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m256i a, b;
     __m128 result = {};
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
 
@@ -276,8 +258,7 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            hp_butterWorth_ps256(shiftOrigin(*(__m256i *) (buf + i)), &a, &b);
-            result = fmDemod(decimate(hComplexMultiply(a)));
+            result = fmDemod(decimate(*(__m256i *) (buf + i)));
 #ifdef USE_BUTTERWORTH
 //            result = butterWorth_ps(result);
 #endif
