@@ -178,19 +178,13 @@ static void hComplexMultiply(__m256i u, __m256i *uhi, __m256i *ulo) {
 
     // abab
     // cddc
-//    v = _mm256_setr_epi16(
-//            0,1,2,3,4,5,6,7,8,9,10,
-//            11,12,13,14,15
-//    );
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0)); // Closest
-//    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(0, 1, 0, 1)), _MM_SHUFFLE(0, 1, 0, 1));
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
     v = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
-//    v = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(3, 2, 2, 3)), _MM_SHUFFLE(3, 2, 2, 3)); // Closest
     // because z w* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
     v = _mm256_sign_epi16(v, indexComplexConjugate);
     *ulo = MM256_MADD_EPI16(tmp, v);
 
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0)); // Closest
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
     w = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
     w = _mm256_sign_epi16(w, indexComplexConjugate);
     *uhi = MM256_MADD_EPI16(tmp, w);
