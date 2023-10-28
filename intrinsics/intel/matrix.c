@@ -173,21 +173,21 @@ static void hComplexMultiply(__m256i u, __m256i *uhi, __m256i *ulo) {
             (int64_t) 0x0001ffff00010001,
             (int64_t) 0x0001ffff00010001
     };
-    __m256i tmp, v, w;
-    hp_butterWorth_ps256(shiftOrigin(u), &v, &w);
+    __m256i tmp;
+    hp_butterWorth_ps256(shiftOrigin(u), ulo, uhi);
 
     // abab
     // cddc
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
-    v = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(v, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
-    // because z w* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
-    v = _mm256_sign_epi16(v, indexComplexConjugate);
-    *ulo = MM256_MADD_EPI16(tmp, v);
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
+    *ulo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+    // because z uhi* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
+    *ulo = _mm256_sign_epi16(*ulo, indexComplexConjugate);
+    *ulo = MM256_MADD_EPI16(tmp, *ulo);
 
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
-    w = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(w, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
-    w = _mm256_sign_epi16(w, indexComplexConjugate);
-    *uhi = MM256_MADD_EPI16(tmp, w);
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
+    *uhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+    *uhi = _mm256_sign_epi16(*uhi, indexComplexConjugate);
+    *uhi = MM256_MADD_EPI16(tmp, *uhi);
 }
 
 static __m256 decimate(__m256i u) {
