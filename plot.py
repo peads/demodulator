@@ -76,8 +76,8 @@ def animate(i, ts, ys):
     ax.clear()
     ax.set_yscale('asinh', base=2)
     ax.set_ylim((-scaling, scaling))
-    ax.scatter(ts, ys)
-    # ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
+    # ax.scatter(ts, ys)
+    ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
 
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:

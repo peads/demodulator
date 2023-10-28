@@ -161,7 +161,7 @@ static void demodEpi8(__m512i u, float *__restrict__ result) {
     __m512 res, M[4];
     m512i_pun_t lo;
 
-    u = boxcarEpi8(shiftOrigin(u));
+    u = boxcarEpi8(shiftOrigin128(u));
     hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
     lo.v = conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm);
 
