@@ -25,9 +25,7 @@
 #define DEFAULT_BUF_SIZE 262144L
 #endif
 
-#define ADBC_INDEX _MM_SHUFFLE(1,3,0,2)
-#define ACBD_INDEX _MM_SHUFFLE(3,1,2,0)
-//0,2,1,3)
+#define WC 0.00133333333f
 #define CDAB_INDEX _MM_SHUFFLE(1,0,3,2)
 //2,3,0,1)
 

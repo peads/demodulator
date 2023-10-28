@@ -22,8 +22,6 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-static const uint8_t falseFilePtr = 1;
-
 #ifdef IS_NVIDIA
 extern void *processMatrix(void *ctx);
 extern void allocateBuffer(void **buf,  size_t len);
@@ -56,18 +54,18 @@ static inline int startProcessingMatrix(
 
     args.exitFlag |= printIfError(
             sem_init(&args.empty, 0, 1)
-                ? NULL
-                : (void *) &falseFilePtr);
+            ? NULL
+            : &args);
 
     args.exitFlag |= printIfError(
             sem_init(&args.full, 0, 0)
-                ? NULL
-                : (void *) &falseFilePtr);
+            ? NULL
+            : &args);
 
     args.exitFlag |= printIfError(
             pthread_create(&pid, NULL, processMatrix, &args)
-                ? NULL
-                : (void *) &falseFilePtr);
+            ? NULL
+            : &args);
 
     allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
@@ -76,6 +74,7 @@ static inline int startProcessingMatrix(
         sem_wait(&args.empty);
         pthread_mutex_lock(&args.mutex);
         elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
+//        dc_block_raw_filter(args.buf, DEFAULT_BUF_SIZE);
 
         if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);

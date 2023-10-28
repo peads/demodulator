@@ -42,6 +42,17 @@ static inline void convert_epi16_ps(__m256i u, __m256i *uhi, __m256i *ulo) {
     *uhi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(u, 1));
 }
 
+static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *vhi, __m256 *vlo) {
+
+    __m256i temp[2];
+    temp[0] = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+    temp[1] = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u, 1));
+    *ulo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(temp[0])));
+    *uhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[0], 1)));
+    *vlo = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_castsi256_si128(temp[1])));
+    *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
+}
+
 static __m256 decimate(__m256i u) {
 
     __m256 result;
@@ -113,18 +124,18 @@ static __m256i hComplexMultiply(__m256i u) {
             0b10101010);
 }
 
-#ifndef NO_BUTTERWORTH
+#ifdef USE_BUTTERWORTH
 
-static __m128 butterWorth_ps(__m128 u) {
+__m128 lp_out_butterWorth_ps(__m128 u) {
 
     static const __m128 A = {0.390181f, 0.390181f, 0.390181f, 0.390181f};
     static const __m128 B = {1.11114f, 1.11114f, 1.11114f, 1.11114f};
     static const __m128 C = {1.66294f, 1.66294f, 1.66294f, 1.66294f};
     static const __m128 D = {1.96157f, 1.96157f, 1.96157f, 1.96157f};
     static const __m128 ONES = {1.f, 1.f, 1.f, 1.f};
-    // technically, one over omega_c because the normalized Butterworth
+    // technically, one over omega_c because the normalized, lowpass Butterworth
     // transfer function takes s/omega_c to account for the cutoff
-    static const __m128 OMEGA_C = {0.0008f, 0.0008f, 0.0008f, 0.0008f};
+    static const __m128 OMEGA_C = {WC, WC, WC, WC};
 
     __m128 curr[4], squared, v = _mm_mul_ps(OMEGA_C, u);
 
@@ -139,6 +150,88 @@ static __m128 butterWorth_ps(__m128 u) {
             _mm_mul_ps(curr[2], curr[3]));
 
     return _mm_mul_ps(u, _mm_rcp_ps(v));
+}
+
+void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
+
+    static const __m256 A[] =
+            {{0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f},
+             {0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f},
+             {0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f},
+             {0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f},
+             {0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f},
+             {0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f},
+             {0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f},
+             {0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f},
+             {0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f},
+             {0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f},
+             {0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f},
+             {0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f},
+             {0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f},
+             {0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f},
+             {0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f},
+             {0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f}};
+
+    __m256i c,d;
+    size_t i;
+    __m256 uhi,ulo,vhi,vlo,temp[] = {{1,1,1,1,1,1,1,1},
+                                     {1,1,1,1,1,1,1,1},
+                                     {1,1,1,1,1,1,1,1},
+                                     {1,1,1,1,1,1,1,1}};
+
+    static const __m256i indexComplexConjugate = {
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01,
+            (int64_t) 0xff01ff01ff01ff01
+    };
+
+    u = _mm256_sign_epi8(u, indexComplexConjugate);
+    convert_epi8_ps(u, &uhi, &ulo, &vhi, &vlo);
+    uhi = _mm256_rcp_ps(uhi);
+    ulo = _mm256_rcp_ps(ulo);
+    vhi = _mm256_rcp_ps(vhi);
+    vlo = _mm256_rcp_ps(vlo);
+
+    for (i = 0; i < 16; ++i) {
+        temp[0] = _mm256_mul_ps(temp[0], _mm256_sub_ps(ulo, A[i])); // TODO switch add negative?
+        temp[1] = _mm256_mul_ps(temp[1], _mm256_sub_ps(uhi, A[i]));
+        temp[2] = _mm256_mul_ps(temp[2], _mm256_sub_ps(vlo, A[i]));
+        temp[3] = _mm256_mul_ps(temp[3], _mm256_sub_ps(vhi, A[i]));
+    }
+
+    for (i = 0; i < 4; ++i) {
+        ulo = _mm256_mul_ps(temp[i], temp[i]);
+        ulo = _mm256_permute_ps(_mm256_hadd_ps(ulo, ulo), _MM_SHUFFLE(3,1,2,0));
+        ulo = _mm256_rcp_ps(ulo);
+        temp[i] = _mm256_mul_ps(temp[i],ulo);
+    }
+
+    *a = _mm256_cvtps_epi32(temp[0]);
+    *b = _mm256_cvtps_epi32(temp[1]);
+    c = _mm256_cvtps_epi32(temp[2]);
+    d = _mm256_cvtps_epi32(temp[3]);
+
+    // TODO clean up this mess
+    *a = _mm256_setr_m128i(
+            _mm256_cvtepi32_epi16(*a),
+            _mm_cvtepi32_epi16(
+                    _mm256_extracti128_si256(*a, 1)));
+    *b = _mm256_setr_m128i(
+            _mm256_cvtepi32_epi16(*b),
+            _mm_cvtepi32_epi16(
+                    _mm256_extracti128_si256(*b, 1)));
+    *a = _mm256_inserti128_si256(*a, _mm256_castsi256_si128(*b), 1);
+
+    *b = _mm256_setr_m128i(
+            _mm256_cvtepi32_epi16(c),
+            _mm_cvtepi32_epi16(
+                    _mm256_extracti128_si256(c, 1)));
+    c = _mm256_setr_m128i(
+            _mm256_cvtepi32_epi16(d),
+            _mm_cvtepi32_epi16(
+                    _mm256_extracti128_si256(d, 1)));
+    *b = _mm256_inserti128_si256(*b, _mm256_castsi256_si128(c), 1);
 }
 
 #endif
@@ -171,6 +264,7 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
+    __m256i a, b;
     __m128 result = {};
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
 
@@ -182,9 +276,10 @@ void *processMatrix(void *ctx) {
         sem_post(&args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-            result = fmDemod(decimate(hComplexMultiply(shiftOrigin(*(__m256i *) (buf + i)))));
-#ifndef NO_BUTTERWORTH
-            result = butterWorth_ps(result);
+            hp_butterWorth_ps256(shiftOrigin(*(__m256i *) (buf + i)), &a, &b);
+            result = fmDemod(decimate(hComplexMultiply(a)));
+#ifdef USE_BUTTERWORTH
+//            result = butterWorth_ps(result);
 #endif
             fwrite(&result, sizeof(__m128), 1, args->outFile);
         }
