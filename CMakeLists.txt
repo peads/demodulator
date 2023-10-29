@@ -159,7 +159,7 @@ else()
         endif()
     endif()
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/fmath.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_THREAD_LIBS_INIT)
         target_link_libraries(${PROJECT_NAME} PUBLIC pthread)

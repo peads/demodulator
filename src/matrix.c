@@ -52,7 +52,7 @@ static inline float scaleButterworthLowpass(float wc, float x) {
     return x/wc;
 }
 
-static inline void filterButterWorth(float *__restrict__ buf, size_t len, const float wc, butterWorthScalingFn_t fn) {
+static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc, butterWorthScalingFn_t fn) {
     static const float BW_CONSTS[16][2] = {
            {-0.0980171f, 0.995185f},
            {-0.290285f, 0.95694f},
@@ -90,7 +90,7 @@ static inline void filterButterWorth(float *__restrict__ buf, size_t len, const 
     }
 }
 
-static inline void shiftOrigin(void *in, long len, float *out) {
+static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
 
     size_t i;
     int8_t *buf = in;
