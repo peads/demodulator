@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix.h"
-#include "fmath.h"
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -76,8 +75,8 @@ void filterLowpass(float *__restrict__ buf, size_t len) {
             accJ *= currJ - constPtr[1];
         }
 
-        buf[i] = buf[i]/accR;//accR / normSquared * buf[i];
-        buf[i + 1] = buf[i+1]/accJ;//accJ / normSquared * buf[i + 1];
+        buf[i] = buf[i]/accR;
+        buf[i + 1] = buf[i+1]/accJ;
     }
 }
 
@@ -120,17 +119,6 @@ void filterHighpass(float *__restrict__ buf, size_t len) {
     }
 }
 
-//void crudeLowpass(void *__restrict__ in, size_t len, float *__restrict__ out) {
-//
-//    size_t i, j;
-//    int8_t *buf = in;
-//    for (i = 0; i < len; i+=4) {
-//        j = i>>1;
-//        out[j] = (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);
-//        out[j+1] = (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);
-//    }
-//}
-
 void shiftOrigin(void *in, long len, float *out) {
 
     size_t i;
@@ -157,7 +145,6 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-//        crudeLowpass(buf, DEFAULT_BUF_SIZE, fBuf);
         filterLowpass(fBuf, DEFAULT_BUF_SIZE);
         filterHighpass(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, args->gain, result);
