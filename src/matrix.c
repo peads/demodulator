@@ -44,15 +44,15 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-static inline float scaleHighpass(float wc, float x) {
+static inline float scaleButterworthHighpass(float wc, float x) {
     return wc/x;
 }
 
-static inline float scaleLowpass(float wc, float x) {
+static inline float scaleButterworthLowpass(float wc, float x) {
     return x/wc;
 }
 
-static void filterButterWorth(float *__restrict__ buf, size_t len, const float wc, butterWorthScalingFn_t fn) {
+static inline void filterButterWorth(float *__restrict__ buf, size_t len, const float wc, butterWorthScalingFn_t fn) {
     static const float BW_CONSTS[16][2] = {
            {-0.0980171f, 0.995185f},
            {-0.290285f, 0.95694f},
@@ -90,7 +90,7 @@ static void filterButterWorth(float *__restrict__ buf, size_t len, const float w
     }
 }
 
-void shiftOrigin(void *in, long len, float *out) {
+static inline void shiftOrigin(void *in, long len, float *out) {
 
     size_t i;
     int8_t *buf = in;
@@ -116,8 +116,8 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 2500.f, scaleLowpass);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 1.f, scaleHighpass); //dc block
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 25000.f, scaleButterworthLowpass);
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 1.f, scaleButterworthHighpass); //dc block
         fmDemod(fBuf, DEFAULT_BUF_SIZE, args->gain, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 1, args->outFile);
     }
