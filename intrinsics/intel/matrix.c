@@ -120,6 +120,7 @@ __m256i hp_butterWorth_ps256(__m256i u) {
              {0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f}};
 
     size_t i;
+    __m256i uhi;
     __m256  a, b,
             temp[] = {{1, 1, 1, 1, 1, 1, 1, 1},
                       {1, 1, 1, 1, 1, 1, 1, 1},
@@ -133,8 +134,7 @@ __m256i hp_butterWorth_ps256(__m256i u) {
             (int64_t) 0xffff000100010001
     };
     u = _mm256_sign_epi16(u, indexComplexConjugate);
-    convert_epi16_ps(u, &a, &b);
-//_mm256_cvtepi16_epi32()
+    convert_epi16_ps(u, &b, &a);
     a = _mm256_rcp_ps(_mm256_cvtepi32_ps(u));
 
     for (i = 0; i < 16; ++i) {
@@ -151,14 +151,15 @@ __m256i hp_butterWorth_ps256(__m256i u) {
     b = _mm256_mul_ps(temp[1], temp[1]);
     b = _mm256_permute_ps(_mm256_hadd_ps(b, b), _MM_SHUFFLE(3,1,2,0));
     b = _mm256_rcp_ps(b);
-    temp[1] = _mm256_mul_ps(temp[0], b);
-
-
+    temp[1] = _mm256_mul_ps(temp[1], b);
+    uhi = _mm256_cvtps_epi32(temp[1]);
+    __m128i c,d;
     u = _mm256_cvtps_epi32(temp[0]);
-    return _mm256_setr_m128i(
-            _mm256_cvtepi32_epi16(u),
-            _mm_cvtepi32_epi16(
-                    _mm256_extracti128_si256(u, 1)));
+    c = _mm256_cvtepi32_epi16(u);
+    d = _mm256_cvtepi32_epi16(uhi);
+    u = _mm256_setr_m128i(c,d);
+//    d = _mm_cvtepi32_epi16(_mm256_extracti128_si256(u, 1));
+    return u;
 }
 
 #endif
@@ -275,9 +276,8 @@ void *processMatrix(void *ctx) {
 
 //        for (i = 0; i < DEFAULT_BUF_SIZE; i += 128) {
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
-//            s0 = crudeLowpass(*(__m256i *) (buf + i), *(__m256i *) (buf + i + 32));
-//            s1 = crudeLowpass(*(__m256i *) (buf + i+ 64), *(__m256i *) (buf + i + 96));
             s0 = crudeLowpass_epi8_epi16(*(__m256i *) (buf + i));
+            s0 = hp_butterWorth_ps256(s0);
             s0 = hComplexMultiply(s0);
             result = fmDemod(_mm256_cvtepi32_ps(s0));
             result = _mm256_castps128_ps256(lp_out_butterWorth_ps(_mm256_castps256_ps128(result)));
