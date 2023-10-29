@@ -57,7 +57,23 @@
 #if defined(__aarch64__) || defined(_M_ARM64)
 #define HAS_AARCH64
 #endif
-
+#ifdef __APPLE__
+#define SEM_INIT(SEM, NAME, VALUE) \
+    args.exitFlag |= printIfError( \
+        (SEM = sem_open (NAME, O_CREAT | O_EXCL, 0644, VALUE)));
+#else
+#define SEM_INIT(SEM, NAME, VALUE) \
+    args.exitFlag |= printIfError( \
+        sem_init(SEM, 0, VALUE) ? NULL : SEM);
+#endif
+#ifdef __APPLE__
+#define SEM_DESTROY(SEM, NAME) \
+    sem_close(SEM); \
+    sem_unlink(NAME);
+#else
+#define SEM_DESTORY(SEM, NAME) \
+    sem_destroy(SEM);
+#endif
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to

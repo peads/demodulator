@@ -52,15 +52,8 @@ static inline int startProcessingMatrix(
             .gain = gain != 1.f ? gain : 0.f
     };
 
-    args.exitFlag |= printIfError(
-            sem_init(&args.empty, 0, 1)
-            ? NULL
-            : &args);
-
-    args.exitFlag |= printIfError(
-            sem_init(&args.full, 0, 0)
-            ? NULL
-            : &args);
+    SEM_INIT(args.empty, "/empty", 1)
+    SEM_INIT(args.full, "/full", 0)
 
     args.exitFlag |= printIfError(
             pthread_create(&pid, NULL, processMatrix, &args)
@@ -71,10 +64,9 @@ static inline int startProcessingMatrix(
 
     while (!args.exitFlag) {
 
-        sem_wait(&args.empty);
+        sem_wait(args.empty);
         pthread_mutex_lock(&args.mutex);
         elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
-//        dc_block_raw_filter(args.buf, DEFAULT_BUF_SIZE);
 
         if ((args.exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -86,13 +78,13 @@ static inline int startProcessingMatrix(
                             "fread. Stupid compiler.");
         }
         pthread_mutex_unlock(&args.mutex);
-        sem_post(&args.full);
+        sem_post(args.full);
     }
 
     pthread_join(pid, NULL);
     pthread_mutex_destroy(&args.mutex);
-    sem_destroy(&args.empty);
-    sem_destroy(&args.full);
+    SEM_DESTROY(args.empty, "/empty")
+    SEM_DESTROY(args.full, "/full")
 
     fclose(outFile);
     fclose(inFile);
