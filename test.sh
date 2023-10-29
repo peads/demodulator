@@ -108,7 +108,7 @@ for compiler in ${compilers[@]}; do
   rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
-  executeRun $compiler "192k" 1
+  executeRun $compiler "96k" 1
 
   echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
   executeTimedRun

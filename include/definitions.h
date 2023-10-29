@@ -25,9 +25,8 @@
 #define DEFAULT_BUF_SIZE 262144L
 #endif
 
-#define WC 0.001333f
-#define CDAB_INDEX _MM_SHUFFLE(1,0,3,2)
-//2,3,0,1)
+#define WC 0.00006666666f
+//0.001333f
 
 #if (!(defined(NO_INTRINSICS) || defined(NO_AVX2)) && (defined(__AVX__) || defined(__AVX2__)))
 #define ALIGNMENT 32
