@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include "matrix.h"
 
+typedef float (*butterWorthScalingFn_t)(float, float);
+
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
                            const float gain,
@@ -41,46 +43,16 @@ static inline void fmDemod(const float *__restrict__ in,
 //        out[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
     }
 }
-void filterLowpass(float *__restrict__ buf, size_t len) {
-    static const float BW_CONSTS[16][2] = {
-            {-0.0980171f, 0.995185f},
-            {-0.290285f, 0.95694f},
-            {-0.471397f,  0.881921f},
-            {-0.634393f,  0.77301f},
-            {-0.77301f,   0.634393f},
-            {-0.881921f,  0.471397f},
-            {-0.95694f,   0.290285f},
-            {-0.995185f,  0.0980171f},
-            {-0.995185f,  -0.0980171f},
-            {-0.95694f,   -0.290285f},
-            {-0.881921f,  -0.471397f},
-            {-0.77301f,   -0.634393f},
-            {-0.634393f,-0.77301f},
-            {-0.471397f,-0.881921f},
-            {-0.290285f,-0.95694f},
-            {-0.0980171f,-0.995185f}};
-    static const float Wc = 2500.f;
-    size_t i,j;
-    float accR, accJ, currR, currJ;
-    const float *constPtr;
 
-    for (i = 0; i < len; i+=2) {
-        accR = 1.f;
-        accJ = 1.f;
-        currR = buf[i] / Wc;
-        currJ = buf[i + 1] / Wc;
-        for (j = 0; j < 16; ++j) {
-            constPtr = BW_CONSTS[j];
-            accR *= currR - constPtr[0];
-            accJ *= currJ - constPtr[1];
-        }
-
-        buf[i] = buf[i]/accR;
-        buf[i + 1] = buf[i+1]/accJ;
-    }
+static inline float scaleHighpass(float wc, float x) {
+    return wc/x;
 }
 
-void filterHighpass(float *__restrict__ buf, size_t len) {
+static inline float scaleLowpass(float wc, float x) {
+    return x/wc;
+}
+
+static void filterButterWorth(float *__restrict__ buf, size_t len, const float wc, butterWorthScalingFn_t fn) {
     static const float BW_CONSTS[16][2] = {
            {-0.0980171f, 0.995185f},
            {-0.290285f, 0.95694f},
@@ -98,7 +70,6 @@ void filterHighpass(float *__restrict__ buf, size_t len) {
            {-0.471397f,-0.881921f},
            {-0.290285f,-0.95694f},
            {-0.0980171f,-0.995185f}};
-    static const float Wc = 1.f;
     size_t i,j;
     float accR, accJ, currR, currJ;
     const float *constPtr;
@@ -106,8 +77,8 @@ void filterHighpass(float *__restrict__ buf, size_t len) {
     for (i = 0; i < len; i+=2) {
         accR = 1.f;
         accJ = 1.f;
-        currR = Wc / buf[i];
-        currJ = Wc / buf[i + 1];
+        currR = fn(wc, buf[i]);
+        currJ = fn(wc, buf[i + 1]);
         for (j = 0; j < 16; ++j) {
             constPtr = BW_CONSTS[j];
             accR *= currR - constPtr[0];
@@ -145,8 +116,8 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterLowpass(fBuf, DEFAULT_BUF_SIZE);
-        filterHighpass(fBuf, DEFAULT_BUF_SIZE);
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 2500.f, scaleLowpass);
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 1.f, scaleHighpass); //dc block
         fmDemod(fBuf, DEFAULT_BUF_SIZE, args->gain, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 1, args->outFile);
     }
