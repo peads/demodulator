@@ -31,6 +31,8 @@ static inline void fmDemod(const float *__restrict__ in,
 
     for (i = 0; i < len; i += 4) {
 
+        // ac-b(-d)=ac+bd
+        // a(-d)+bc=-ad+bc
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
         zr = atan2f(zj, zr);
@@ -60,7 +62,7 @@ void filterLowpass(float *__restrict__ buf, size_t len) {
             {-0.0980171f,-0.995185f}};
     static const float Wc = 2500.f;
     size_t i,j;
-    float accR, accJ, currR, currJ;//, normSquared;
+    float accR, accJ, currR, currJ;
     const float *constPtr;
 
     for (i = 0; i < len; i+=2) {
@@ -73,7 +75,7 @@ void filterLowpass(float *__restrict__ buf, size_t len) {
             accR *= currR - constPtr[0];
             accJ *= currJ - constPtr[1];
         }
-//        normSquared = accR * accR + accJ * accJ;
+
         buf[i] = buf[i]/accR;//accR / normSquared * buf[i];
         buf[i + 1] = buf[i+1]/accJ;//accJ / normSquared * buf[i + 1];
     }
@@ -99,7 +101,7 @@ void filterHighpass(float *__restrict__ buf, size_t len) {
            {-0.0980171f,-0.995185f}};
     static const float Wc = 1.f;
     size_t i,j;
-    float accR, accJ, currR, currJ;//, normSquared;
+    float accR, accJ, currR, currJ;
     const float *constPtr;
 
     for (i = 0; i < len; i+=2) {
@@ -112,9 +114,9 @@ void filterHighpass(float *__restrict__ buf, size_t len) {
             accR *= currR - constPtr[0];
             accJ *= currJ - constPtr[1];
         }
-//        normSquared = accR * accR + accJ * accJ;
-        buf[i] = buf[i]/accR;//accR / normSquared * buf[i];
-        buf[i + 1] = buf[i+1]/accJ;//accJ / normSquared * buf[i + 1];
+
+        buf[i] = buf[i]/accR;
+        buf[i + 1] = buf[i+1]/accJ;
     }
 }
 
