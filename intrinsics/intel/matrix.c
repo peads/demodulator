@@ -25,7 +25,7 @@
     #define MM256_MADD_EPI16(X, Y) _mm256_madd_epi16(X, Y)
 //#endif
 
-static inline __m256i shiftOrigin256(__m256i u) {
+static inline __m256i shiftOrigin(__m256i u) {
 
     const __m256i shift = _mm256_setr_epi8(
             -127, -127, -127, -127, -127, -127, -127, -127,
@@ -35,13 +35,16 @@ static inline __m256i shiftOrigin256(__m256i u) {
 
     return _mm256_add_epi8(u, shift);
 }
-static inline __m128i shiftOrigin128(__m128i u) {
 
-    const __m128i shift = _mm_setr_epi8(
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127);
+static inline __m256i shiftOrigin256(__m256i u) {
 
-    return _mm_add_epi8(u, shift);
+    const __m256i shift = _mm256_setr_epi16(
+            -32767,-32767,-32767,-32767,
+            -32767,-32767,-32767,-32767,
+            -32767,-32767,-32767,-32767,
+            -32767,-32767,-32767,-32767);
+
+    return _mm256_add_epi16(u, shift);
 }
 
 static inline void convert_epi16_ps(__m256i u, __m256 *uhi, __m256 *ulo) {
@@ -95,7 +98,7 @@ __m128 lp_out_butterWorth_ps(__m128 u) {
     return _mm_mul_ps(u, _mm_rcp_ps(v));
 }
 
-void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
+__m256i hp_butterWorth_ps256(__m256i u) {
 
     // Degree 16 Butterworth coefficients in matrix form
     static const __m256 A[] =
@@ -116,97 +119,51 @@ void hp_butterWorth_ps256(__m256i u, __m256i *a, __m256i *b) {
              {0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f},
              {0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f}};
 
-//    __m256i c,d;
     size_t i;
-    __m256 uhi,ulo,temp[] = {{1,1,1,1,1,1,1,1},
-                                     {1,1,1,1,1,1,1,1},
-                                     {1,1,1,1,1,1,1,1},
-                                     {1,1,1,1,1,1,1,1}};
+    __m256  a, b,
+            temp[] = {{1, 1, 1, 1, 1, 1, 1, 1},
+                      {1, 1, 1, 1, 1, 1, 1, 1},
+                      {1, 1, 1, 1, 1, 1, 1, 1},
+                      {1, 1, 1, 1, 1, 1, 1, 1}};
 
     static const __m256i indexComplexConjugate = {
             (int64_t) 0xffff000100010001,
             (int64_t) 0xffff000100010001,
             (int64_t) 0xffff000100010001,
-            (int64_t) 0xffff000100010001,
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101,
-//            (int64_t) 0xff010101ff010101
-
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01,
-//            (int64_t) 0xff01ff01ff01ff01
+            (int64_t) 0xffff000100010001
     };
-
-//    u = _mm256_sign_epi8(u, indexComplexConjugate);
-    u = _mm256_shufflehi_epi16(
-            _mm256_shufflelo_epi16(
-                    _mm256_avg_epu8(u,
-                            _mm256_shufflehi_epi16(
-                                    _mm256_shufflelo_epi16(u, _MM_SHUFFLE(2,3,0,1)),
-                                    _MM_SHUFFLE(2,3,0,1))),
-                    _MM_SHUFFLE(2,0,3,1)),
-            _MM_SHUFFLE(2,0,3,1));
-    u = _mm256_permutevar8x32_epi32(u, _mm256_setr_epi32(0,2,4,6,1,3,5,7));
-    u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(shiftOrigin256(u)));
     u = _mm256_sign_epi16(u, indexComplexConjugate);
-//    convert_epi8_epi32(u, &uhi, &ulo, &vhi, &vlo);;
-    convert_epi16_epi32(u, &uhi, &ulo);
-    uhi = _mm256_rcp_ps(uhi);
-    ulo = _mm256_rcp_ps(ulo);
-//    vhi = _mm256_rcp_ps(vhi);
-//    vlo = _mm256_rcp_ps(vlo);
+    convert_epi16_ps(u, &a, &b);
+//_mm256_cvtepi16_epi32()
+    a = _mm256_rcp_ps(_mm256_cvtepi32_ps(u));
 
     for (i = 0; i < 16; ++i) {
-        temp[0] = _mm256_mul_ps(temp[0], _mm256_sub_ps(ulo, A[i])); // TODO switch addition of the negation?
-        temp[1] = _mm256_mul_ps(temp[1], _mm256_sub_ps(uhi, A[i]));
-//        temp[2] = _mm256_mul_ps(temp[2], _mm256_sub_ps(vlo, A[i]));
-//        temp[3] = _mm256_mul_ps(temp[3], _mm256_sub_ps(vhi, A[i]));
+        temp[0] = _mm256_mul_ps(temp[0], _mm256_sub_ps(a, A[i])); // TODO switch addition of the negation?
+        temp[1] = _mm256_mul_ps(temp[1], _mm256_sub_ps(b, A[i]));
     }
 
-//         z^-1 = 1/(a+bI) = (a+bI)/|z|^2
-    for (i = 0; i < 2; ++i) {
-        ulo = _mm256_mul_ps(temp[i], temp[i]);
-        ulo = _mm256_permute_ps(_mm256_hadd_ps(ulo, ulo), _MM_SHUFFLE(3,1,2,0));
-        ulo = _mm256_rcp_ps(ulo);
-        temp[i] = _mm256_mul_ps(temp[i],ulo);
-    }
-    *a = _mm256_cvtps_epi32(temp[0]);
-    *b = _mm256_cvtps_epi32(temp[1]);
-//    c = _mm256_cvtps_epi32(temp[2]);
-//    d = _mm256_cvtps_epi32(temp[3]);
-//    *a = _mm256_cvtps_epi32(_mm256_rcp_ps(temp[0]));
-//    *b = _mm256_cvtps_epi32(_mm256_rcp_ps(temp[1]));
-//    c = _mm256_cvtps_epi32(_mm256_rcp_ps(temp[2]));
-//    d = _mm256_cvtps_epi32(_mm256_rcp_ps(temp[3]));
+//  z^-1 = 1/(a+bI) = (a+bI)/|z|^2
+    a = _mm256_mul_ps(temp[0], temp[0]);
+    a = _mm256_permute_ps(_mm256_hadd_ps(a, a), _MM_SHUFFLE(3,1,2,0));
+    a = _mm256_rcp_ps(a);
+    temp[0] = _mm256_mul_ps(temp[0], a);
+
+    b = _mm256_mul_ps(temp[1], temp[1]);
+    b = _mm256_permute_ps(_mm256_hadd_ps(b, b), _MM_SHUFFLE(3,1,2,0));
+    b = _mm256_rcp_ps(b);
+    temp[1] = _mm256_mul_ps(temp[0], b);
 
 
-    // TODO clean up this mess
-    *a = _mm256_setr_m128i(
-            _mm256_cvtepi32_epi16(*a),
+    u = _mm256_cvtps_epi32(temp[0]);
+    return _mm256_setr_m128i(
+            _mm256_cvtepi32_epi16(u),
             _mm_cvtepi32_epi16(
-                    _mm256_extracti128_si256(*a, 1)));
-    *b = _mm256_setr_m128i(
-            _mm256_cvtepi32_epi16(*b),
-            _mm_cvtepi32_epi16(
-                    _mm256_extracti128_si256(*b, 1)));
-    *a = _mm256_inserti128_si256(*a, _mm256_castsi256_si128(*b), 1);
-//
-//    *b = _mm256_setr_m128i(
-//            _mm256_cvtepi32_epi16(c),
-//            _mm_cvtepi32_epi16(
-//                    _mm256_extracti128_si256(c, 1)));
-//    c = _mm256_setr_m128i(
-//            _mm256_cvtepi32_epi16(d),
-//            _mm_cvtepi32_epi16(
-//                    _mm256_extracti128_si256(d, 1)));
-//    *b = _mm256_inserti128_si256(*b, _mm256_castsi256_si128(c), 1);
+                    _mm256_extracti128_si256(u, 1)));
 }
 
 #endif
 
-static void hComplexMultiply(__m256i *ulo, __m256i *uhi) {
+static __m256i hComplexMultiply(__m256i u) {
 
     static const __m256i indexComplexConjugate = {
             (int64_t) 0x0001ffff00010001,
@@ -217,25 +174,25 @@ static void hComplexMultiply(__m256i *ulo, __m256i *uhi) {
     __m256i tmp;
 
 //    u = shiftOrigin128(u);
-//    *ulo = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
+//    *u = _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 //    *uhi = _mm256_cvtepi8_epi16(_mm256_extracti128_si256(u,1));
-//    hp_butterWorth_ps256(u, ulo, uhi);
+//    hp_butterWorth_ps256(u, u, uhi);
 
     // abab
     // cddc
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
-    *ulo = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*ulo, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(u, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
+    u = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(u, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
     // because z uhi* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
-    *ulo = _mm256_sign_epi16(*ulo, indexComplexConjugate);
-    *ulo = MM256_MADD_EPI16(tmp, *ulo);
+    u = _mm256_sign_epi16(u, indexComplexConjugate);
+    return MM256_MADD_EPI16(tmp, u);
 
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
-    *uhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
-    *uhi = _mm256_sign_epi16(*uhi, indexComplexConjugate);
-    *uhi = MM256_MADD_EPI16(tmp, *uhi);
+//    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
+//    *uhi = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(*uhi, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
+//    *uhi = _mm256_sign_epi16(*uhi, indexComplexConjugate);
+//    *uhi = MM256_MADD_EPI16(tmp, *uhi);
 }
 
-static __m128 fmDemod(__m256 u) {
+static __m256 fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
@@ -257,41 +214,57 @@ static __m128 fmDemod(__m256 u) {
     // NAN check
     u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
 
-    return _mm256_castps256_ps128(_mm256_permutevar8x32_ps(u,index));
+    return _mm256_permutevar8x32_ps(u,index);
 }
 
-__m256i crudeLowpass(__m256i s0, __m256i s1) {
+//__m256i crudeLowpass(__m256i s0, __m256i s1) {
+//
+//    s0 = _mm256_shufflehi_epi16(
+//            _mm256_shufflelo_epi16(
+//                    _mm256_avg_epu8(s0,
+//                            _mm256_shufflehi_epi16(
+//                                    _mm256_shufflelo_epi16(s0, _MM_SHUFFLE(2,3,0,1)),
+//                                    _MM_SHUFFLE(2,3,0,1))),
+//                    _MM_SHUFFLE(2,0,3,1)),
+//            _MM_SHUFFLE(2,0,3,1));
+//    s0 = _mm256_permutevar8x32_epi32(s0, _mm256_setr_epi32(0,2,4,6,1,3,5,7));
+//
+//    s1 = _mm256_shufflehi_epi16(
+//            _mm256_shufflelo_epi16(
+//                    _mm256_avg_epu8(s1,
+//                            _mm256_shufflehi_epi16(
+//                                    _mm256_shufflelo_epi16(s1, _MM_SHUFFLE(2,3,0,1)),
+//                                    _MM_SHUFFLE(2,3,0,1))),
+//                    _MM_SHUFFLE(2,0,3,1)),
+//            _MM_SHUFFLE(2,0,3,1));
+//    s1 = _mm256_permutevar8x32_epi32(s1, _mm256_setr_epi32(0,2,4,6,1,3,5,7));
+//
+//    return _mm256_cvtepi8_epi16(shiftOrigin256(_mm_avg_epu8(_mm256_castsi256_si128(s0), _mm256_castsi256_si128(s1))));
+//}
 
-    s0 = _mm256_shufflehi_epi16(
+__m256i crudeLowpass_epi8_epi16(__m256i u) {
+
+    const __m256i index = _mm256_setr_epi32(0,2,4,6,1,3,5,7);
+
+    u = _mm256_shufflehi_epi16(
             _mm256_shufflelo_epi16(
-                    _mm256_avg_epu8(s0,
+                    _mm256_avg_epu8(u,
                             _mm256_shufflehi_epi16(
-                                    _mm256_shufflelo_epi16(s0, _MM_SHUFFLE(2,3,0,1)),
+                                    _mm256_shufflelo_epi16(u, _MM_SHUFFLE(2,3,0,1)),
                                     _MM_SHUFFLE(2,3,0,1))),
                     _MM_SHUFFLE(2,0,3,1)),
             _MM_SHUFFLE(2,0,3,1));
-    s0 = _mm256_permutevar8x32_epi32(s0, _mm256_setr_epi32(0,2,4,6,1,3,5,7));
-
-    s1 = _mm256_shufflehi_epi16(
-            _mm256_shufflelo_epi16(
-                    _mm256_avg_epu8(s1,
-                            _mm256_shufflehi_epi16(
-                                    _mm256_shufflelo_epi16(s1, _MM_SHUFFLE(2,3,0,1)),
-                                    _MM_SHUFFLE(2,3,0,1))),
-                    _MM_SHUFFLE(2,0,3,1)),
-            _MM_SHUFFLE(2,0,3,1));
-    s1 = _mm256_permutevar8x32_epi32(s1, _mm256_setr_epi32(0,2,4,6,1,3,5,7));
-
-    return _mm256_cvtepi8_epi16( shiftOrigin128(_mm_avg_epu8(_mm256_castsi256_si128(s0), _mm256_castsi256_si128(s1))));
+    u = _mm256_permutevar8x32_epi32(u, index);
+    u = shiftOrigin(u);
+    return _mm256_cvtepi8_epi16(_mm256_castsi256_si128(u));
 }
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m128 result = {};
-    __m256 uhi, ulo;
-    __m256i s0, s1;
+    __m256 result = {};
+    __m256i s0;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     while (!args->exitFlag) {
         sem_wait(&args->full);
@@ -304,15 +277,12 @@ void *processMatrix(void *ctx) {
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
 //            s0 = crudeLowpass(*(__m256i *) (buf + i), *(__m256i *) (buf + i + 32));
 //            s1 = crudeLowpass(*(__m256i *) (buf + i+ 64), *(__m256i *) (buf + i + 96));
-            hp_butterWorth_ps256(shiftOrigin256(*(__m256i *) (buf + i)), &s0, &s1);
-            hComplexMultiply(&s0, &s1);
-            convert_epi16_ps(s0, &uhi, &ulo);
-            result = fmDemod(ulo);
-            ulo = _mm256_setr_m128(result, fmDemod(uhi));
-
-//            result = _mm256_setr_m128(lp_out_butterWorth_ps(_mm256_castps256_ps128(result)),
+            s0 = crudeLowpass_epi8_epi16(*(__m256i *) (buf + i));
+            s0 = hComplexMultiply(s0);
+            result = fmDemod(_mm256_cvtepi32_ps(s0));
+            result = _mm256_castps128_ps256(lp_out_butterWorth_ps(_mm256_castps256_ps128(result)));
 //                lp_out_butterWorth_ps(_mm256_extractf128_ps(result, 1)));
-            fwrite(&ulo, sizeof(__m256), 1, args->outFile);
+            fwrite(&result, sizeof(__m128), 1, args->outFile);
 //            fwrite(&result, sizeof(__m256), 1, args->outFile);
         }
     }
