@@ -277,7 +277,7 @@ void *processMatrix(void *ctx) {
 //        for (i = 0; i < DEFAULT_BUF_SIZE; i += 128) {
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
             s0 = crudeLowpass_epi8_epi16(*(__m256i *) (buf + i));
-            s0 = hp_butterWorth_ps256(s0);
+//            s0 = hp_butterWorth_ps256(s0);
             s0 = hComplexMultiply(s0);
             result = fmDemod(_mm256_cvtepi32_ps(s0));
             result = _mm256_castps128_ps256(lp_out_butterWorth_ps(_mm256_castps256_ps128(result)));
