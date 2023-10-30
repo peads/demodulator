@@ -78,7 +78,7 @@ def animate(i, ts, ys):
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)
 
-    fft_data = np.fft.fft(ys)
+    fft_data = np.abs(np.fft.fft(ys))
     fft_freq = np.fft.fftfreq(len(fft_data))
 
     ax.plot(fft_freq, fft_data)
@@ -93,7 +93,7 @@ with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     ts = [0]
     ani = animation.FuncAnimation(fig, animate, fargs=(ts, ys), frames=partial(generateData, f),
                                   save_count=displaysize, interval=8)
-    plt.ylim(-0.001, 300)
+    plt.ylim(0, 1e3)
     plt.xlim(-0.5, 0.5)
     # plt.axis('off')
     plt.show()
