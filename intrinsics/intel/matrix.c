@@ -19,12 +19,6 @@
  */
 #include "matrix.h"
 
-#if __AVX512VNNI__
-    #define MM256_MADD_EPI16(X, Y) _mm256_dpwssd_epi32(_mm256_setzero_si256(), X, Y)
-#else
-    #define MM256_MADD_EPI16(X, Y) _mm256_madd_epi16(X, Y)
-#endif
-
 static inline __m256i shiftOrigin(__m256i u) {
 
     const __m256i shift = _mm256_setr_epi8(
@@ -47,7 +41,7 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-__m256 filterButterWorth(__m256 u, float wc) {
+static inline __m256 filterButterWorth(__m256 u, float wc) {
 
     // Degree 8 coefficients
     static const __m256 BW_CONSTS[] = {
@@ -74,7 +68,7 @@ __m256 filterButterWorth(__m256 u, float wc) {
     return v;
 }
 
-__m256 hPolarDiscriminant_ps(__m256 u, __m256 v) {
+static inline __m256 hPolarDiscriminant_ps(__m256 u, __m256 v) {
 
     const __m256i indexOrdering = _mm256_setr_epi32(0,1,4,5,2,3,6,7);
     static const __m256 indexComplexConjugate = {1,1,-1.f,1,1,1,-1.f,1};
@@ -92,26 +86,7 @@ __m256 hPolarDiscriminant_ps(__m256 u, __m256 v) {
     return u;
 }
 
-__m256i hPolarDiscriminant_epi16(__m256i u) {
-
-    static const __m256i indexComplexConjugate = {
-            (int64_t) 0x0001ffff00010001,
-            (int64_t) 0x0001ffff00010001,
-            (int64_t) 0x0001ffff00010001,
-            (int64_t) 0x0001ffff00010001
-    };
-    __m256i tmp;
-
-    // abab
-    // cddc
-    tmp = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(u, _MM_SHUFFLE(1, 0, 1, 0)), _MM_SHUFFLE(1, 0, 1, 0));
-    u = _mm256_shufflelo_epi16(_mm256_shufflehi_epi16(u, _MM_SHUFFLE(2, 3, 3, 2)), _MM_SHUFFLE(2, 3, 3, 2));
-    // because z w* = (ac-(-d)b = ac+bd) + I (a(-d)+bc = -ad+bc)
-    u = _mm256_sign_epi16(u, indexComplexConjugate);
-    return MM256_MADD_EPI16(tmp, u);
-}
-
-static __m256 fmDemod(__m256 u) {
+static inline __m256 fmDemod(__m256 u) {
 
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
