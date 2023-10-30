@@ -43,7 +43,7 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-static inline __m256 scaleButterworthDcBlock(__m256 wc, __m256 u) {
+static inline __m256 scaleButterworthDcBlock(const __m256 wc, __m256 u) {
 
     return _mm256_rcp_ps(u);
 }
@@ -53,12 +53,13 @@ static inline __m256 scaleButterworthDcBlock(__m256 wc, __m256 u) {
 //    return _mm256_mul_ps(_mm256_rcp_ps(u), wc);
 //}
 
-static inline __m256 scaleButterworthLowpass(__m256 wc, __m256 u) {
+/// The reciprocal of omega c must be passed in!
+static inline __m256 scaleButterworthLowpass(const __m256 wc, __m256 u) {
 
-    return _mm256_mul_ps(u, _mm256_rcp_ps(wc));
+    return _mm256_mul_ps(u, wc);
 }
 
-static inline __m256 filterButterWorth(__m256 u, __m256 wc, butterWorthScalingFn_t fn) {
+static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
 
     // Degree 8 coefficients
     static const __m256 BW_CONSTS[] = {
@@ -130,8 +131,8 @@ static inline __m256 fmDemod(__m256 u) {
 void *processMatrix(void *ctx) {
 
     static const __m256 lowpassWc = {
-            25000.f,25000.f,25000.f,25000.f,
-            25000.f,25000.f,25000.f,25000.f};
+            0.00004f,0.00004f,0.00004f,0.00004f,
+            0.00004f,0.00004f,0.00004f,0.00004f};
     static const __m256 highpassWc = {
             1.f, 1.f, 1.f, 1.f,
             1.f, 1.f, 1.f, 1.f};
