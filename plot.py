@@ -30,7 +30,7 @@ from math import e
 plt.style.use('dark_background')
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-displaysize = 8192
+displaysize = 4096
 bufsize = displaysize << 4
 dt = displaysize >> 3
 scaling = pow(2, -e)
