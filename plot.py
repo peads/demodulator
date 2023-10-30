@@ -33,8 +33,7 @@ ax = fig.add_subplot(1, 1, 1)
 displaysize = 4096
 bufsize = displaysize << 4
 dt = displaysize >> 3
-scaling = pow(2, -e)
-
+scaling = pow(2,-e)
 
 class Chunker:
     def __init__(self, file):
@@ -80,6 +79,7 @@ def animate(i, ts, ys):
     ax.set_ylim((-scaling, scaling))
 
     ax.plot(ts, ys)
+    plt.axis('off')
     # ax.scatter(ts, ys)
     # ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
 
@@ -89,5 +89,5 @@ with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     ys = [0]
     ts = [0]
     ani = animation.FuncAnimation(fig, animate, fargs=(ts, ys), frames=partial(generateData, f),
-                                  save_count=displaysize, interval=8)
+                                  save_count=displaysize, interval=128)
     plt.show()
