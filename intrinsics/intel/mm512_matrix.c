@@ -212,11 +212,11 @@ void *processMatrix(void *ctx) {
     __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
 
     while (!args->exitFlag) {
-        sem_wait(&args->full);
+        sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
-        sem_post(&args->empty);
+        sem_post(args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 64) {
             demodEpi8(*(__m512i *) (buf + i), result + (i >> 3));

@@ -63,11 +63,11 @@ extern "C" void *processMatrix(void *ctx) {
 
     while (!args->exitFlag) {
 
-        sem_wait(&args->full);
+        sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         cudaMemcpy(dBuf, args->buf, DEFAULT_BUF_SIZE, cudaMemcpyHostToDevice);
         pthread_mutex_unlock(&args->mutex);
-        sem_post(&args->empty);
+        sem_post(args->empty);
 
         cudaDeviceSynchronize();
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, args->gain, dResult);
