@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+from scipy import signal
 import sys
 import struct
 import matplotlib.pyplot as plt
@@ -40,10 +41,11 @@ class Chunker:
         self.file = file
         self.fs = bufsize * 'f'
         self.ymins = dt * 0
+        self.b, self.a = signal.butter(8, 0.1, 'low')
 
     def __iter__(self):
         try:
-            self.chunk = list(struct.unpack_from(self.fs, self.file.read(bufsize << 2)))
+            self.chunk = list(struct.unpack_from(self.fs, f.read(bufsize << 2)))
             return self
         except struct.error as ex:
             raise StopIteration(ex)
@@ -52,7 +54,7 @@ class Chunker:
         if (bool(self.chunk)):
             result = self.chunk[0:dt]
             del self.chunk[0:dt]
-            return self.ymins, result
+            return self.ymins, signal.filtfilt(self.b, self.a, result)
             # return self.chunk.popleft()\
         raise StopIteration()
 
@@ -76,8 +78,10 @@ def animate(i, ts, ys):
     ax.clear()
     ax.set_yscale('asinh', base=2)
     ax.set_ylim((-scaling, scaling))
+
+    ax.plot(ts, ys)
     # ax.scatter(ts, ys)
-    ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
+    # ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
 
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
