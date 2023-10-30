@@ -43,6 +43,11 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
+static inline __m256 scaleButterworthDcBlock(__m256 wc, __m256 u) {
+
+    return _mm256_rcp_ps(u);
+}
+
 //static inline __m256 scaleButterworthHighpass(__m256 wc, __m256 u) {
 //
 //    return _mm256_mul_ps(_mm256_rcp_ps(u), wc);
@@ -74,7 +79,7 @@ static inline __m256 filterButterWorth(__m256 u, __m256 wc, butterWorthScalingFn
         temp = _mm256_add_ps(v, BW_CONSTS[i]);
         acc = _mm256_mul_ps(acc, temp);
     }
-    v = _mm256_div_ps(u, acc);
+    v = _mm256_mul_ps(u, _mm256_rcp_ps(acc));
 
     return v;
 }
@@ -124,11 +129,16 @@ static inline __m256 fmDemod(__m256 u) {
 
 void *processMatrix(void *ctx) {
 
+    static const __m256 lowpassWc = {
+            25000.f,25000.f,25000.f,25000.f,
+            25000.f,25000.f,25000.f,25000.f};
+    static const __m256 highpassWc = {
+            1.f, 1.f, 1.f, 1.f,
+            1.f, 1.f, 1.f, 1.f};
     consumerArgs *args = ctx;
     size_t i;
     __m256 result = {};
     __m256 hBuf[4] = {};
-    __m256 lowpassWc = _mm256_set1_ps(25000.f);
     __m256i u;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     while (!args->exitFlag) {
@@ -144,11 +154,17 @@ void *processMatrix(void *ctx) {
 
             hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
             hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);
+            hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
+            hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
+
+            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthDcBlock);
+            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthDcBlock);
+            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthDcBlock);
+            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthDcBlock);
+
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
 
-            hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
-            hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
             hBuf[2] = hPolarDiscriminant_ps(hBuf[2], hBuf[3]);
             hBuf[1] = fmDemod(hBuf[2]);
 
