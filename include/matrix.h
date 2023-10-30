@@ -38,7 +38,7 @@
 #endif
 
 typedef struct {
-    sem_t full, empty;
+    sem_t *full, *empty;
     const uint8_t mode;
     void *buf;
     int exitFlag;

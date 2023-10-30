@@ -11,13 +11,9 @@ option(NO_INTRINSICS OFF)
 option(NO_AVX512 OFF)
 option(NO_AVX2 OFF)
 option(NO_NEON OFF)
-option(NO_BUTTERWORTH OFF)
 
 if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
-endif()
-if(NO_BUTTERWORTH)
-    add_compile_definitions(NO_BUTTERWORTH=${NO_BUTTERWORTH})
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
@@ -84,7 +80,7 @@ elseif (TARGET_ARCH STREQUAL "x86_64")
         else()
             if (NOT NO_AVX512)
                 execute_process(
-                        COMMAND sh -c "sysctl hw.optional | grep avx512 | sed -E 's/hw\\.optional\\.avx512(bw|dq|f): 1/yes/g' | grep yes | wc -l"
+                        COMMAND sh -c "sysctl hw | grep -E 'avx512(bw|dq|f)' | grep ': 1' | wc -l"
                         OUTPUT_VARIABLE PROCINFO OUTPUT_STRIP_TRAILING_WHITESPACE)
                 if (${PROCINFO} MATCHES 3)
                     set(HAS_AVX512 ON)
@@ -95,9 +91,9 @@ elseif (TARGET_ARCH STREQUAL "x86_64")
                 endif()
             endif()
             execute_process(
-                    COMMAND sh -c "sysctl hw.optional | grep avx2 | sed -E 's/hw\\.optional\\.avx2_0: 1/yes/g' | grep yes | wc -l"
+                    COMMAND sh -c "sysctl hw | grep -E '(fma|avx2)' | grep ': 1' | wc -l"
                     OUTPUT_VARIABLE PROCINFO OUTPUT_STRIP_TRAILING_WHITESPACE)
-            if (${PROCINFO} MATCHES 1)
+            if (${PROCINFO} MATCHES 2)
                 set(HAS_AVX2 ON)
                 message("-- AVX2 detected")
             else()
@@ -163,7 +159,7 @@ else()
         endif()
     endif()
     include_directories("${CMAKE_HOME_DIRECTORY}/include")
-    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/fmath.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
+    add_executable(${PROJECT_NAME} ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/include/matrix.h" "${CMAKE_CURRENT_SOURCE_DIR}/include/prototypes.h")
 
     if(CMAKE_THREAD_LIBS_INIT)
         target_link_libraries(${PROJECT_NAME} PUBLIC pthread)

@@ -22,14 +22,11 @@
 #define DEMODULATOR_DEFINITIONS_H
 
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 262144L
+#define DEFAULT_BUF_SIZE 131072L
 #endif
 
-#define ADBC_INDEX _MM_SHUFFLE(1,3,0,2)
-#define ACBD_INDEX _MM_SHUFFLE(3,1,2,0)
-//0,2,1,3)
-#define CDAB_INDEX _MM_SHUFFLE(1,0,3,2)
-//2,3,0,1)
+#define WC 0.00006666666f
+//0.001333f
 
 #if (!(defined(NO_INTRINSICS) || defined(NO_AVX2)) && (defined(__AVX__) || defined(__AVX2__)))
 #define ALIGNMENT 32
@@ -60,7 +57,25 @@
 #if defined(__aarch64__) || defined(_M_ARM64)
 #define HAS_AARCH64
 #endif
-
+#ifdef __APPLE__
+#define SEM_INIT(SEM, NAME, VALUE) \
+    args.exitFlag |= printIfError( \
+        (SEM = sem_open (NAME, O_CREAT | O_EXCL, 0644, VALUE)));
+#else
+#define SEM_INIT(SEM, NAME, VALUE) \
+    SEM = malloc(sizeof(sem_t)); \
+    args.exitFlag |= printIfError( \
+        sem_init(SEM, 0, VALUE) ? NULL : SEM);
+#endif
+#ifdef __APPLE__
+#define SEM_DESTROY(SEM, NAME) \
+    sem_close(SEM); \
+    sem_unlink(NAME);
+#else
+#define SEM_DESTROY(SEM, NAME) \
+    sem_destroy(SEM); \
+    free(SEM);
+#endif
 /**
  * Takes a 4x4 matrix and applies it to a 4x1 vector.
  * Here, it is used to apply the same rotation matrix to

@@ -29,7 +29,7 @@ import typer
 
 # translated directly from rtl_tcp.c
 class RtlTcpCommands(Enum):
-    SET_FREQUENCY = 0x01 # TODO split this with top half using 0x56?
+    SET_FREQUENCY = 0x01
     SET_SAMPLE_RATE = 0x02
     SET_GAIN_MODE = 0x03
     SET_GAIN = 0x04
@@ -75,6 +75,9 @@ class SelbstmortError(Exception):
 class ControlRtlTcp:
     def __init__(self, connection):
         self.connection = connection
+        connection.sendall(pack('>BI', 3, 1))
+        connection.sendall(pack('>BI', 8, 0))
+        connection.sendall(pack('>BI', 14, 0))
 
     def setFrequency(self, freq):
         self.setParam(RtlTcpCommands.SET_FREQUENCY.value, freq)
@@ -173,7 +176,11 @@ def main(host: str, port: str, bufSize: int=16777216):
         try:
             while server.isNotDead():
                 try:
-                    inp = input('Provide a space-delimited command and value for rtl_tcp:\n')
+                    print('Available commands are: ')
+                    print()
+                    [print(f'{e.value}\t{e.name}') for e in RtlTcpCommands]
+                    print()
+                    inp = input('Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
                     if len(inp) > 1:
                         try:
                             (cmd, param) = inp.split()

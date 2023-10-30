@@ -27,7 +27,7 @@ extern void *processMatrix(void *ctx);
 extern void allocateBuffer(void **buf,  size_t len);
 #endif
 
-static inline int printIfError(FILE *file) {
+static inline int printIfError(void *file) {
 
     if (!file) {
         perror(NULL);
@@ -36,26 +36,35 @@ static inline int printIfError(FILE *file) {
     return 0;
 }
 
-static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const float gain, FILE* outFile) {
+static inline int startProcessingMatrix(
+        FILE *inFile,
+        const uint8_t mode,
+        const float gain, FILE *outFile) {
 
-    pthread_t pid;
     size_t elementsRead;
+    pthread_t pid;
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .mode = mode,
             .outFile = outFile,
-            .exitFlag = sem_init(&args.empty, 0, 1),
+            .exitFlag = 0,
             .gain = gain != 1.f ? gain : 0.f
     };
-    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
-    args.exitFlag |= sem_init(&args.full, 0, 0);
-    args.exitFlag |= pthread_create(&pid, NULL, processMatrix, &args);
+    SEM_INIT(args.empty, "/empty", 1)
+    SEM_INIT(args.full, "/full", 0)
+
+    args.exitFlag |= printIfError(
+            pthread_create(&pid, NULL, processMatrix, &args)
+            ? NULL
+            : &args);
+
+    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
 
     while (!args.exitFlag) {
 
-        sem_wait(&args.empty);
+        sem_wait(args.empty);
         pthread_mutex_lock(&args.mutex);
         elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
 
@@ -69,14 +78,13 @@ static inline int startProcessingMatrix(FILE *inFile, const uint8_t mode, const 
                             "fread. Stupid compiler.");
         }
         pthread_mutex_unlock(&args.mutex);
-        sem_post(&args.full);
+        sem_post(args.full);
     }
-
 
     pthread_join(pid, NULL);
     pthread_mutex_destroy(&args.mutex);
-    sem_destroy(&args.empty);
-    sem_destroy(&args.full);
+    SEM_DESTROY(args.empty, "/empty")
+    SEM_DESTROY(args.full, "/full")
 
     fclose(outFile);
     fclose(inFile);

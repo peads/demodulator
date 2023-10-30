@@ -29,8 +29,8 @@ from math import e
 plt.style.use('dark_background')
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-displaysize = 32768
-bufsize = displaysize << 3
+displaysize = 8192
+bufsize = displaysize << 4
 dt = displaysize >> 3
 scaling = pow(2, -e)
 
@@ -42,17 +42,19 @@ class Chunker:
         self.ymins = dt * 0
 
     def __iter__(self):
-        self.chunk = list(struct.unpack_from(self.fs, self.file.read(bufsize << 2)))
-        return self
+        try:
+            self.chunk = list(struct.unpack_from(self.fs, self.file.read(bufsize << 2)))
+            return self
+        except struct.error as ex:
+            raise StopIteration(ex)
 
     def __next__(self):
         if (bool(self.chunk)):
             result = self.chunk[0:dt]
             del self.chunk[0:dt]
             return self.ymins, result
-            # return self.chunk.popleft()
+            # return self.chunk.popleft()\
         raise StopIteration()
-
 
 def generateData(file):
     chunker = Chunker(file)
