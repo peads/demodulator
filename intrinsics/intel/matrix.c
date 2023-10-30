@@ -116,7 +116,13 @@ static inline __m256 fmDemod(__m256 u) {
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-    const __m256i index = _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 3, 6);
+    static const __m256i index = {
+            // _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 3, 6);
+            0x300000001,
+            0x700000005,
+            0x200000000,
+            0x600000003
+    };
     // fast atan2(y,x) := 64y/(23x+41*Sqrt[x^2+y^2])
     __m256 v = _mm256_mul_ps(u, u),
             hypot = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
