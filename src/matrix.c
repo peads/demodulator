@@ -53,23 +53,32 @@ static inline float scaleButterworthLowpass(float wc, float x) {
 }
 
 static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc, butterWorthScalingFn_t fn) {
-    static const float BW_CONSTS[16][2] = {
-           {-0.0980171f, 0.995185f},
-           {-0.290285f, 0.95694f},
-           {-0.471397f,  0.881921f},
-           {-0.634393f,  0.77301f},
-           {-0.77301f,   0.634393f},
-           {-0.881921f,  0.471397f},
-           {-0.95694f,   0.290285f},
-           {-0.995185f,  0.0980171f},
-           {-0.995185f,  -0.0980171f},
-           {-0.95694f,   -0.290285f},
-           {-0.881921f,  -0.471397f},
-           {-0.77301f,   -0.634393f},
-           {-0.634393f,-0.77301f},
-           {-0.471397f,-0.881921f},
-           {-0.290285f,-0.95694f},
-           {-0.0980171f,-0.995185f}};
+    static const float BW_CONSTS[8][2] = {
+            {-0.19509f, 0.980785f}, 
+            {-0.55557f, 0.83147f}, 
+            {-0.83147f, 0.55557f}, 
+            {-0.980785f, 0.19509f}, 
+            {-0.980785f, -0.19509f}, 
+            {-0.83147f, -0.55557f}, 
+            {-0.55557f, -0.83147f}, 
+            {-0.19509f, -0.980785f}};
+//    static const float BW_CONSTS[16][2] = {
+//           {-0.0980171f, 0.995185f},
+//           {-0.290285f, 0.95694f},
+//           {-0.471397f,  0.881921f},
+//           {-0.634393f,  0.77301f},
+//           {-0.77301f,   0.634393f},
+//           {-0.881921f,  0.471397f},
+//           {-0.95694f,   0.290285f},
+//           {-0.995185f,  0.0980171f},
+//           {-0.995185f,  -0.0980171f},
+//           {-0.95694f,   -0.290285f},
+//           {-0.881921f,  -0.471397f},
+//           {-0.77301f,   -0.634393f},
+//           {-0.634393f,-0.77301f},
+//           {-0.471397f,-0.881921f},
+//           {-0.290285f,-0.95694f},
+//           {-0.0980171f,-0.995185f}};
     size_t i,j;
     float accR, accJ, currR, currJ;
     const float *constPtr;
@@ -79,7 +88,7 @@ static inline void filterButterWorth(float *__restrict__ buf, const size_t len, 
         accJ = 1.f;
         currR = fn(wc, buf[i]);
         currJ = fn(wc, buf[i + 1]);
-        for (j = 0; j < 16; ++j) {
+        for (j = 0; j < 8; ++j) {
             constPtr = BW_CONSTS[j];
             accR *= currR - constPtr[0];
             accJ *= currJ - constPtr[1];
