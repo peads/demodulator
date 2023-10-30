@@ -86,22 +86,27 @@ static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWo
 }
 
 static inline __m256 hComplexMulByConj(__m256 u) {
-    static const __m256 indexComplexConjugate = {1,1,-1.f,1,1,1,-1.f,1};
-    const __m256i indexOrdering = _mm256_setr_epi32(0,2,4,6,1,3,5,7);
 
-    __m256  abab = _mm256_permute_ps(u, _MM_SHUFFLE(1,0,1,0)),
-            cdndc = _mm256_mul_ps(_mm256_permute_ps(u, _MM_SHUFFLE(2, 3, 3, 2)), indexComplexConjugate),
-            temp = _mm256_mul_ps(abab,cdndc);
-    temp = _mm256_add_ps(temp, _mm256_permute_ps(temp, _MM_SHUFFLE(2,3,0,1)));
-    temp =  _mm256_permutevar8x32_ps(temp, indexOrdering);
-    return temp;
+    static const __m256 indexComplexConjugate = {1, 1, -1.f, 1, 1, 1, -1.f, 1};
+    static const __m256i indexOrdering = {
+            // _mm256_setr_epi32(0,2,4,6,1,3,5,7);
+            0x200000000,
+            0x600000004,
+            0x300000001,
+            0x700000005};
+
+    __m256 temp = _mm256_mul_ps(
+            _mm256_permute_ps(u, _MM_SHUFFLE(1, 0, 1, 0)),              // abab
+            _mm256_mul_ps(_mm256_permute_ps(u, _MM_SHUFFLE(2, 3, 3, 2)),// cd(-d)c
+                    indexComplexConjugate));
+    return _mm256_permutevar8x32_ps(_mm256_add_ps(temp,
+            _mm256_permute_ps(temp, _MM_SHUFFLE(2, 3, 0, 1))), indexOrdering);
 }
 
 static inline __m256 hPolarDiscriminant_ps(__m256 u, __m256 v) {
 
-    __m256 temp = hComplexMulByConj(u), temp1 = hComplexMulByConj(v);
-    u = _mm256_blend_ps(temp, _mm256_permute2f128_ps(temp1, temp1, 1), 0b11110000);
-    return u;
+    v = hComplexMulByConj(v);
+    return _mm256_blend_ps(hComplexMulByConj(u), _mm256_permute2f128_ps(v, v, 1), 0b11110000);
 }
 
 static inline __m256 fmDemod(__m256 u) {
