@@ -23,11 +23,13 @@ typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 
 static inline __m256i shiftOrigin(__m256i u) {
 
-    const __m256i shift = _mm256_setr_epi8(
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127);
+    static const __m256i shift = {
+            //_mm256_set1_epi8(-127);
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f
+    };
 
     return _mm256_add_epi8(u, shift);
 }
