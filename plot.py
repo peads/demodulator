@@ -92,7 +92,7 @@ with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     ys = [0]
     ts = [0]
     ani = animation.FuncAnimation(fig, animate, fargs=(ts, ys), frames=partial(generateData, f),
-                                  save_count=displaysize, interval=1)
+                                  save_count=displaysize, interval=8)
     plt.ylim(-0.001, 300)
     plt.xlim(-0.5, 0.5)
     # plt.axis('off')
