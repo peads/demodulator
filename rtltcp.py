@@ -98,6 +98,11 @@ def findPort(host='localhost'):
         return s.getsockname()[1]
 
 
+class GoodNightMoonError(Exception):
+    def __init__(self):
+        super().__init__('You died')
+
+
 class OutputServer:
     def __init__(self, rs: socket.socket, port: int, host='localhost', serverhost='localhost'):
         self.ss = None
@@ -114,48 +119,57 @@ class OutputServer:
         if self.exitFlag:
             raise Exception('Already dead')
         else:
+            self.exitFlag = True
             self.ss.shutdown(socket.SHUT_RDWR)
             self.rs.shutdown(socket.SHUT_RDWR)
-            self.exitFlag = True
+            while len(self.clients):
+                self.clients.pop().shutdown(socket.SHUT_RDWR)
+            self.clients.clear()
+            self.buffer = None
+            self.clients = None
 
     def isNotDead(self):
         if not self.exitFlag:
             return True
-        raise Exception('You died')
+        raise GoodNightMoonError()
 
     def consume(self):
         processingList = []
+        cs = None
         try:
             while self.isNotDead():
-                data = self.buffer.get(block=True)
+                data = self.buffer.get()
 
-                while len(self.clients):
+                while self.isNotDead() and len(self.clients):
                     cs = self.clients.pop()
                     try:
                         cs.sendall(data)
                         processingList.append(cs)
-                    except OSError as e:
+                    except OSError as ex:
                         cs.close()
-                        print(f'Client disconnected {e}')
+                        print(f'Client disconnected {ex}')
                 self.buffer.task_done()
                 self.clients.extend(processingList)
                 processingList.clear()
-        except (OSError, queue.Full, AttributeError, TypeError) as e:
-            print(f'Consumer caught {e}')
+        except GoodNightMoonError:
+            pass
+        except (OSError, queue.Empty, AttributeError, TypeError) as ex:
+            print(f'Consumer caught {ex}')
         finally:
-            # print('Consumer quitting')
+            print('Consumer quitting')
             return
 
     def produce(self):
         try:
             while self.isNotDead():
                 self.buffer.join()
-                self.buffer.put(item=self.rs.recv(8192), block=True)
-        except (OSError, queue.Full, AttributeError, TypeError) as e:
-            print(f'Producer caught {e}')
+                self.buffer.put(item=self.rs.recv(8192))
+        except GoodNightMoonError:
+            pass
+        except (OSError, queue.Full, AttributeError, TypeError) as ex:
+            print(f'Producer caught {ex}')
         finally:
-            self.rs.close()
-            # print(f'Producer quitting')
+            print(f'Producer quitting')
             return
 
     def runServer(self):
@@ -172,13 +186,10 @@ class OutputServer:
                     cs.setblocking(False)
                     print(f'Connection request from: {address}')
                     self.clients.appendleft(cs)
+            except GoodNightMoonError:
+                pass
             finally:
-                # print('Joining producer/consumer threads')
-                self.ss = None
-                ct.join(timeout=1)
-                # print('Consumer dead')
-                pt.join(timeout=1)
-                # print('Producer dead')
+                print('Listener quitting')
                 return
 
     def startServer(self):
@@ -195,41 +206,38 @@ def main(host: str, port: str):
         server = OutputServer(s, iport, host='0.0.0.0')
         st = server.startServer()
         # cmdr.setFrequency(int(freq))
-        try:
-            while server.isNotDead():
-                try:
-                    print('Available commands are: ')
-                    print()
-                    [print(f'{e.value}\t{e.name}') for e in RtlTcpCommands]
-                    print()
-                    print(f'Accepting connections on port {server.serverport}')
-                    print()
-                    inp = input(
-                        'Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
-                    if len(inp) > 1:
+        while server.isNotDead():
+            try:
+                print('Available commands are: ')
+                print()
+                [print(f'{e.value}\t{e.name}') for e in RtlTcpCommands]
+                print()
+                print(f'Accepting connections on port {server.serverport}')
+                print()
+                inp = input(
+                    'Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
+                if len(inp) > 1:
+                    try:
+                        (cmd, param) = inp.split()
                         try:
-                            (cmd, param) = inp.split()
-                            try:
-                                numCmd = int(cmd)
-                                numCmd = RtlTcpCommands(numCmd).value
-                            except ValueError:
-                                numCmd = RtlTcpCommands[cmd].value
-                            cmdr.setParam(numCmd, int(param))
-                        except (ValueError, KeyError) as e:
-                            raise UnrecognizedInputError(inp, e)
-                    elif inp == 'q' or inp == 'Q':
-                        server.kill()
-                    else:
-                        raise UnrecognizedInputError(inp)
-                except UnrecognizedInputError as e:
-                    print(f'ERROR: Input invalid: {e}. Please try again')
-        except Exception as e:
-            print(f'This was your fate: {e}')
-        finally:
-            print('Quitting')
-            st.join(timeout=1)
-            quit(0)
+                            numCmd = int(cmd)
+                            numCmd = RtlTcpCommands(numCmd).value
+                        except ValueError:
+                            numCmd = RtlTcpCommands[cmd].value
+                        cmdr.setParam(numCmd, int(param))
+                    except (ValueError, KeyError) as ex:
+                        raise UnrecognizedInputError(inp, ex)
+                elif inp == 'q' or inp == 'Q':
+                    server.kill()
+                else:
+                    raise UnrecognizedInputError(inp)
+            except UnrecognizedInputError as ex:
+                print(f'ERROR: Input invalid: {ex}. Please try again')
+        print('Commander quitting')
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    try:
+        typer.run(main)
+    except Exception as e:
+        print(f'This was your fate: {e}')
