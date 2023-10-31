@@ -20,6 +20,7 @@
  #
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
+wavFile2=FLEX_Pager_IQ_20150816_929613kHz_IQ.wav
 audioOutOpts=""
 compilers=()
 
@@ -64,6 +65,14 @@ function executeRun() {
     | dsd -i - -o/dev/null -n ${audioOutOpts}
 }
 
+function executeRun2() {
+  sox -q -D -v20 -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
+    | build/demodulator -i - -o - \
+    | tee -i uint8.dat \
+    | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
+    | multimon-ng -c -aFLEX_NEXT -
+}
+
 function join_by() {
   local IFS="$1"; shift; echo "$*";
 }
@@ -106,11 +115,19 @@ for compiler in ${compilers[@]}; do
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
   executeRun $compiler "192k" 1
 
-  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
+  echo ":: STARTING TIMED RUNS 1FOR: ${compiler} -DNO_AVX512=ON"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DNO_AVX512=ON"
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_AVX512=ON"
+  rm -rf file uint8.dat
+
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_AVX512=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_AVX512=ON"
   rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
