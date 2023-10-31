@@ -18,16 +18,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "matrix.h"
-
+//#define BW
 typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 
 static inline __m256i shiftOrigin(__m256i u) {
 
-    const __m256i shift = _mm256_setr_epi8(
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127,
-            -127, -127, -127, -127, -127, -127, -127, -127);
+    static const __m256i shift = {
+            //_mm256_set1_epi8(-127);
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f
+    };
 
     return _mm256_add_epi8(u, shift);
 }
@@ -43,7 +45,7 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-static inline __m256 scaleButterworthDcBlock(const __m256 wc, __m256 u) {
+static inline __m256 scaleButterworthDcBlock(__attribute__((unused)) const __m256 wc, __m256 u) {
 
     return _mm256_rcp_ps(u);
 }
@@ -85,22 +87,53 @@ static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWo
     return v;
 }
 
+#ifdef BW
+static inline __m256 filterRealButterworth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
+    // Degree 16
+    static const __m256 ONES = {1,1,1,1,1,1,1,1};
+    static const __m256 BW_CONSTS[] = {
+            {0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f},
+            {0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f},
+            {0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f},
+            {1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f},
+            {1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f},
+            {1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f},
+            {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
+            {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
+
+    size_t i;
+    __m256 acc = ONES, v = fn(wc, u),
+        squared = _mm256_mul_ps(v, v);
+    for (i = 0; i < 8; ++i) {
+        acc = _mm256_mul_ps(acc, _mm256_add_ps(ONES,
+                _mm256_add_ps(squared, _mm256_add_ps(v, BW_CONSTS[i]))));
+    }
+    return _mm256_mul_ps(u, _mm256_rcp_ps(acc));
+}
+#endif
+
+static inline __m256 hComplexMulByConj(__m256 u) {
+
+    static const __m256 indexComplexConjugate = {1, 1, -1.f, 1, 1, 1, -1.f, 1};
+    static const __m256i indexOrdering = {
+            // _mm256_setr_epi32(0,2,4,6,1,3,5,7);
+            0x200000000,
+            0x600000004,
+            0x300000001,
+            0x700000005};
+
+    __m256 temp = _mm256_mul_ps(
+            _mm256_permute_ps(u, _MM_SHUFFLE(1, 0, 1, 0)),              // abab
+            _mm256_mul_ps(_mm256_permute_ps(u, _MM_SHUFFLE(2, 3, 3, 2)),// cd(-d)c
+                    indexComplexConjugate));
+    return _mm256_permutevar8x32_ps(_mm256_add_ps(temp,
+            _mm256_permute_ps(temp, _MM_SHUFFLE(2, 3, 0, 1))), indexOrdering);
+}
+
 static inline __m256 hPolarDiscriminant_ps(__m256 u, __m256 v) {
 
-    const __m256i indexOrdering = _mm256_setr_epi32(0,1,4,5,2,3,6,7);
-    static const __m256 indexComplexConjugate = {1,1,-1.f,1,1,1,-1.f,1};
-    // TODO I HATE this, there must be a better way.
-    __m256
-    tmp =   _mm256_permute_ps(u, _MM_SHUFFLE(1,0,1,0)),
-    tmp1 =  _mm256_mul_ps(_mm256_permute_ps(u, _MM_SHUFFLE(2, 3, 3, 2)), indexComplexConjugate);
-    u =     _mm256_or_ps(_mm256_dp_ps(tmp, tmp1, 0b11000010), _mm256_dp_ps(tmp, tmp1, 0b00110001));
-
-    tmp =   _mm256_permute_ps(v, _MM_SHUFFLE(1,0,1,0));
-    tmp1 =  _mm256_mul_ps(_mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 3, 2)), indexComplexConjugate);
-    v =     _mm256_or_ps(_mm256_dp_ps(tmp, tmp1, 0b11001000), _mm256_dp_ps(tmp, tmp1, 0b00110100));
-
-    u = _mm256_permutevar8x32_ps(_mm256_or_ps(u, v), indexOrdering);
-    return u;
+    v = hComplexMulByConj(v);
+    return _mm256_blend_ps(hComplexMulByConj(u), _mm256_permute2f128_ps(v, v, 1), 0b11110000);
 }
 
 static inline __m256 fmDemod(__m256 u) {
@@ -108,7 +141,13 @@ static inline __m256 fmDemod(__m256 u) {
     static const __m256 all64s = {64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
     static const __m256 all23s = {23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
     static const __m256 all41s = {41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-    const __m256i index = _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 3, 6);
+    static const __m256i index = {
+            // _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 3, 6);
+            0x300000001,
+            0x700000005,
+            0x200000000,
+            0x600000003
+    };
     // fast atan2(y,x) := 64y/(23x+41*Sqrt[x^2+y^2])
     __m256 v = _mm256_mul_ps(u, u),
             hypot = _mm256_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
@@ -131,8 +170,8 @@ static inline __m256 fmDemod(__m256 u) {
 void *processMatrix(void *ctx) {
 
     static const __m256 lowpassWc = {
-            0.00004f,0.00004f,0.00004f,0.00004f,
-            0.00004f,0.00004f,0.00004f,0.00004f};
+            0.00008f,0.00008f,0.00008f,0.00008f,
+            0.00008f,0.00008f,0.00008f,0.00008f};
     static const __m256 highpassWc = {
             1.f, 1.f, 1.f, 1.f,
             1.f, 1.f, 1.f, 1.f};
@@ -170,6 +209,9 @@ void *processMatrix(void *ctx) {
             hBuf[1] = fmDemod(hBuf[2]);
 
             result = _mm256_blend_ps(hBuf[0], _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1), 0b11110000);
+#ifdef BW
+                result = filterRealButterworth(result, _mm256_set1_ps(1.f/12500), scaleButterworthLowpass);
+#endif
 
             fwrite(&result, sizeof(__m256), 1, args->outFile);
         }

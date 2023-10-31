@@ -17,22 +17,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+from scipy import signal
 import sys
 import struct
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from functools import partial
-from math import e
-
-# from collections import deque
+import numpy as np
 
 plt.style.use('dark_background')
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-displaysize = 8192
+displaysize = 4096
 bufsize = displaysize << 4
 dt = displaysize >> 3
-scaling = pow(2, -e)
 
 
 class Chunker:
@@ -40,21 +38,22 @@ class Chunker:
         self.file = file
         self.fs = bufsize * 'f'
         self.ymins = dt * 0
+        # self.b, self.a = signal.butter(N=8, Wn=0.1, btype='low')
 
     def __iter__(self):
         try:
-            self.chunk = list(struct.unpack_from(self.fs, self.file.read(bufsize << 2)))
+            self.chunk = list(struct.unpack_from(self.fs, f.read(bufsize << 2)))
             return self
         except struct.error as ex:
             raise StopIteration(ex)
 
     def __next__(self):
-        if (bool(self.chunk)):
+        if bool(self.chunk):
             result = self.chunk[0:dt]
             del self.chunk[0:dt]
             return self.ymins, result
-            # return self.chunk.popleft()\
         raise StopIteration()
+
 
 def generateData(file):
     chunker = Chunker(file)
@@ -73,11 +72,19 @@ def animate(i, ts, ys):
     ts = ts[-displaysize:]
     ys = ys[-displaysize:]
 
+    xlim=ax.get_xlim()
+    ylim=ax.get_ylim()
     ax.clear()
-    ax.set_yscale('asinh', base=2)
-    ax.set_ylim((-scaling, scaling))
+    ax.set_ylim(ylim)
+    ax.set_xlim(xlim)
+
+    fft_data = np.abs(np.fft.fft(ys))
+    fft_freq = np.fft.fftfreq(len(fft_data))
+
+    ax.plot(fft_freq, fft_data)
+    # ax.plot(ts, ys)
     # ax.scatter(ts, ys)
-    ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
+    # ax.fill_between(ts, ymins, ys, alpha=1, linewidth=dt)
 
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
@@ -85,5 +92,8 @@ with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     ys = [0]
     ts = [0]
     ani = animation.FuncAnimation(fig, animate, fargs=(ts, ys), frames=partial(generateData, f),
-                                  save_count=displaysize, interval=8)
+                                  save_count=displaysize, interval=32)
+    plt.ylim(0, 1e3)
+    plt.xlim(-0.5, 0.5)
+    # plt.axis('off')
     plt.show()
