@@ -102,20 +102,28 @@ findCompiler nvcc hasNvcc
 set -e
 i=0
 for compiler in ${compilers[@]}; do
-  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=OFF" | grep "The C compiler identification"
-  executeRun $compiler "96k" 1
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON" | grep "The C compiler identification"
+  executeRun $compiler "192k" 1
 
-  echo ":: STARTING TIMED RUNS FOR: ${compiler} (default options)"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} (default options)"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} (default options)"
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} (default options)"
+  rm -rf file uint8.dat
+
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} (default options)"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} (default options)"
   rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
   executeRun $compiler "192k" 1
 
-  echo ":: STARTING TIMED RUNS 1FOR: ${compiler} -DNO_AVX512=ON"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_AVX512=ON"
   executeTimedRun
   executeTimedRun
   executeTimedRun
