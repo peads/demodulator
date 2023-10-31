@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "matrix.h"
+
 //#define BW
 typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 
@@ -63,19 +64,19 @@ static inline __m256 scaleButterworthLowpass(const __m256 wc, __m256 u) {
 
 static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
 
-    // Degree 8 coefficients
+    // Degree 8 coefficients, negated to efficiently subtract
     static const __m256 BW_CONSTS[] = {
-            {0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f},
-            {0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f},
-            {0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f},
-            {0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f},
-            {0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f},
-            {0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f},
-            {0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f},
-            {0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f}};
+            {0.19509f,  -0.980785f, 0.19509f,  -0.980785f, 0.19509f,  -0.980785f, 0.19509f,  -0.980785f},
+            {0.55557f,  -0.83147f,  0.55557f,  -0.83147f,  0.55557f,  -0.83147f,  0.55557f,  -0.83147f},
+            {0.83147f,  -0.55557f,  0.83147f,  -0.55557f,  0.83147f,  -0.55557f,  0.83147f,  -0.55557f},
+            {0.980785f, -0.19509f,  0.980785f, -0.19509f,  0.980785f, -0.19509f,  0.980785f, -0.19509f},
+            {0.980785f, 0.19509f,   0.980785f, 0.19509f,   0.980785f, 0.19509f,   0.980785f, 0.19509f},
+            {0.83147f,  0.55557f,   0.83147f,  0.55557f,   0.83147f,  0.55557f,   0.83147f,  0.55557f},
+            {0.55557f,  0.83147f,   0.55557f,  0.83147f,   0.55557f,  0.83147f,   0.55557f,  0.83147f},
+            {0.19509f,  0.980785f,  0.19509f,  0.980785f,  0.19509f,  0.980785f,  0.19509f,  0.980785f}};
 
     __m256 v = fn(wc, u);
-    __m256 temp, acc = {1,1,1,1,1,1,1,1};
+    __m256 temp, acc = {1, 1, 1, 1, 1, 1, 1, 1};
     size_t i;
 
     for (i = 0; i < 8; ++i) {
@@ -162,16 +163,14 @@ static inline __m256 fmDemod(__m256 u) {
     u = _mm256_mul_ps(_mm256_mul_ps(all64s, u), v);
 
     // NAN check
-    u = _mm256_and_ps(u, _mm256_cmp_ps(u, u, 0));
-    u = _mm256_permutevar8x32_ps(u,index);
-    return u;
+    return _mm256_permutevar8x32_ps(_mm256_and_ps(u, _mm256_cmp_ps(u, u, 0)), index);
 }
 
 void *processMatrix(void *ctx) {
 
     static const __m256 lowpassWc = {
-            0.00008f,0.00008f,0.00008f,0.00008f,
-            0.00008f,0.00008f,0.00008f,0.00008f};
+            0.00008f, 0.00008f, 0.00008f, 0.00008f,
+            0.00008f, 0.00008f, 0.00008f, 0.00008f};
     static const __m256 highpassWc = {
             1.f, 1.f, 1.f, 1.f,
             1.f, 1.f, 1.f, 1.f};
@@ -190,7 +189,7 @@ void *processMatrix(void *ctx) {
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
             u = shiftOrigin(*(__m256i *) (buf + i));
-            convert_epi8_ps(u, &hBuf[1],&hBuf[0],&hBuf[3],&hBuf[2]);
+            convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
 
             hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
             hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);
@@ -208,9 +207,11 @@ void *processMatrix(void *ctx) {
             hBuf[2] = hPolarDiscriminant_ps(hBuf[2], hBuf[3]);
             hBuf[1] = fmDemod(hBuf[2]);
 
-            result = _mm256_blend_ps(hBuf[0], _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1), 0b11110000);
+            result = _mm256_blend_ps(hBuf[0],
+                    _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1),
+                    0b11110000);
 #ifdef BW
-                result = filterRealButterworth(result, _mm256_set1_ps(1.f/12500), scaleButterworthLowpass);
+            result = filterRealButterworth(result, _mm256_set1_ps(1.f/12500), scaleButterworthLowpass);
 #endif
 
             fwrite(&result, sizeof(__m256), 1, args->outFile);
