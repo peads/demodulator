@@ -45,7 +45,7 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-static inline __m256 scaleButterworthDcBlock(const __m256 wc, __m256 u) {
+static inline __m256 scaleButterworthDcBlock(__attribute__((unused)) const __m256 wc, __m256 u) {
 
     return _mm256_rcp_ps(u);
 }
@@ -86,6 +86,31 @@ static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWo
 
     return v;
 }
+
+#ifdef BW
+static inline __m256 filterRealButterworth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
+    // Degree 16
+    static const __m256 ONES = {1,1,1,1,1,1,1,1};
+    static const __m256 BW_CONSTS[] = {
+            {0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f},
+            {0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f},
+            {0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f},
+            {1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f},
+            {1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f},
+            {1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f},
+            {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
+            {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
+
+    size_t i;
+    __m256 acc = ONES, v = fn(wc, u),
+        squared = _mm256_mul_ps(v, v);
+    for (i = 0; i < 8; ++i) {
+        acc = _mm256_mul_ps(acc, _mm256_add_ps(ONES,
+                _mm256_add_ps(squared, _mm256_add_ps(v, BW_CONSTS[i]))));
+    }
+    return _mm256_mul_ps(u, _mm256_rcp_ps(acc));
+}
+#endif
 
 static inline __m256 hComplexMulByConj(__m256 u) {
 
@@ -145,8 +170,8 @@ static inline __m256 fmDemod(__m256 u) {
 void *processMatrix(void *ctx) {
 
     static const __m256 lowpassWc = {
-            0.00004f,0.00004f,0.00004f,0.00004f,
-            0.00004f,0.00004f,0.00004f,0.00004f};
+            0.00008f,0.00008f,0.00008f,0.00008f,
+            0.00008f,0.00008f,0.00008f,0.00008f};
     static const __m256 highpassWc = {
             1.f, 1.f, 1.f, 1.f,
             1.f, 1.f, 1.f, 1.f};
@@ -184,6 +209,9 @@ void *processMatrix(void *ctx) {
             hBuf[1] = fmDemod(hBuf[2]);
 
             result = _mm256_blend_ps(hBuf[0], _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1), 0b11110000);
+#ifdef BW
+                result = filterRealButterworth(result, _mm256_set1_ps(1.f/12500), scaleButterworthLowpass);
+#endif
 
             fwrite(&result, sizeof(__m256), 1, args->outFile);
         }

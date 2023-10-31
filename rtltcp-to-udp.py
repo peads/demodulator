@@ -87,7 +87,7 @@ class ControlRtlTcp:
         print(f'{RtlTcpCommands(command)}: {param}')
         try:
             self.connection.sendall(pack('>BI', command, param))
-        except StructError as e:
+        except StructError:
             try:
                 self.connection.sendall(pack('>Bi', command, param))
             except StructError as e:
@@ -104,61 +104,50 @@ def findPort(host='localhost'):
 
 class OutputServer:
     def __init__(self, rs: socket.socket, port: int, host='localhost', bufSize=8192):
-        self.ss = None
         self.rs = rs
+        self.cs = None
         self.host = host
         self.port = port
+        self.serverhost = '255.255.255.255'
         self.serverport = findPort(host)
         self.exitFlag = False
-        self.bufSize=bufSize
+        self.bufSize = bufSize
         self.buffer = queue.Queue(maxsize=bufSize)
 
     def kill(self):
         self.exitFlag = True
 
     def isNotDead(self):
-        if self.exitFlag:
-            if self.ss is not None:
-                self.ss.shutdown(socket.SHUT_RDWR)
-            raise SelbstmortError()
         return not self.exitFlag
 
-    def consume(self, cs: socket.socket):
+    def consume(self):
         try:
             while self.isNotDead():
-                cs.sendall(self.buffer.get(block=True))
-        except (OSError, SelbstmortError):
-            cs.close()
-            print('Consumer quitting')
+                self.cs.sendto(self.buffer.get(block=True), (self.serverhost, self.serverport))
+        except OSError as e:
+            print('Consumer quitting', e)
+            self.kill()
 
     def produce(self):
         try:
             while self.isNotDead():
                 self.buffer.put(item=self.rs.recv(self.bufSize >> 3), block=True)
-        except (OSError, SelbstmortError):
-            print('Producer quitting')
+        except OSError as e:
+            print('Producer quitting', e)
+            self.kill()
 
     def runServer(self):
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as self.ss:
-            self.ss.bind((self.host, self.serverport))
-            self.ss.listen(1)
-            ct = None
-            pt = threading.Thread(target=self.produce, args=())
+        with closing(socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM,
+                                   proto=socket.IPPROTO_UDP, fileno=None)) as self.cs:
+            self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            ct = threading.Thread(target=self.consume)
+            pt = threading.Thread(target=self.produce)
             pt.start()
-            try:
-                while self.isNotDead():
-                    print(f'Awaiting connection on port {self.serverport}')
-                    (cs, address) = self.ss.accept()
-                    print(f'Connected to: {address}')
+            ct.start()
 
-                    ct = threading.Thread(target=self.consume, args=(cs,))
-                    ct.start()
-            except (OSError, SelbstmortError):
-                print('Joining producer/consumer threads')
-                self.ss = None
-                if ct is not None:
-                    ct.join(timeout=1)
-                pt.join(timeout=1)
+            ct.join()
+            pt.join()
 
     def startServer(self):
         st = threading.Thread(target=self.runServer, args=())
@@ -166,22 +155,24 @@ class OutputServer:
         return st
 
 
-def main(host: str, port: str, bufSize: int=16777216):
+def main(host: str, port: str, bufSize: int = 16777216):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         iport = int(port)
         s.connect((host, iport))
         cmdr = ControlRtlTcp(s)
         server = OutputServer(s, iport, host='0.0.0.0', bufSize=bufSize)
         st = server.startServer()
-        # cmdr.setFrequency(int(freq))
+
         try:
             while server.isNotDead():
                 try:
                     print('Available commands are: ')
                     print()
                     [print(f'{e.value}\t{e.name}') for e in RtlTcpCommands]
+                    print(f'Multicast on {server.serverport}')
                     print()
-                    inp = input('Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
+                    inp = input(
+                        'Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
                     if len(inp) > 1:
                         try:
                             (cmd, param) = inp.split()
