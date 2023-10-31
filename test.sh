@@ -21,7 +21,6 @@
 
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
 audioOutOpts=""
-gain=1
 compilers=()
 
 if [ ! -z "$1" ] && [ "$1" ~= "(y|Y)" ]; then
@@ -32,9 +31,6 @@ if [ ! -z "$2" ]; then
 fi
 if [ ! -z "$3" ]; then
   audioOutOpts="-w$3"
-fi
-if [ ! -z "$4" ]; then
-  gain=$4
 fi
 
 function findCompiler() {
@@ -61,10 +57,10 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
+  sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -g"$3" \
-    | sox -v5 -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -i - -o - \
+    | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n ${audioOutOpts}
 }
 
@@ -87,13 +83,13 @@ findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
 findCompiler nvcc hasNvcc
-if [ $hasNvcc == 0 ]; then
-  var=$(bc -l <<<"$(findSmVersion) < 8")
-  if [ $var == 0 ]; then
-    gain=$(bc -l <<<"-1*${gain}")
-  fi
-  echo $gain
-fi
+#if [ $hasNvcc == 0 ]; then
+#  var=$(bc -l <<<"$(findSmVersion) < 8")
+#  if [ $var == 0 ]; then
+#    gain=$(bc -l <<<"-1*${gain}")
+#  fi
+#  echo $gain
+#fi
 set -e
 i=0
 for compiler in ${compilers[@]}; do

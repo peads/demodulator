@@ -18,7 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "matrix.h"
-
+//#define BW
 typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 
 static inline __m256i shiftOrigin(__m256i u) {
