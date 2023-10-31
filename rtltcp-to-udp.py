@@ -25,6 +25,7 @@ from struct import pack
 from struct import error as StructError
 from contextlib import closing
 import typer
+import netifaces as ni
 
 
 # translated directly from rtl_tcp.c
@@ -94,11 +95,18 @@ class ControlRtlTcp:
                 raise UnrecognizedInputError(param, e)
 
 
+def findBroadcastAddr(iface='eth0'):
+    return ni.ifaddresses(iface)[ni.AF_INET][0]['broadcast']
+
+
 # taken from https://stackoverflow.com/a/45690594
 def findPort(host='localhost'):
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.bind((host, 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        s.bind((host, 0))
+        # cs.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
         return s.getsockname()[1]
 
 
@@ -108,7 +116,7 @@ class OutputServer:
         self.cs = None
         self.host = host
         self.port = port
-        self.serverhost = '255.255.255.255'
+        self.serverhost = findBroadcastAddr()
         self.serverport = findPort(host)
         self.exitFlag = False
         self.bufSize = bufSize
@@ -141,6 +149,7 @@ class OutputServer:
                                    proto=socket.IPPROTO_UDP, fileno=None)) as self.cs:
             self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             ct = threading.Thread(target=self.consume)
             pt = threading.Thread(target=self.produce)
             pt.start()
@@ -169,7 +178,8 @@ def main(host: str, port: str, bufSize: int = 16777216):
                     print('Available commands are: ')
                     print()
                     [print(f'{e.value}\t{e.name}') for e in RtlTcpCommands]
-                    print(f'Multicast on {server.serverport}')
+                    print()
+                    print(f'Broadcasting on {server.serverhost}:{server.serverport}')
                     print()
                     inp = input(
                         'Provide a space-delimited, command-value pair (e.g. SET_GAIN 1):\n')
