@@ -67,11 +67,6 @@ class UnrecognizedInputError(Exception):
         super().__init__(f'{msg}, {e}')
 
 
-class SelbstmortError(Exception):
-    def __init__(self):
-        super().__init__("It's time to stop!")
-
-
 class ControlRtlTcp:
     def __init__(self, connection):
         self.connection = connection
@@ -115,6 +110,7 @@ class OutputServer:
         self.exitFlag = False
         self.bufSize = bufSize
         self.buffer = queue.Queue(maxsize=bufSize)
+        self.connections = dict()
 
     def kill(self):
         self.exitFlag = True
@@ -125,7 +121,8 @@ class OutputServer:
     def consume(self):
         try:
             while self.isNotDead():
-                self.cs.sendto(self.buffer.get(block=True), ('', self.serverport))
+                for (cs, t) in self.connections.items():
+                    cs.sendto(self.buffer.get(block=True), t)
         except OSError as e:
             print('Consumer quitting', e)
             self.kill()
@@ -148,6 +145,10 @@ class OutputServer:
             pt = threading.Thread(target=self.produce)
             pt.start()
             ct.start()
+
+            while self.isNotDead():
+                clientTuple = ('', findPort())
+                self.cs.sendto('', )
 
             ct.join()
             pt.join()
@@ -194,9 +195,6 @@ def main(host: str, port: str, bufSize: int = 16777216):
                         raise UnrecognizedInputError(inp)
                 except UnrecognizedInputError as e:
                     print(f'ERROR: Input invalid: {e}. Please try again')
-        except SelbstmortError:
-            if st is not None:
-                print('Joining server thread')
         finally:
             st.join(timeout=1)
             print('Quitting')

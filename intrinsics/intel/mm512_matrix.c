@@ -108,6 +108,7 @@ static inline __m512 hComplexMulByConj(__m512 u) {
 }
 
 static inline __m512 hPolarDiscriminant_ps(__m512 u, __m512 v) {
+
     v = hComplexMulByConj(v);
     // TODO make these global statics
     const __m512i index = _mm512_setr_epi32(8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7);
@@ -191,7 +192,7 @@ void *processMatrix(void *ctx) {
             hBuf[1] = fmDemod(hBuf[2]);
 
             result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
-                        _mm512_permutexvar_ps(index, hBuf[1]));
+                    _mm512_permutexvar_ps(index, hBuf[1]));
 
             fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
