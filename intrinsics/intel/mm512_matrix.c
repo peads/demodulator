@@ -19,83 +19,118 @@
  */
 #include "matrix.h"
 
-// taken from https://stackoverflow.com/a/55745816
-static inline __m512i conditional_negate_epi8(__m512i target, __m512i signs) {
-
-    static const __m512i ZEROS = {};
-    // vpsubb target{k1}, 0, target
-    return _mm512_mask_sub_epi8(target, _mm512_movepi8_mask(signs), ZEROS, target);
-}
+typedef __m512 (*butterWorthScalingFn_t)(__m512, __m512);
 
 static inline __m512i shiftOrigin(__m512i u) {
 
     static const __m512i shift = {
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f,
-            -0x7f7f7f7f7f7f7f7f};
+            //_mm512_set1_epi8(-127);
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f,
+            -0x7e7e7e7e7e7e7e7f
+    };
 
     return _mm512_add_epi8(u, shift);
 }
 
-static void convert_epi8_ps(__m512i u, __m512 *__restrict__ ret) {
+static inline void convert_epi8_ps(__m512i u, __m512 *uhi, __m512 *ulo, __m512 *vhi, __m512 *vlo) {
 
-    __m512i uHi32,
-            uHi16 = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u, 1));
-    u = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
-
-    uHi32 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(u, 1));
-    u = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(u));
-
-    ret[0] = _mm512_cvtepi32_ps(u);
-    ret[1] = _mm512_cvtepi32_ps(uHi32);
-
-    uHi32 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(uHi16, 1));
-    uHi16 = _mm512_cvtepi16_epi32(_mm512_castsi512_si256(uHi16));
-
-    ret[2] = _mm512_cvtepi32_ps(uHi16);
-    ret[3] = _mm512_cvtepi32_ps(uHi32);
+    __m512i temp[2];
+    temp[0] = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
+    temp[1] = _mm512_cvtepi8_epi16(_mm512_extracti32x8_epi32(u, 1));
+    *ulo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[0])));
+    *uhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[0], 1)));
+    *vlo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[1])));
+    *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
 }
 
-static inline __m512i boxcarEpi8(__m512i u) {
+static inline __m512 scaleButterworthDcBlock(__attribute__((unused)) const __m512 wc, __m512 u) {
 
-    static const __m512i Z = {
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01,
-            (int64_t) 0xff01ff01ff01ff01};
-    static const __m512i mask = {
-            0x0504070601000302, 0x0d0c0f0e09080b0a,
-            0x0504070601000302, 0x0d0c0f0e09080b0a,
-            0x0504070601000302, 0x0d0c0f0e09080b0a,
-            0x0504070601000302, 0x0d0c0f0e09080b0a};
-
-    u = conditional_negate_epi8(u, Z);
-    return _mm512_add_epi8(u, _mm512_shuffle_epi8(u, mask));
+    return _mm512_rcp14_ps(u);
 }
 
-static inline __m512 complexMult(__m512 u) {
+//static inline __m512 scaleButterworthHighpass(__m512 wc, __m512 u) {
+//
+//    return _mm512_mul_ps(_mm512_rcp_ps(u), wc);
+//}
 
-    static const __m512 ONES = {
-            1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f,
-            1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
-    // input: z := {a, b, c, d, ...}, z in Complex
-    // {d, c, c, d, ...} * {a, b, a, b, ...} = {da, cb, ca, bd, ...}
-    // {ad, bc, ac, bd, ...} (addsub) {ac, ad, bd, bc, ...}
-    // = {ad - ac, ad + bc, ac - bd, bd + bc, ... }
-    u = _mm512_mul_ps(_mm512_permute_ps(u, 0x5), _mm512_permute_ps(u, 0xEB));
-    return _mm512_fmaddsub_ps(ONES, u, _mm512_permute_ps(u, 0x8D));
+/// The reciprocal of omega c must be passed in!
+static inline __m512 scaleButterworthLowpass(const __m512 wc, __m512 u) {
+
+    return _mm512_mul_ps(u, wc);
 }
 
-static __m512 fmDemod(__m512 u) {
+static inline __m512 filterButterWorth(__m512 u, const __m512 wc, const butterWorthScalingFn_t fn) {
+
+    // Degree 8 coefficients
+    static const __m512 BW_CONSTS[] = {
+            {0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f,0.19509f,-0.980785f},
+            {0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f,0.55557f,-0.83147f},
+            {0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f,0.83147f,-0.55557f},
+            {0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f,0.980785f,-0.19509f},
+            {0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f},
+            {0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f},
+            {0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f,0.55557f,0.83147f},
+            {0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f,0.19509f,0.980785f}};
+//            {0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f,0.0980171f,-0.995185f},
+//            {0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f,0.290285f,-0.95694f},
+//            {0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f,0.471397f,-0.881921f},
+//            {0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f,0.634393f,-0.77301f},
+//            {0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f,0.77301f,-0.634393f},
+//            {0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f,0.881921f,-0.471397f},
+//            {0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f,0.95694f,-0.290285f},
+//            {0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f,0.995185f,-0.0980171f},
+//            {0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f},
+//            {0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f},
+//            {0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f},
+//            {0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f},
+//            {0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f,0.634393f,0.77301f},
+//            {0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f,0.471397f,0.881921f},
+//            {0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f,0.290285f,0.95694f},
+//            {0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f,0.0980171f,0.995185f}};
+    __m512 v = fn(wc, u);
+    __m512 temp, acc = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    size_t i;
+
+    for (i = 0; i < 8; ++i) {
+        temp = _mm512_add_ps(v, BW_CONSTS[i]);
+        acc = _mm512_mul_ps(acc, temp);
+    }
+    v = _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
+
+    return v;
+}
+
+static inline __m512 hComplexMulByConj(__m512 u) {
+
+    static const __m512 indexComplexConjugate = {
+            1, 1, -1.f, 1, 1, 1, -1.f, 1,
+            1, 1, -1.f, 1, 1, 1, -1.f, 1};
+    const __m512i indexOrdering = _mm512_setr_epi32(0,2,4,6,8,10,12,14,1,3,5,7,9,11,13,15);
+
+    __m512 temp = _mm512_mul_ps(
+            _mm512_permute_ps(u, _MM_SHUFFLE(1, 0, 1, 0)),              // abab
+            _mm512_mul_ps(_mm512_permute_ps(u, _MM_SHUFFLE(2, 3, 3, 2)),// cd(-d)c
+                    indexComplexConjugate));
+    return _mm512_permutexvar_ps(indexOrdering, _mm512_add_ps(temp,
+            _mm512_permute_ps(temp, _MM_SHUFFLE(2, 3, 0, 1))));
+}
+
+static inline __m512 hPolarDiscriminant_ps(__m512 u, __m512 v) {
+//    u = _mm512_setr_ps(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+//    v = _mm512_setr_ps(16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31);
+    v = hComplexMulByConj(v);
+    // TODO make these global statics
+    const __m512i index = _mm512_setr_epi32(8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7);
+    return _mm512_mask_blend_ps(0b1111111100000000, hComplexMulByConj(u), _mm512_permutexvar_ps(index, v));
+}
+
+static inline __m512 fmDemod(__m512 u) {
 
     static const __m512 all64s = {
             64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
@@ -106,111 +141,42 @@ static __m512 fmDemod(__m512 u) {
     static const __m512 all41s = {
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
             41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
+    const __m512i index = _mm512_setr_epi32(1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 3, 6, 8, 10, 12, 14);
+    // fast atan2(y,x) := 64y/(23x+41*Sqrt[x^2+y^2])
+    __m512 v = _mm512_mul_ps(u, u),
+            hypot = _mm512_permute_ps(v, _MM_SHUFFLE(2, 3, 0, 1));
+    hypot = _mm512_add_ps(v, hypot);
+    hypot = _mm512_sqrt_ps(hypot);
 
-    u = complexMult(u);
-
-    // Norm(z)+41
-    __m512 v = _mm512_mul_ps(u, u);
-    v = _mm512_mul_ps(_mm512_sqrt_ps(_mm512_add_ps(v, _mm512_permute_ps(v, 0x1B))), all41s);
-
-    // fatan2(y,x) = 64*y/(23*x+41), x > 0 || y != 0
-    // => fatan2(zj/||z||, zr/||z||) = 64*zj/Sqrt[zr^2+zj^2]/(23*zr/Sqrt[zr^2+zj^2]+41)
-    // = 64*zj/(Sqrt[zr^2+zj^2]*(23*zr/Sqrt[zr^2+zj^2]+41)) = 64*zj/(23*zr+41*||z||)
-    u = _mm512_mul_ps(_mm512_mul_ps(u, all64s), _mm512_rcp14_ps(
-            _mm512_permute_ps(_mm512_fmadd_ps(all23s, u, v), 0x1B)));
+    // 64*y
+    v = _mm512_fmadd_ps(all23s, u, _mm512_mul_ps(all41s, hypot));
+    // 1/(23*x+41*hypot)
+    v = _mm512_permute_ps(_mm512_rcp14_ps(v), _MM_SHUFFLE(2, 3, 0, 1));
+    // 64*y/(23*x*41*hypot)
+    u = _mm512_mul_ps(_mm512_mul_ps(all64s, u), v);
 
     // NAN check
-    return _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
-}
-
-static void demodEpi8(__m512i u, float *__restrict__ result) {
-
-    static const __m512i negateBIm = {
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101,
-            (int64_t) 0xff010101ff010101};
-
-    static const __m512i indexHi = {
-            0x2322252423222120,
-            0x2726292827262524,
-            0x2b2a2d2c2b2a2928,
-            0x2f2e31302f2e2d2c,
-            0x3332353433323130,
-            0x3736393837363534,
-            0x3b3a3d3c3b3a3938,
-            0x3f3effff3f3e3d3c};
-
-    static const __m512i indexLo = {
-            0x302050403020100,
-            0x706090807060504,
-            0xb0a0d0c0b0a0908,
-            0xf0e11100f0e0d0c,
-            0x1312151413121110,
-            0x1716191815161514,
-            0x1b1a1d1c1b1a1918,
-            0x1f1e21201f1e1d1c};
-
-    static m512i_pun_t prev;
-
-    __m512i hi;
-    __m512 res, M[4];
-    m512i_pun_t lo;
-
-    u = boxcarEpi8(shiftOrigin(u));
-    hi = conditional_negate_epi8(_mm512_permutexvar_epi8(indexHi, u), negateBIm);
-    lo.v = conditional_negate_epi8(_mm512_permutexvar_epi8(indexLo, u), negateBIm);
-
-    prev.buf[60] = lo.buf[0];
-    prev.buf[61] = lo.buf[1];
-
-    convert_epi8_ps(prev.v, M);
-    res = fmDemod(M[1]);
-    result[0] = res[5];
-    result[1] = res[13];
-
-    res = fmDemod(M[2]);
-    result[2] = res[5];
-    result[3] = res[13];
-    res = fmDemod(M[3]);
-    result[4] = res[5];
-    result[5] = res[13];
-
-    convert_epi8_ps(lo.v, M);
-    res = fmDemod(M[0]);
-    result[6] = res[5];
-    result[7] = res[13];
-    res = fmDemod(M[1]);
-    result[8] = res[5];
-    result[9] = res[13];
-
-    res = fmDemod(M[2]);
-    result[10] = res[5];
-    result[11] = res[13];
-    res = fmDemod(M[3]);
-    result[12] = res[5];
-    result[13] = res[13];
-
-    convert_epi8_ps(hi, M);
-    res = fmDemod(M[0]);
-    result[14] = res[5];
-    result[15] = res[13];
-
-    prev.v = hi;
+    u = _mm512_maskz_and_ps(_mm512_cmp_ps_mask(u, u, 0), u, u);
+    u = _mm512_permutexvar_ps(index, u);
+    return u;
 }
 
 void *processMatrix(void *ctx) {
 
+    const __m512i index = _mm512_setr_epi32(8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7);
+
+    static const __m512 lowpassWc = {
+            0.00008f,0.00008f,0.00008f,0.00008f,
+            0.00008f,0.00008f,0.00008f,0.00008f,
+            0.00008f,0.00008f,0.00008f,0.00008f,
+            0.00008f,0.00008f,0.00008f,0.00008f};
+    static const __m512 highpassWc = {/*Intentionally empty*/};
     consumerArgs *args = ctx;
     size_t i;
+    __m512 result = {};
+    __m512 hBuf[4] = {};
+    __m512i u;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    float result[DEFAULT_BUF_SIZE >> 3] __attribute__((aligned(ALIGNMENT)));
-    __m512 gain = _mm512_broadcastss_ps(_mm_broadcast_ss(&args->gain));
-
     while (!args->exitFlag) {
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
@@ -219,13 +185,29 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 64) {
-            demodEpi8(*(__m512i *) (buf + i), result + (i >> 3));
+            u = shiftOrigin(*(__m512i *) (buf + i));
+            convert_epi8_ps(u, &hBuf[1],&hBuf[0],&hBuf[3],&hBuf[2]);
 
-            if (*(float *) &args->gain) {
-                _mm512_mul_ps(*(__m512 *) &result, gain);
-            }
+            hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
+            hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);
+            hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
+            hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
+
+            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthDcBlock);
+            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthDcBlock);
+            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthDcBlock);
+            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthDcBlock);
+
+            hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
+            hBuf[0] = fmDemod(hBuf[0]);
+
+            hBuf[2] = hPolarDiscriminant_ps(hBuf[2], hBuf[3]);
+            hBuf[1] = fmDemod(hBuf[2]);
+
+            result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0], _mm512_permutexvar_ps(index, hBuf[1]));
+
+            fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
     }
 
     _mm_free(buf);
@@ -233,5 +215,6 @@ void *processMatrix(void *ctx) {
 }
 
 void allocateBuffer(void **buf, const size_t len) {
+
     *buf = _mm_malloc(len, ALIGNMENT);
 }
