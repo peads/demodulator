@@ -101,9 +101,9 @@ def findBroadcastAddr(iface='eth0'):
 
 # taken from https://stackoverflow.com/a/45690594
 def findPort(host='localhost'):
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         s.bind((host, 0))
         # cs.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
@@ -131,7 +131,7 @@ class OutputServer:
     def consume(self):
         try:
             while self.isNotDead():
-                self.cs.sendto(self.buffer.get(block=True), (self.serverhost, self.serverport))
+                self.cs.sendto(self.buffer.get(block=True), ('', self.serverport))
         except OSError as e:
             print('Consumer quitting', e)
             self.kill()
@@ -145,11 +145,11 @@ class OutputServer:
             self.kill()
 
     def runServer(self):
-        with closing(socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM,
-                                   proto=socket.IPPROTO_UDP, fileno=None)) as self.cs:
-            self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)) as self.cs:
+            # self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             self.cs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            self.cs.setblocking(0)
             ct = threading.Thread(target=self.consume)
             pt = threading.Thread(target=self.produce)
             pt.start()
@@ -169,7 +169,7 @@ def main(host: str, port: str, bufSize: int = 16777216):
         iport = int(port)
         s.connect((host, iport))
         cmdr = ControlRtlTcp(s)
-        server = OutputServer(s, iport, host='0.0.0.0', bufSize=bufSize)
+        server = OutputServer(s, iport, host='', bufSize=bufSize)
         st = server.startServer()
 
         try:
