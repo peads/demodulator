@@ -38,8 +38,9 @@ static inline int printIfError(void *file) {
 
 static inline int startProcessingMatrix(
         FILE *inFile,
-        const float lowpassIn, float highpassIn,
-        const float gain, FILE *outFile) {
+        const float lowpassIn,
+        float highpassIn,
+        FILE *outFile) {
 
     size_t elementsRead;
     pthread_t pid;
@@ -50,7 +51,6 @@ static inline int startProcessingMatrix(
             .highpassIn = highpassIn,
             .outFile = outFile,
             .exitFlag = 0,
-            .gain = gain != 1.f ? gain : 0.f
     };
 
     SEM_INIT(args.empty, "/empty", 1)
@@ -94,7 +94,6 @@ static inline int startProcessingMatrix(
 
 int main(int argc, char **argv) {
 
-    float gain = 1.f;
     float lowpassIn = 0.f;
     float highpassIn = 0.f;
     int ret = 0;
@@ -105,11 +104,8 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "g:i:o:r:l:L:h:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:l:L:h:")) != -1) {
             switch (opt) {
-                case 'g':
-                    gain = strtof(optarg, NULL);
-                    break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
                         ret += printIfError(inFile = fopen(optarg, "rb"));
@@ -151,7 +147,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        startProcessingMatrix(inFile, lowpassIn, highpassIn, gain, outFile);
+        startProcessingMatrix(inFile, lowpassIn, highpassIn, outFile);
     }
     return ret;
 }

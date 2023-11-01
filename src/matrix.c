@@ -25,7 +25,6 @@ typedef float (*butterWorthScalingFn_t)(float, float);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
-                           const float gain,
                            float *__restrict__ out) {
     size_t i;
     float zr, zj;
@@ -121,7 +120,7 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc, scaleButterworthLowpass);
         filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc, scaleButterworthHighpass); //dc block
-        fmDemod(fBuf, DEFAULT_BUF_SIZE, args->gain, result);
+        fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
     free(buf);

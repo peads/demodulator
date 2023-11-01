@@ -43,7 +43,6 @@ typedef struct {
     int exitFlag;
     FILE *outFile;
     pthread_mutex_t mutex;
-    float gain;
     float lowpassIn;
     float highpassIn;
 } consumerArgs;
