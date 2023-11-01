@@ -123,11 +123,13 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'l':
+#if !(defined(NO_INTRINSICS) || defined(IS_NVIDIA))
                     if (!lowpassIn) {
                         lowpassIn = strtof(optarg, NULL);
                         break;
                     }
                     return -1;
+#endif
                 case 'L':
                     if (!lowpassIn) {
                         lowpassIn = 1.f/strtof(optarg, NULL);
