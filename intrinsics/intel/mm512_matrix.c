@@ -49,15 +49,15 @@ static inline void convert_epi8_ps(__m512i u, __m512 *uhi, __m512 *ulo, __m512 *
     *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
 }
 
-static inline __m512 scaleButterworthDcBlock(__attribute__((unused)) const __m512 wc, __m512 u) {
-
-    return _mm512_rcp14_ps(u);
-}
-
-//static inline __m512 scaleButterworthHighpass(__m512 wc, __m512 u) {
+//static inline __m512 scaleButterworthDcBlock(__attribute__((unused)) const __m512 wc, __m512 u) {
 //
-//    return _mm512_mul_ps(_mm512_rcp_ps(u), wc);
+//    return _mm512_rcp14_ps(u);
 //}
+
+static inline __m512 scaleButterworthHighpass(__m512 wc, __m512 u) {
+
+    return _mm512_mul_ps(_mm512_rcp14_ps(u), wc);
+}
 
 /// The reciprocal of omega c must be passed in!
 static inline __m512 scaleButterworthLowpass(const __m512 wc, __m512 u) {
@@ -90,6 +90,32 @@ static inline __m512 filterButterWorth(__m512 u, const __m512 wc, const butterWo
 
     return v;
 }
+
+#ifdef BW
+__m512 filterRealButterworth(__m512 u, const __m512 wc, const butterWorthScalingFn_t fn) {
+    // Degree 16
+    static const __m512 ONES = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    static const __m512 BW_CONSTS[] = {
+            {0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f,0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f},
+            {0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f,0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f, 0.580569f},
+            {0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f,0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f, 0.942793f},
+            {1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f,  1.26879f},
+            {1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f,  1.54602f},
+            {1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f},
+            {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
+            {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
+
+    size_t i;
+    __m512  acc = ONES,
+            v = fn(wc, u),
+            squared = _mm512_mul_ps(v, v);
+    for (i = 0; i < 8; ++i) {
+        acc = _mm512_mul_ps(acc, _mm512_add_ps(ONES,
+                _mm512_add_ps(squared, _mm512_add_ps(v, BW_CONSTS[i]))));
+    }
+    return _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
+}
+#endif
 
 static inline __m512 hComplexMulByConj(__m512 u) {
 
@@ -157,7 +183,20 @@ void *processMatrix(void *ctx) {
             0.00008f, 0.00008f, 0.00008f, 0.00008f,
             0.00008f, 0.00008f, 0.00008f, 0.00008f,
             0.00008f, 0.00008f, 0.00008f, 0.00008f};
-    static const __m512 highpassWc = {/*Intentionally empty*/};
+#ifdef BW
+    static const __m512 lowpassOutWc = {
+            0.0001f, 0.0001f, 0.0001f, 0.0001f,
+            0.0001f, 0.0001f, 0.0001f, 0.0001f,
+            0.0001f, 0.0001f, 0.0001f, 0.0001f,
+            0.0001f, 0.0001f, 0.0001f, 0.0001f
+    };
+#endif
+//    static const __m512 highpassWc = {/*Intentionally empty*/};
+    static const __m512 highpassWc = {
+            10.f,10.f,10.f,10.f,
+            10.f,10.f,10.f,10.f,
+            10.f,10.f,10.f,10.f,
+            10.f,10.f,10.f,10.f};
     consumerArgs *args = ctx;
     size_t i;
     __m512 result = {};
@@ -180,10 +219,10 @@ void *processMatrix(void *ctx) {
             hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
             hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
 
-            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthDcBlock);
-            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthDcBlock);
-            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthDcBlock);
-            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthDcBlock);
+            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthHighpass);
+            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthHighpass);
+            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthHighpass);
+            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthHighpass);
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
@@ -194,6 +233,9 @@ void *processMatrix(void *ctx) {
             result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
                     _mm512_permutexvar_ps(index, hBuf[1]));
 
+#ifdef BW
+            result = filterRealButterworth(result, lowpassOutWc, scaleButterworthLowpass);
+#endif
             fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
     }

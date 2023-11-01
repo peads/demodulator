@@ -19,7 +19,6 @@
  */
 #include "matrix.h"
 
-//#define BW
 typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 
 static inline __m256i shiftOrigin(__m256i u) {
@@ -46,15 +45,15 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-static inline __m256 scaleButterworthDcBlock(__attribute__((unused)) const __m256 wc, __m256 u) {
-
-    return _mm256_rcp_ps(u);
-}
-
-//static inline __m256 scaleButterworthHighpass(__m256 wc, __m256 u) {
+//static inline __m256 scaleButterworthDcBlock(__attribute__((unused)) const __m256 wc, __m256 u) {
 //
-//    return _mm256_mul_ps(_mm256_rcp_ps(u), wc);
+//    return _mm256_rcp_ps(u);
 //}
+
+static inline __m256 scaleButterworthHighpass(__m256 wc, __m256 u) {
+
+    return _mm256_mul_ps(_mm256_rcp_ps(u), wc);
+}
 
 /// The reciprocal of omega c must be passed in!
 static inline __m256 scaleButterworthLowpass(const __m256 wc, __m256 u) {
@@ -172,8 +171,8 @@ void *processMatrix(void *ctx) {
             0.00008f, 0.00008f, 0.00008f, 0.00008f,
             0.00008f, 0.00008f, 0.00008f, 0.00008f};
     static const __m256 highpassWc = {
-            1.f, 1.f, 1.f, 1.f,
-            1.f, 1.f, 1.f, 1.f};
+            10.f,10.f,10.f,10.f,
+            10.f,10.f,10.f,10.f};
     consumerArgs *args = ctx;
     size_t i;
     __m256 result = {};
@@ -196,10 +195,10 @@ void *processMatrix(void *ctx) {
             hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
             hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
 
-            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthDcBlock);
-            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthDcBlock);
-            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthDcBlock);
-            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthDcBlock);
+            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, scaleButterworthHighpass);
+            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, scaleButterworthHighpass);
+            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, scaleButterworthHighpass);
+            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, scaleButterworthHighpass);
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
