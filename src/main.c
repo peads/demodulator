@@ -38,7 +38,7 @@ static inline int printIfError(void *file) {
 
 static inline int startProcessingMatrix(
         FILE *inFile,
-        const uint8_t mode,
+        const float lowpassIn, float highpassIn,
         const float gain, FILE *outFile) {
 
     size_t elementsRead;
@@ -46,7 +46,8 @@ static inline int startProcessingMatrix(
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .mode = mode,
+            .lowpassIn = lowpassIn,
+            .highpassIn = highpassIn,
             .outFile = outFile,
             .exitFlag = 0,
             .gain = gain != 1.f ? gain : 0.f
@@ -94,7 +95,8 @@ static inline int startProcessingMatrix(
 int main(int argc, char **argv) {
 
     float gain = 1.f;
-    uint8_t mode = 0;
+    float lowpassIn = 0.f;
+    float highpassIn = 0.f;
     int ret = 0;
     int opt;
     FILE *inFile = NULL;
@@ -103,13 +105,10 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "g:i:o:r:")) != -1) {
+        while ((opt = getopt(argc, argv, "g:i:o:r:l:L:h:")) != -1) {
             switch (opt) {
                 case 'g':
                     gain = strtof(optarg, NULL);
-                    break;
-                case 'r' :
-                    mode = strtol(optarg, NULL, 10);
                     break;
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -127,6 +126,24 @@ int main(int argc, char **argv) {
                         outFile = stdout;
                     }
                     break;
+                case 'l':
+                    if (!lowpassIn) {
+                        lowpassIn = strtof(optarg, NULL);
+                        break;
+                    }
+                    return -1;
+                case 'L':
+                    if (!lowpassIn) {
+                        lowpassIn = 1.f/strtof(optarg, NULL);
+                        break;
+                    }
+                    return -1;
+                case 'h':
+                    if (!highpassIn) {
+                        highpassIn = strtof(optarg, NULL);
+                        break;
+                    }
+                    return -1;
                 default:
                     break;
             }
@@ -134,7 +151,7 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        startProcessingMatrix(inFile, mode, gain, outFile);
+        startProcessingMatrix(inFile, lowpassIn, highpassIn, gain, outFile);
     }
     return ret;
 }
