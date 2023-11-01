@@ -60,14 +60,14 @@ function executeTimedRun() {
 function executeRun() {
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - \
+    | build/demodulator -i - -o - -h10 \
     | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n ${audioOutOpts}
 }
 
 function executeRun2() {
   sox -q -D -v20 -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
-    | build/demodulator -i - -o - \
+    | build/demodulator -i - -o - -h10 \
     | tee -i uint8.dat \
     | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
     | multimon-ng -c -aFLEX_NEXT -
@@ -149,7 +149,7 @@ for compiler in ${compilers[@]}; do
   rm -rf file uint8.dat
 
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
-  executeRun $compiler "384k" 1
+  executeRun $compiler "192k" 1
 
   echo ":: STARTING TIMED RUNS FOR: ${compiler} -DNO_INTRINSICS=ON"
   executeTimedRun
