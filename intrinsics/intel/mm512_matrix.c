@@ -19,8 +19,6 @@
  */
 #include "matrix.h"
 
-typedef __m512 (*butterWorthScalingFn_t)(__m512, __m512);
-
 static inline __m512i shiftOrigin(__m512i u) {
 
     return _mm512_add_epi8(u, ORIGIN_SHIFT_UINT8);

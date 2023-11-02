@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
@@ -58,12 +57,13 @@ static inline int startProcessingMatrix(
 
         if ((args->exitFlag = ferror(inFile))) {
             perror(NULL);
+            args->exitFlag = -2;
             break;
         } else if (feof(inFile)) {
             args->exitFlag = EOF;
         } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
-                            "fread. Stupid compiler.");
+            args->exitFlag = -3;
+            break;
         }
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->full);

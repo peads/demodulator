@@ -49,6 +49,7 @@ typedef struct {
 } consumerArgs;
 
 #ifdef HAS_AVX512
+typedef __m512 (*butterWorthScalingFn_t)(__m512, __m512);
 static const __m512 LOWPASS_WC = {
         0.00008f, 0.00008f, 0.00008f, 0.00008f,
         0.00008f, 0.00008f, 0.00008f, 0.00008f,
@@ -162,5 +163,4 @@ static const __m256i ORIGIN_SHIFT_UINT8 = {
 
 typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 #endif
-typedef void (*conversionFunction_t)(const void *__restrict__, const uint32_t, float *__restrict__);
 #endif //DEMODULATOR_MATRIX_H
