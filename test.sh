@@ -70,7 +70,7 @@ function executeRun2() {
     | build/demodulator -i - -o - -h10 \
     | tee -i uint8.dat \
     | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
-    | multimon-ng -c -aFLEX_NEXT -
+    | multimon-ng -q -c -aFLEX_NEXT -
 }
 
 function join_by() {

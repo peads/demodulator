@@ -66,7 +66,6 @@ static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWo
     return v;
 }
 
-#ifdef BW
 static inline __m256 filterRealButterworth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
 
     size_t i;
@@ -78,7 +77,6 @@ static inline __m256 filterRealButterworth(__m256 u, const __m256 wc, const butt
     }
     return _mm256_mul_ps(u, _mm256_rcp_ps(acc));
 }
-#endif
 
 static inline __m256 hComplexMulByConj(__m256 u) {
 
@@ -165,9 +163,9 @@ void *processMatrix(void *ctx) {
             result = _mm256_blend_ps(hBuf[0],
                     _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1),
                     0b11110000);
-#ifdef BW
-            result = filterRealButterworth(result, LOWPASS_OUT_WC, scaleButterworthLowpass);
-#endif
+            if (args->lowpassOut) {
+                result = filterRealButterworth(result, LOWPASS_OUT_WC, scaleButterworthLowpass);
+            }
 
             fwrite(&result, sizeof(__m256), 1, args->outFile);
         }

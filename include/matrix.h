@@ -45,6 +45,7 @@ typedef struct {
     pthread_mutex_t mutex;
     float lowpassIn;
     float highpassIn;
+    float lowpassOut;
 } consumerArgs;
 
 #ifdef HAS_AVX512
@@ -86,7 +87,6 @@ static const __m512i ORIGIN_SHIFT_UINT8 = {
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f};
-#ifdef BW
 static const __m512 ONES = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
 // Degree 16
 static const __m512 BW_CONSTS_REAL[] = {
@@ -103,7 +103,6 @@ static const __m512 LOWPASS_OUT_WC = {
         0.0001f, 0.0001f, 0.0001f, 0.0001f,
         0.0001f, 0.0001f, 0.0001f, 0.0001f,
         0.0001f, 0.0001f, 0.0001f, 0.0001f};
-#endif
 #elif defined(HAS_AVX)
 static const __m256 LOWPASS_WC = {
         0.00008f, 0.00008f, 0.00008f, 0.00008f,
@@ -141,7 +140,6 @@ static const __m256 BW_CONSTS[] = {
         {0.83147f,  0.55557f,   0.83147f,  0.55557f,   0.83147f,  0.55557f,   0.83147f,  0.55557f},
         {0.55557f,  0.83147f,   0.55557f,  0.83147f,   0.55557f,  0.83147f,   0.55557f,  0.83147f},
         {0.19509f,  0.980785f,  0.19509f,  0.980785f,  0.19509f,  0.980785f,  0.19509f,  0.980785f}};
-#ifdef BW
 static const __m256 ONES = {1,1,1,1,1,1,1,1};
 static const __m256 BW_CONSTS_REAL[] = {
         {0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f},
@@ -153,9 +151,8 @@ static const __m256 BW_CONSTS_REAL[] = {
         {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
         {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
 static const __m256 LOWPASS_OUT_WC = {
-        0.0001f, 0.0001f, 0.0001f, 0.0001f,
-        0.0001f, 0.0001f, 0.0001f, 0.0001f};
-#endif
+        0.00008f, 0.00008f, 0.00008f, 0.00008f,
+        0.00008f, 0.00008f, 0.00008f, 0.00008f};
 static const __m256i ORIGIN_SHIFT_UINT8 = {
         //_mm256_set1_epi8(-127);
         -0x7e7e7e7e7e7e7e7f,

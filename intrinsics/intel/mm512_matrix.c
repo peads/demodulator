@@ -68,7 +68,6 @@ static inline __m512 filterButterWorth(__m512 u, const __m512 wc, const butterWo
     return v;
 }
 
-#ifdef BW
 static inline __m512 filterRealButterworth(__m512 u, const __m512 wc, const butterWorthScalingFn_t fn) {
 
     size_t i;
@@ -81,7 +80,6 @@ static inline __m512 filterRealButterworth(__m512 u, const __m512 wc, const butt
     }
     return _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
 }
-#endif
 
 static inline __m512 hComplexMulByConj(__m512 u) {
     //TODO make static const in header
@@ -137,6 +135,7 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
     size_t i;
     __m512 lowpassWc = !args->lowpassIn ? LOWPASS_WC : _mm512_set1_ps(args->lowpassIn);
+    __m512 lowpassOutWc = !args->lowpassOut ? LOWPASS_OUT_WC : _mm512_set1_ps(args->lowpassOut);
     __m512 highpassWc;
     butterWorthScalingFn_t inputScalingFn;
     __m512 result = {};
@@ -182,9 +181,9 @@ void *processMatrix(void *ctx) {
             result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
                     _mm512_permutexvar_ps(index, hBuf[1]));
 
-#ifdef BW
-            result = filterRealButterworth(result, LOWPASS_OUT_WC, scaleButterworthLowpass);
-#endif
+            if (args->lowpassOut) {
+                result = filterRealButterworth(result, lowpassOutWc, scaleButterworthLowpass);
+            }
             fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
     }
