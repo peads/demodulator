@@ -20,7 +20,7 @@
 #include "nvidia.cuh"
 
 __global__
-void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *result) {
+void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
 
     uint32_t i;
     uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -44,9 +44,9 @@ void fmDemod(const uint8_t *buf, const uint32_t len, const float gain, float *re
         // = 64*(zj/Sqrt[zr*zr+zj*zj]) / (41 + 23*(zr/Sqrt[zr*zr+zj*zj]))
         // = 64*zj / (||z|| * (41 + 23*(zr/||z||)))
         // = 64*zj / (41*||z|| + 23*zr)
-        zr = 64.f * zj * __frcp_rn(23.f * zr + 41.f * hypotf(zr, zj));
-
-        result[i >> 3] = isnan(zr) ? 0.f : gain ? gain * zr : zr;
+//        zr = 64.f * zj * __frcp_rn(23.f * zr + 41.f * hypotf(zr, zj));
+//        result[i >> 3] = isnan(zr) ? 0.f : zr;
+        result[i >> 3] = atan2(zj, zr);
     }
 }
 
@@ -70,7 +70,7 @@ extern "C" void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         cudaDeviceSynchronize();
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, args->gain, dResult);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, dResult);
 
         cudaDeviceSynchronize();
         cudaMemcpy(hResult,

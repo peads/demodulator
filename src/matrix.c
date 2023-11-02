@@ -25,7 +25,6 @@ typedef float (*butterWorthScalingFn_t)(float, float);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
-                           const float gain,
                            float *__restrict__ out) {
     size_t i;
     float zr, zj;
@@ -37,7 +36,7 @@ static inline void fmDemod(const float *__restrict__ in,
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
         zr = atan2f(zj, zr);
-        out[i >> 1] = zr;
+        out[i >> 2] = zr;
 //        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
 //
 //        out[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
@@ -106,7 +105,9 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *result = calloc(DEFAULT_BUF_SIZE>>1, sizeof(float));
+    float *result = calloc(DEFAULT_BUF_SIZE>>2, sizeof(float));
+    float lowpassWc = !args->lowpassIn ? 12500.f : args->lowpassIn;
+    float highpassWc = !args->highpassIn ? 1.f : args->highpassIn;
 
     while (!args->exitFlag) {
 
@@ -117,10 +118,10 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 25000.f, scaleButterworthLowpass);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, 1.f, scaleButterworthHighpass); //dc block
-        fmDemod(fBuf, DEFAULT_BUF_SIZE, args->gain, result);
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 1, args->outFile);
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc, scaleButterworthLowpass);
+        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc, scaleButterworthHighpass); //dc block
+        fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
+        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
     free(buf);
     free(fBuf);
