@@ -67,7 +67,7 @@ function executeRun() {
 
 function executeRun2() {
   sox -q -D -v20 -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
-    | build/demodulator -i - -o - -h10 \
+    | build/demodulator -i - -o - -h10 -l10000 \
     | tee -i uint8.dat \
     | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -
