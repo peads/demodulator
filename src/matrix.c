@@ -100,6 +100,26 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
+//void blockDc(uint8_t *buf, size_t len, float *__restrict__ out) {
+//
+//    static uint8_t prevR = 0;
+//    static uint8_t prevJ = 0;
+//    static float prevYR = 0;
+//    static float prevYJ = 0;
+//
+//    size_t i;
+//    for (i = 0; i < len; i+=2) {
+//        out[i] = (float)buf[i] - (float)prevR + 0.995f * prevYR;
+//        prevR = buf[i];
+//        prevYR = out[i];
+//
+//
+//        out[i+1] = (float)buf[i+1] - (float)prevJ + 0.995f * prevYJ;
+//        prevJ = buf[i+1];
+//        prevYJ = out[i+1];
+//    }
+//}
+
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
@@ -118,6 +138,7 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+//        blockDc(buf, DEFAULT_BUF_SIZE, fBuf);
         filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc, scaleButterworthLowpass);
         filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc, scaleButterworthHighpass); //dc block
         fmDemod(fBuf, DEFAULT_BUF_SIZE, result);

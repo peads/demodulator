@@ -24,16 +24,16 @@ static inline __m512i shiftOrigin(__m512i u) {
     return _mm512_add_epi8(u, ORIGIN_SHIFT_UINT8);
 }
 
-static inline void convert_epi8_ps(__m512i u, __m512 *uhi, __m512 *ulo, __m512 *vhi, __m512 *vlo) {
-
-    __m512i temp[2];
-    temp[0] = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
-    temp[1] = _mm512_cvtepi8_epi16(_mm512_extracti32x8_epi32(u, 1));
-    *ulo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[0])));
-    *uhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[0], 1)));
-    *vlo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[1])));
-    *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
-}
+//static inline void convert_epi8_ps(__m512i u, __m512 *uhi, __m512 *ulo, __m512 *vhi, __m512 *vlo) {
+//
+//    __m512i temp[2];
+//    temp[0] = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
+//    temp[1] = _mm512_cvtepi8_epi16(_mm512_extracti32x8_epi32(u, 1));
+//    *ulo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[0])));
+//    *uhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[0], 1)));
+//    *vlo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[1])));
+//    *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
+//}
 
 static inline __m512 scaleButterworthDcBlock(__attribute__((unused)) const __m512 wc, __m512 u) {
 
@@ -138,7 +138,7 @@ void *processMatrix(void *ctx) {
     butterWorthScalingFn_t inputScalingFn;
     __m512 result = {};
     __m512 hBuf[4] = {};
-    __m512i u;
+    __m512i u, v;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
     
     if (!args->highpassIn) {
@@ -158,7 +158,15 @@ void *processMatrix(void *ctx) {
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 64) {
             u = shiftOrigin(*(__m512i *) (buf + i));
-            convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
+//            convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
+
+            v = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
+            hBuf[0] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
+            hBuf[1] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1)));
+
+            v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u,1));
+            hBuf[2] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
+            hBuf[3] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1)));
 
             hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
             hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);

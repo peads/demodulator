@@ -20,7 +20,7 @@
 import sys
 import struct
 from typing import Iterable
-
+from scipy import signal as sig
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from functools import partial
@@ -30,9 +30,9 @@ import numpy as np
 plt.style.use('dark_background')
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-fs = 125000
+fs = 250000
 dt = 1 / fs
-bufsize = 1048576 #int(pow(2, np.floor(np.log2(fs))))
+bufsize = 262144 #int(pow(2, np.floor(np.log2(fs))))
 
 
 class Chunker(Iterable):
@@ -50,7 +50,7 @@ class Chunker(Iterable):
 
     def __next__(self):
         if bool(self.chunk):
-            chunksize = bufsize >> 2
+            chunksize = bufsize >> 1
             result = self.chunk[0:chunksize]
             del self.chunk[0:chunksize]
             return result
@@ -67,24 +67,15 @@ def generateData(file):
 
 def animate(y):
 
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
     ax.clear()
-    ax.set_ylim(ylim)
-    ax.set_xlim(xlim)
-
-    return ax.specgram(y, Fs=dt, NFFT=512, window=np.blackman(512))
-
     # fft_data = np.abs(np.fft.fft(ys))
     # fft_freq = np.fft.fftfreq(len(fft_data))
     # ax.plot(fft_freq, fft_data)
+    return ax.specgram(y, Fs=dt, Fc=0, NFFT=1024, window=sig.get_window('nuttall',1024))
 
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
 
     ani = animation.FuncAnimation(fig, animate, frames=partial(generateData, f), #partial(generateData, f),
-                                  save_count=8, interval=40)
-    # plt.ylim(0, 1e3)
-    # plt.xlim(-0.5, 0.5)
-    # plt.axis('off')
+                                  save_count=8, interval=1)
     plt.show()
