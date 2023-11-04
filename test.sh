@@ -153,24 +153,22 @@ for compiler in ${compilers[@]}; do
 #  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
 #  rm -rf file uint8.dat
 #
-#  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
-#  executeRun $compiler "192k" 1
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
+  executeRun $compiler "192k" 1
 
-#  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
-#  executeTimedRun
-#  executeTimedRun
-#  executeTimedRun
-#  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
-#  rm -rf file uint8.dat
-#
-#  executeRun2 "125k" 1
-#  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
-#  executeTimedRun
-#  executeTimedRun
-#  executeTimedRun
-#  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
-#  rm -rf file uint8.dat
-#  i=$(( i + 1 ))
-#  waitForUserIntput $i
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  rm -rf file uint8.dat
+
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  rm -rf file uint8.dat
 done
 echo "Job's done."

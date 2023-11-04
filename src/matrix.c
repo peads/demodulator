@@ -21,11 +21,10 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-typedef float (*butterWorthScalingFn_t)(float, float);
-
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
                            float *__restrict__ out) {
+
     size_t i;
     float zr, zj;
 
@@ -43,50 +42,42 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-static inline float scaleButterworthHighpass(float wc, float x) {
-    return wc/x;
-}
-
-static inline float scaleButterworthLowpass(float wc, float x) {
-    return x/wc;
-}
-
-static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc, butterWorthScalingFn_t fn) {
+static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc) {
 
     static const float BW_CONSTS[16][2] = {
-           {-0.0980171f, 0.995185f},
-           {-0.290285f, 0.95694f},
-           {-0.471397f,  0.881921f},
-           {-0.634393f,  0.77301f},
-           {-0.77301f,   0.634393f},
-           {-0.881921f,  0.471397f},
-           {-0.95694f,   0.290285f},
-           {-0.995185f,  0.0980171f},
-           {-0.995185f,  -0.0980171f},
-           {-0.95694f,   -0.290285f},
-           {-0.881921f,  -0.471397f},
-           {-0.77301f,   -0.634393f},
-           {-0.634393f,-0.77301f},
-           {-0.471397f,-0.881921f},
-           {-0.290285f,-0.95694f},
-           {-0.0980171f,-0.995185f}};
-    size_t i,j;
+            {-0.0980171f, 0.995185f},
+            {-0.290285f,  0.95694f},
+            {-0.471397f,  0.881921f},
+            {-0.634393f,  0.77301f},
+            {-0.77301f,   0.634393f},
+            {-0.881921f,  0.471397f},
+            {-0.95694f,   0.290285f},
+            {-0.995185f,  0.0980171f},
+            {-0.995185f,  -0.0980171f},
+            {-0.95694f,   -0.290285f},
+            {-0.881921f,  -0.471397f},
+            {-0.77301f,   -0.634393f},
+            {-0.634393f,  -0.77301f},
+            {-0.471397f,  -0.881921f},
+            {-0.290285f,  -0.95694f},
+            {-0.0980171f, -0.995185f}};
+    size_t i, j;
     float accR, accJ, currR, currJ;
     const float *constPtr;
 
-    for (i = 0; i < len; i+=2) {
+    for (i = 0; i < len; i += 2) {
         accR = 1.f;
         accJ = 1.f;
-        currR = fn(wc, buf[i]);
-        currJ = fn(wc, buf[i + 1]);
+        currR = buf[i] / wc;
+        currJ = buf[i + 1] / wc;
         for (j = 0; j < 16; ++j) {
             constPtr = BW_CONSTS[j];
             accR *= currR - constPtr[0];
             accJ *= currJ - constPtr[1];
         }
 
-        buf[i] = buf[i]/accR;
-        buf[i + 1] = buf[i+1]/accJ;
+        buf[i] = buf[i] / accR;
+        buf[i + 1] = buf[i + 1] / accJ;
     }
 }
 
@@ -94,9 +85,9 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
 
     size_t i;
     int8_t *buf = in;
-    for (i = 0; i < len; i+=2) {
-        out[i] = (int8_t)(buf[i] - 127);
-        out[i+1] = (int8_t)(buf[i+1] - 127);
+    for (i = 0; i < len; i += 2) {
+        out[i] = (int8_t) (buf[i] - 127);
+        out[i + 1] = (int8_t) (buf[i + 1] - 127);
     }
 }
 
@@ -125,9 +116,10 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *result = calloc(DEFAULT_BUF_SIZE>>2, sizeof(float));
-    float lowpassWc = !args->lowpassIn ? 12500.f : args->lowpassIn;
-    float highpassWc = !args->highpassIn ? 1.f : args->highpassIn;
+    float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
+    float lowpassWc = args->lowpassIn;
+    float highpassWc = 1.f/args->highpassIn;
+//    float lowpassOutWc = args->lowpassOut;
 
     while (!args->exitFlag) {
 
@@ -139,8 +131,12 @@ void *processMatrix(void *ctx) {
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
 //        blockDc(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc, scaleButterworthLowpass);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc, scaleButterworthHighpass); //dc block
+        if (lowpassWc) {
+            filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc);
+        }
+        if (highpassWc) {
+            filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc); //dc block
+        }
         fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
