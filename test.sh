@@ -55,24 +55,18 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
-  lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
-  lowpassOut=$(bc -l <<< "${1}/2/12500*3.14159265359*2")
 
   sox -v1.75 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -h${highpass} -L{lowpassIn} -l{lowpassOut} \
+    | build/demodulator -i - -o - \
     | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n -w/mnt/c/Users/peads/Desktop/out.wav
 }
 
 function executeRun2() {
-  highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
-  lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
-  lowpassOut=$(bc -l <<< "${1}/2/10000*3.14159265359*2")
 
   sox -v20 -q -D -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
-    | build/demodulator -i - -o - -h${highpass} -L{lowpassIn} -l{lowpassOut} \
+    | build/demodulator -i - -o - \
     | tee -i uint8.dat \
     | sox -v2 -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -

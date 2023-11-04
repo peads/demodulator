@@ -25,18 +25,21 @@ static inline __m512i shiftOrigin(__m512i u) {
 }
 
 static inline __m512 filterButterWorth(__m512 u, const __m512 wc) {
-
-    __m512 v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
-    __m512 temp, acc = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    __m512 v;
+    __m512 acc = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     size_t i;
 
-    for (i = 0; i < 8; ++i) {
-        temp = _mm512_add_ps(v, BW_CONSTS[i]);
-        acc = _mm512_mul_ps(acc, temp);
+    if (*(float *) &wc != 1) {
+        v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
+    } else {
+        v = _mm512_rcp14_ps(u);
     }
-    v = _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
 
-    return v;
+    for (i = 0; i < 8; ++i) {
+        acc = _mm512_mul_ps(acc, _mm512_add_ps(v, BW_CONSTS[i]));
+    }
+
+    return _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
 }
 
 static inline __m512 filterRealButterworth(__m512 u, const __m512 wc) {

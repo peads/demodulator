@@ -37,17 +37,20 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
 
 static inline __m256 filterButterWorth(__m256 u, const __m256 wc) {
 
-    __m256 v = _mm256_mul_ps(u, _mm256_rcp_ps(wc));
-    __m256 temp, acc = {1, 1, 1, 1, 1, 1, 1, 1};
+    __m256 v;
+    __m256 acc = {1, 1, 1, 1, 1, 1, 1, 1};
     size_t i;
 
-    for (i = 0; i < 8; ++i) {
-        temp = _mm256_add_ps(v, BW_CONSTS[i]);
-        acc = _mm256_mul_ps(acc, temp);
+    if (*(float *) &wc != 1) {
+        v = _mm256_mul_ps(u, _mm256_rcp_ps(wc));
+    } else {
+        v = _mm256_rcp_ps(u);
     }
-    v = _mm256_mul_ps(u, _mm256_rcp_ps(acc));
 
-    return v;
+    for (i = 0; i < 8; ++i) {
+        acc = _mm256_mul_ps(acc, _mm256_add_ps(v, BW_CONSTS[i]));
+    }
+    return _mm256_mul_ps(u, _mm256_rcp_ps(acc));
 }
 
 static inline __m256 filterRealButterworth(__m256 u, const __m256 wc) {
