@@ -24,9 +24,6 @@ wavFile2=FLEX_Pager_IQ_20150816_929613kHz_IQ.wav
 audioOutOpts=""
 compilers=()
 
-if [ ! -z "$1" ] && [ "$1" ~= "(y|Y)" ]; then
-  dontWait=$1
-fi
 if [ ! -z "$2" ]; then
   wavFile=$2
 fi
@@ -57,19 +54,23 @@ function executeTimedRun() {
    time build/demodulator -i uint8.dat -o file
 }
 
-highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
-lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
-lowpassOut=$(bc -l <<< "${1}/2/10000*3.14159265359*2")
-
 function executeRun() {
-  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
+  highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
+  lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
+  lowpassOut=$(bc -l <<< "${1}/2/12500*3.14159265359*2")
+
+  sox -v1.75 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
     | build/demodulator -i - -o - -h${highpass} -L{lowpassIn} -l{lowpassOut} \
-    | sox -v1.5 -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
+    | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n -w/mnt/c/Users/peads/Desktop/out.wav
 }
 
 function executeRun2() {
+  highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
+  lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
+  lowpassOut=$(bc -l <<< "${1}/2/10000*3.14159265359*2")
+
   sox -v20 -q -D -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
     | build/demodulator -i - -o - -h${highpass} -L{lowpassIn} -l{lowpassOut} \
     | tee -i uint8.dat \
