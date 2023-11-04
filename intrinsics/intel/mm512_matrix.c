@@ -24,17 +24,6 @@ static inline __m512i shiftOrigin(__m512i u) {
     return _mm512_add_epi8(u, ORIGIN_SHIFT_UINT8);
 }
 
-//static inline void convert_epi8_ps(__m512i u, __m512 *uhi, __m512 *ulo, __m512 *vhi, __m512 *vlo) {
-//
-//    __m512i temp[2];
-//    temp[0] = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
-//    temp[1] = _mm512_cvtepi8_epi16(_mm512_extracti32x8_epi32(u, 1));
-//    *ulo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[0])));
-//    *uhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[0], 1)));
-//    *vlo = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(temp[1])));
-//    *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
-//}
-
 static inline __m512 filterButterWorth(__m512 u, const __m512 wc) {
 
     __m512 v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
@@ -120,6 +109,7 @@ void *processMatrix(void *ctx) {
     __m512 lowpassWc = _mm512_set1_ps(args->lowpassIn);
     __m512 highpassWc = _mm512_set1_ps(1.f/args->highpassIn);
     __m512 lowpassOutWc = _mm512_set1_ps(args->lowpassOut);
+    __m512 result = {};
     __m512 hBuf[4] = {};
     __m512i u, v;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
@@ -133,7 +123,6 @@ void *processMatrix(void *ctx) {
 
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 64) {
             u = shiftOrigin(*(__m512i *) (buf + i));
-//            convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
 
             v = _mm512_cvtepi8_epi16(_mm512_castsi512_si256(u));
             hBuf[0] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
@@ -163,14 +152,14 @@ void *processMatrix(void *ctx) {
             hBuf[2] = hPolarDiscriminant_ps(hBuf[2], hBuf[3]);
             hBuf[1] = fmDemod(hBuf[2]);
 
-            hBuf[0] = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
+            result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
                     _mm512_permutexvar_ps(index, hBuf[1]));
 
             if (args->lowpassOut) {
-                hBuf[0] = filterRealButterworth(hBuf[0], lowpassOutWc);
+                result = filterRealButterworth(result, lowpassOutWc);
             }
 
-            fwrite(&hBuf, sizeof(__m512), 1, args->outFile);
+            fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
     }
 

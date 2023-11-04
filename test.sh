@@ -57,9 +57,9 @@ function executeTimedRun() {
    time build/demodulator -i uint8.dat -o file
 }
 
-highpass=$(bc -l <<< "(3.14159265359*2)/${1}")
-lowpassIn=$(bc -l <<< "${1}/12500*3.14159265359*2")
-lowpassOut=$(bc -l <<< "${1}/10000*3.14159265359*2")
+highpass=$(bc -l <<< "(3.14159265359*20)/${1}")
+lowpassIn=$(bc -l <<< "${1}/25000*3.14159265359*2")
+lowpassOut=$(bc -l <<< "${1}/2/10000*3.14159265359*2")
 
 function executeRun() {
   sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
