@@ -49,13 +49,6 @@ typedef struct {
 } consumerArgs;
 
 #ifdef HAS_AVX512
-typedef __m512 (*butterWorthScalingFn_t)(__m512, __m512);
-static const __m512 LOWPASS_WC = {
-        0.00008f, 0.00008f, 0.00008f, 0.00008f,
-        0.00008f, 0.00008f, 0.00008f, 0.00008f,
-        0.00008f, 0.00008f, 0.00008f, 0.00008f,
-        0.00008f, 0.00008f, 0.00008f, 0.00008f};
-static const __m512 HIGHPASS_WC = {/*Intentionally empty*/};
 static const __m512 ALL_64S = {
         64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
         64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
@@ -99,16 +92,7 @@ static const __m512 BW_CONSTS_REAL[] = {
         {1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f},
         {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
         {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
-static const __m512 LOWPASS_OUT_WC = {
-        0.0001f, 0.0001f, 0.0001f, 0.0001f,
-        0.0001f, 0.0001f, 0.0001f, 0.0001f,
-        0.0001f, 0.0001f, 0.0001f, 0.0001f,
-        0.0001f, 0.0001f, 0.0001f, 0.0001f};
 #elif defined(HAS_AVX)
-static const __m256 LOWPASS_WC = {
-        0.00008f, 0.00008f, 0.00008f, 0.00008f,
-        0.00008f, 0.00008f, 0.00008f, 0.00008f};
-static const __m256 HIGHPASS_WC = {/*Intentionally empty*/};
 static const __m256 ALL_64S = {
         64.f, 64.f, 64.f, 64.f,
         64.f, 64.f, 64.f, 64.f};
@@ -151,16 +135,11 @@ static const __m256 BW_CONSTS_REAL[] = {
         {1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f,  1.76384f},
         {1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f,  1.91388f},
         {1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f,  1.99037f}};
-static const __m256 LOWPASS_OUT_WC = {
-        0.00008f, 0.00008f, 0.00008f, 0.00008f,
-        0.00008f, 0.00008f, 0.00008f, 0.00008f};
 static const __m256i ORIGIN_SHIFT_UINT8 = {
         //_mm256_set1_epi8(-127);
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f};
-
-typedef __m256 (*butterWorthScalingFn_t)(__m256, __m256);
 #endif
 #endif //DEMODULATOR_MATRIX_H

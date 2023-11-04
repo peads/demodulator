@@ -35,25 +35,9 @@ static inline void convert_epi8_ps(__m256i u, __m256 *uhi, __m256 *ulo, __m256 *
     *vhi = _mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(_mm256_extracti128_si256(temp[1], 1)));
 }
 
-static inline __m256 scaleButterworthDcBlock(__attribute__((unused)) const __m256 wc, __m256 u) {
+static inline __m256 filterButterWorth(__m256 u, const __m256 wc) {
 
-    return _mm256_rcp_ps(u);
-}
-
-static inline __m256 scaleButterworthHighpass(__m256 wc, __m256 u) {
-
-    return _mm256_mul_ps(_mm256_rcp_ps(u), wc);
-}
-
-/// The reciprocal of omega c must be passed in!
-static inline __m256 scaleButterworthLowpass(const __m256 wc, __m256 u) {
-
-    return _mm256_mul_ps(u, wc);
-}
-
-static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
-
-    __m256 v = fn(wc, u);
+    __m256 v = _mm256_mul_ps(u, _mm256_rcp_ps(wc));
     __m256 temp, acc = {1, 1, 1, 1, 1, 1, 1, 1};
     size_t i;
 
@@ -66,10 +50,10 @@ static inline __m256 filterButterWorth(__m256 u, const __m256 wc, const butterWo
     return v;
 }
 
-static inline __m256 filterRealButterworth(__m256 u, const __m256 wc, const butterWorthScalingFn_t fn) {
+static inline __m256 filterRealButterworth(__m256 u, const __m256 wc) {
 
     size_t i;
-    __m256 acc = ONES, v = fn(wc, u),
+    __m256 acc = ONES, v = _mm256_mul_ps(u, _mm256_rcp_ps(wc)),
         squared = _mm256_mul_ps(v, v);
     for (i = 0; i < 8; ++i) {
         acc = _mm256_mul_ps(acc, _mm256_add_ps(ONES,
@@ -117,21 +101,13 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m256 lowpassWc = !args->lowpassIn ? LOWPASS_WC : _mm256_set1_ps(args->lowpassIn);
-    __m256 highpassWc;
-    butterWorthScalingFn_t inputScalingFn;
+    __m256 lowpassWc = _mm256_set1_ps(args->lowpassIn);
+    __m256 highpassWc = _mm256_set1_ps(1.f/args->highpassIn);
+    __m256 lowpassOutWc = _mm256_set1_ps(args->lowpassOut);
     __m256 result = {};
     __m256 hBuf[4] = {};
     __m256i u;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-
-    if (!args->highpassIn) {
-        highpassWc = HIGHPASS_WC;
-        inputScalingFn = scaleButterworthDcBlock;
-    } else {
-        highpassWc = _mm256_set1_ps(args->highpassIn);
-        inputScalingFn = scaleButterworthHighpass;
-    }
 
     while (!args->exitFlag) {
         sem_wait(args->full);
@@ -144,15 +120,19 @@ void *processMatrix(void *ctx) {
             u = shiftOrigin(*(__m256i *) (buf + i));
             convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
 
-            hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
-            hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);
-            hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
-            hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
+            if (args->lowpassIn) {
+                hBuf[0] = filterButterWorth(hBuf[0], lowpassWc);
+                hBuf[1] = filterButterWorth(hBuf[1], lowpassWc);
+                hBuf[2] = filterButterWorth(hBuf[2], lowpassWc);
+                hBuf[3] = filterButterWorth(hBuf[3], lowpassWc);
+            }
 
-            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, inputScalingFn);
-            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, inputScalingFn);
-            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, inputScalingFn);
-            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, inputScalingFn);
+            if (args->highpassIn) {
+                hBuf[0] = filterButterWorth(hBuf[0], highpassWc);
+                hBuf[1] = filterButterWorth(hBuf[1], highpassWc);
+                hBuf[2] = filterButterWorth(hBuf[2], highpassWc);
+                hBuf[3] = filterButterWorth(hBuf[3], highpassWc);
+            }
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
@@ -163,8 +143,9 @@ void *processMatrix(void *ctx) {
             result = _mm256_blend_ps(hBuf[0],
                     _mm256_permute2f128_ps(hBuf[1], hBuf[1], 1),
                     0b11110000);
+
             if (args->lowpassOut) {
-                result = filterRealButterworth(result, LOWPASS_OUT_WC, scaleButterworthLowpass);
+                result = filterRealButterworth(result, lowpassOutWc);
             }
 
             fwrite(&result, sizeof(__m256), 1, args->outFile);

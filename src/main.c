@@ -114,23 +114,14 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'l':
-                    if (!args.lowpassOut) {
-                        args.lowpassOut = 1.f/strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
+                    args.lowpassOut = strtof(optarg, NULL);
+                    break;
                 case 'L':
-                    if (!args.lowpassIn) {
-                        args.lowpassIn = 1.f/strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
+                    args.lowpassIn = strtof(optarg, NULL);
+                    break;
                 case 'h':
-                    if (!args.highpassIn) {
-                        args.highpassIn = strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
+                    args.highpassIn = strtof(optarg, NULL);
+                    break;
                 default:
                     break;
             }

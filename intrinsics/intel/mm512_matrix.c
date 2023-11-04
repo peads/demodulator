@@ -35,25 +35,9 @@ static inline __m512i shiftOrigin(__m512i u) {
 //    *vhi = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(temp[1], 1)));
 //}
 
-static inline __m512 scaleButterworthDcBlock(__attribute__((unused)) const __m512 wc, __m512 u) {
+static inline __m512 filterButterWorth(__m512 u, const __m512 wc) {
 
-    return _mm512_rcp14_ps(u);
-}
-
-static inline __m512 scaleButterworthHighpass(__m512 wc, __m512 u) {
-
-    return _mm512_mul_ps(_mm512_rcp14_ps(u), wc);
-}
-
-/// The reciprocal of omega c must be passed in!
-static inline __m512 scaleButterworthLowpass(const __m512 wc, __m512 u) {
-
-    return _mm512_mul_ps(u, wc);
-}
-
-static inline __m512 filterButterWorth(__m512 u, const __m512 wc, const butterWorthScalingFn_t fn) {
-
-    __m512 v = fn(wc, u);
+    __m512 v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
     __m512 temp, acc = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     size_t i;
 
@@ -66,12 +50,13 @@ static inline __m512 filterButterWorth(__m512 u, const __m512 wc, const butterWo
     return v;
 }
 
-static inline __m512 filterRealButterworth(__m512 u, const __m512 wc, const butterWorthScalingFn_t fn) {
+static inline __m512 filterRealButterworth(__m512 u, const __m512 wc) {
 
     size_t i;
-    __m512  acc = ONES,
-            v = fn(wc, u),
-            squared = _mm512_mul_ps(v, v);
+    __m512 acc = ONES;
+    __m512 v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
+    __m512 squared = _mm512_mul_ps(v, v);
+
     for (i = 0; i < 8; ++i) {
         acc = _mm512_mul_ps(acc, _mm512_add_ps(ONES,
                 _mm512_add_ps(squared, _mm512_add_ps(v, BW_CONSTS_REAL[i]))));
@@ -132,22 +117,12 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m512 lowpassWc = !args->lowpassIn ? LOWPASS_WC : _mm512_set1_ps(args->lowpassIn);
-    __m512 lowpassOutWc = !args->lowpassOut ? LOWPASS_OUT_WC : _mm512_set1_ps(args->lowpassOut);
-    __m512 highpassWc;
-    butterWorthScalingFn_t inputScalingFn;
-    __m512 result = {};
+    __m512 lowpassWc = _mm512_set1_ps(args->lowpassIn);
+    __m512 highpassWc = _mm512_set1_ps(1.f/args->highpassIn);
+    __m512 lowpassOutWc = _mm512_set1_ps(args->lowpassOut);
     __m512 hBuf[4] = {};
     __m512i u, v;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    
-    if (!args->highpassIn) {
-        highpassWc = HIGHPASS_WC;
-        inputScalingFn = scaleButterworthDcBlock;
-    } else {
-        highpassWc = _mm512_set1_ps(args->highpassIn);
-        inputScalingFn = scaleButterworthHighpass;
-    }
     
     while (!args->exitFlag) {
         sem_wait(args->full);
@@ -168,15 +143,19 @@ void *processMatrix(void *ctx) {
             hBuf[2] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
             hBuf[3] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1)));
 
-            hBuf[0] = filterButterWorth(hBuf[0], lowpassWc, scaleButterworthLowpass);
-            hBuf[1] = filterButterWorth(hBuf[1], lowpassWc, scaleButterworthLowpass);
-            hBuf[2] = filterButterWorth(hBuf[2], lowpassWc, scaleButterworthLowpass);
-            hBuf[3] = filterButterWorth(hBuf[3], lowpassWc, scaleButterworthLowpass);
+            if (args->lowpassIn) {
+                hBuf[0] = filterButterWorth(hBuf[0], lowpassWc);
+                hBuf[1] = filterButterWorth(hBuf[1], lowpassWc);
+                hBuf[2] = filterButterWorth(hBuf[2], lowpassWc);
+                hBuf[3] = filterButterWorth(hBuf[3], lowpassWc);
+            }
 
-            hBuf[0] = filterButterWorth(hBuf[0], highpassWc, inputScalingFn);
-            hBuf[1] = filterButterWorth(hBuf[1], highpassWc, inputScalingFn);
-            hBuf[2] = filterButterWorth(hBuf[2], highpassWc, inputScalingFn);
-            hBuf[3] = filterButterWorth(hBuf[3], highpassWc, inputScalingFn);
+            if (args->highpassIn) {
+                hBuf[0] = filterButterWorth(hBuf[0], highpassWc);
+                hBuf[1] = filterButterWorth(hBuf[1], highpassWc);
+                hBuf[2] = filterButterWorth(hBuf[2], highpassWc);
+                hBuf[3] = filterButterWorth(hBuf[3], highpassWc);
+            }
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
@@ -184,13 +163,14 @@ void *processMatrix(void *ctx) {
             hBuf[2] = hPolarDiscriminant_ps(hBuf[2], hBuf[3]);
             hBuf[1] = fmDemod(hBuf[2]);
 
-            result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
+            hBuf[0] = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
                     _mm512_permutexvar_ps(index, hBuf[1]));
 
             if (args->lowpassOut) {
-                result = filterRealButterworth(result, lowpassOutWc, scaleButterworthLowpass);
+                hBuf[0] = filterRealButterworth(hBuf[0], lowpassOutWc);
             }
-            fwrite(&result, sizeof(__m512), 1, args->outFile);
+
+            fwrite(&hBuf, sizeof(__m512), 1, args->outFile);
         }
     }
 
