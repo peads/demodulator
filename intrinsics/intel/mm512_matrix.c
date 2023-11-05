@@ -25,42 +25,6 @@ static inline __m512i shiftOrigin(__m512i u) {
     return _mm512_add_epi8(u, ORIGIN_SHIFT_UINT8);
 }
 
-static inline __m512 filterButterWorth(__m512 u, const __m512 wc) {
-    __m512 v;
-    __m512 acc = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    size_t i;
-
-    if (*(float *) &wc != 1) {
-        v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
-    } else {
-        v = _mm512_rcp14_ps(u);
-    }
-
-    for (i = 0; i < 8; ++i) {
-        acc = _mm512_mul_ps(acc, _mm512_add_ps(v, BW_CONSTS[i]));
-    }
-
-    return _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
-}
-
-static inline __m512 filterRealButterworth(__m512 u, const __m512 wc) {
-
-    size_t k;
-    __m512 acc = ONES;
-    __m512 temp, s = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
-    __m512 squared = _mm512_mul_ps(s, s);
-    float sk;
-
-    for (k = 1; k <= 8; ++k) {
-        sk = cosf((2.f * (float)(16-k) + 16.f - 1.f) / 32.f * (float)M_PI);
-        temp = _mm512_mul_ps(s, _mm512_set1_ps(-2.f * sk));
-        temp = _mm512_add_ps(squared, temp);
-        temp =  _mm512_add_ps(ONES, temp);
-        acc = _mm512_mul_ps(acc,  temp);
-    }
-    return _mm512_mul_ps(s, _mm512_rcp14_ps(acc));
-}
-
 static inline __m512 hComplexMulByConj(__m512 u) {
     //TODO make static const in header
     const __m512i indexOrdering =
@@ -125,7 +89,6 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m512 lowpassOutWc = _mm512_set1_ps(args->lowpassOut);
     __m512 result = {};
     __m512 hBuf[4] = {};
     __m512i u, v;
@@ -163,10 +126,6 @@ void *processMatrix(void *ctx) {
 
             result = _mm512_mask_blend_ps(0b1111111100000000, hBuf[0],
                     _mm512_permutexvar_ps(index, hBuf[1]));
-
-            if (args->lowpassOut) {
-                result = filterRealButterworth(result, lowpassOutWc);
-            }
 
             fwrite(&result, sizeof(__m512), 1, args->outFile);
         }
