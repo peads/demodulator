@@ -70,6 +70,17 @@ static inline __m256 fmDemod(__m256 u) {
     return _mm256_permutevar8x32_ps(_mm256_and_ps(u, _mm256_cmp_ps(u, u, 0)), INDEX_FM_DEMOD_ORDERING);
 }
 
+static inline __m256 balanceIq(__m256 u) {
+    static const __m256 alpha = {0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
+    static const __m256 beta = {1,0.00787401574f,1,0.00787401574f,1,0.00787401574f,1,0.00787401574f};
+    __m256 ia = _mm256_mask_mul_ps(u, 0b01010101, u, alpha);
+    __m256 ib = _mm256_permute_ps(ia, _MM_SHUFFLE(2,3,0,1));
+    ib = _mm256_mask_mul_ps(ia, 0b10101010, ib, beta);
+    ib = _mm256_mask_add_ps(ia, 0b10101010, u, ib);
+
+    return ib;
+}
+
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
@@ -89,6 +100,11 @@ void *processMatrix(void *ctx) {
         for (i = 0; i < DEFAULT_BUF_SIZE; i += 32) {
             u = shiftOrigin(*(__m256i *) (buf + i));
             convert_epi8_ps(u, &hBuf[1], &hBuf[0], &hBuf[3], &hBuf[2]);
+
+            hBuf[0] = balanceIq(hBuf[0]);
+            hBuf[1] = balanceIq(hBuf[1]);
+            hBuf[2] = balanceIq(hBuf[2]);
+            hBuf[3] = balanceIq(hBuf[3]);
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
