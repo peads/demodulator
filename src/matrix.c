@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix.h"
+#include "fmath.h"
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -34,11 +35,9 @@ static inline void fmDemod(const float *__restrict__ in,
         // a(-d)+bc=-ad+bc
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
-        zr = atan2f(zj, zr);
-        out[i >> 2] = zr;
-//        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
-//
-//        out[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
+
+        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
+        out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
@@ -50,6 +49,18 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
         out[i] = (int8_t) (buf[i] - 127);
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
     }
+}
+
+static inline void balanceIq(float *buf, size_t len) {
+
+    static const float alpha = 0.99212598425f;
+    static const float beta = 0.00787401574f;
+
+    size_t i;
+    for (i = 0; i < len; i+=2) {
+        buf[i] *= alpha;
+        buf[i+1] += beta*buf[i];
+     }
 }
 
 void *processMatrix(void *ctx) {
@@ -68,6 +79,7 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+        balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
