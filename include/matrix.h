@@ -82,6 +82,7 @@ static const __m512i ORIGIN_SHIFT_UINT8 = {
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f};
 static const __m512 ONES = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+static const __m512 TWOS = {2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f,2.f};
 // Degree 16
 static const __m512 BW_CONSTS_REAL[] = {
         {0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f,0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f, 0.196034f},

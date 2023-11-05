@@ -28,8 +28,8 @@ from scipy import fft
 
 plt.style.use('dark_background')
 fig, (ax_t, ax_w) = plt.subplots(2, 1, constrained_layout=True)
-ax_t.set_xlim(-0.5, 0.5)
-ax_t.set_ylim(-0.01, 1)
+ax_t.set_xlim(-0.51, 0.51)
+ax_t.set_ylim(-0.01, 1.5e3)
 
 class Chunker(Iterable):
     def __init__(self, file, bufsize=250000):

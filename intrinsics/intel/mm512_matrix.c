@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "matrix.h"
+#include <math.h>
 
 static inline __m512i shiftOrigin(__m512i u) {
 
@@ -44,16 +45,20 @@ static inline __m512 filterButterWorth(__m512 u, const __m512 wc) {
 
 static inline __m512 filterRealButterworth(__m512 u, const __m512 wc) {
 
-    size_t i;
+    size_t k;
     __m512 acc = ONES;
-    __m512 v = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
-    __m512 squared = _mm512_mul_ps(v, v);
+    __m512 temp, s = _mm512_mul_ps(u, _mm512_rcp14_ps(wc));
+    __m512 squared = _mm512_mul_ps(s, s);
+    float sk;
 
-    for (i = 0; i < 8; ++i) {
-        acc = _mm512_mul_ps(acc, _mm512_add_ps(ONES,
-                _mm512_add_ps(squared, _mm512_add_ps(v, BW_CONSTS_REAL[i]))));
+    for (k = 1; k <= 8; ++k) {
+        sk = cosf((2.f * (float)(16-k) + 16.f - 1.f) / 32.f * (float)M_PI);
+        temp = _mm512_mul_ps(s, _mm512_set1_ps(-2.f * sk));
+        temp = _mm512_add_ps(squared, temp);
+        temp =  _mm512_add_ps(ONES, temp);
+        acc = _mm512_mul_ps(acc,  temp);
     }
-    return _mm512_mul_ps(u, _mm512_rcp14_ps(acc));
+    return _mm512_mul_ps(s, _mm512_rcp14_ps(acc));
 }
 
 static inline __m512 hComplexMulByConj(__m512 u) {
@@ -102,6 +107,17 @@ static inline __m512 fmDemod(__m512 u) {
     return u;
 }
 
+static inline __m512 balanceIq(__m512 u) {
+    const __m512 alpha = _mm512_set1_ps(0.99212598425f);
+    const __m512 beta = _mm512_set1_ps(0.00787401574f);
+    __m512 ia = _mm512_mask_mul_ps(u, 0b0101010101010101, u, alpha);
+    __m512 ib = _mm512_permute_ps(ia, _MM_SHUFFLE(2,3,0,1));
+    ib = _mm512_mask_mul_ps(ia, 0b1010101010101010, ib, beta);
+
+    ib = _mm512_mask_add_ps(ia, 0b1010101010101010, u, ib);
+    return ib;
+}
+
 void *processMatrix(void *ctx) {
 
     // TODO convert to header static const
@@ -109,14 +125,12 @@ void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     size_t i;
-    __m512 lowpassWc = _mm512_set1_ps(args->lowpassIn);
-    __m512 highpassWc = _mm512_set1_ps(1.f/args->highpassIn);
     __m512 lowpassOutWc = _mm512_set1_ps(args->lowpassOut);
     __m512 result = {};
     __m512 hBuf[4] = {};
     __m512i u, v;
     uint8_t *buf = _mm_malloc(DEFAULT_BUF_SIZE, ALIGNMENT);
-    
+
     while (!args->exitFlag) {
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
@@ -131,23 +145,15 @@ void *processMatrix(void *ctx) {
             hBuf[0] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
             hBuf[1] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1)));
 
+            hBuf[0] = balanceIq(hBuf[0]);
+            hBuf[1] = balanceIq(hBuf[1]);
+
             v = _mm512_cvtepi8_epi16(_mm512_extracti64x4_epi64(u,1));
             hBuf[2] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_castsi512_si256(v)));
             hBuf[3] = _mm512_cvtepi32_ps(_mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1)));
 
-            if (args->lowpassIn) {
-                hBuf[0] = filterButterWorth(hBuf[0], lowpassWc);
-                hBuf[1] = filterButterWorth(hBuf[1], lowpassWc);
-                hBuf[2] = filterButterWorth(hBuf[2], lowpassWc);
-                hBuf[3] = filterButterWorth(hBuf[3], lowpassWc);
-            }
-
-            if (args->highpassIn) {
-                hBuf[0] = filterButterWorth(hBuf[0], highpassWc);
-                hBuf[1] = filterButterWorth(hBuf[1], highpassWc);
-                hBuf[2] = filterButterWorth(hBuf[2], highpassWc);
-                hBuf[3] = filterButterWorth(hBuf[3], highpassWc);
-            }
+            hBuf[2] = balanceIq(hBuf[2]);
+            hBuf[3] = balanceIq(hBuf[3]);
 
             hBuf[0] = hPolarDiscriminant_ps(hBuf[0], hBuf[1]);
             hBuf[0] = fmDemod(hBuf[0]);
