@@ -51,7 +51,7 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
-static inline void balanceIq(float *buf, size_t len) {
+static inline void balanceIq(float *__restrict__ buf, size_t len) {
 
     static const float alpha = 0.99212598425f;
     static const float beta = 0.00787401574f;
