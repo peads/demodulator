@@ -72,11 +72,15 @@ static inline __m256 fmDemod(__m256 u) {
 
 static inline __m256 balanceIq(__m256 u) {
     static const __m256 alpha = {0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
-    static const __m256 beta = {1,0.00787401574f,1,0.00787401574f,1,0.00787401574f,1,0.00787401574f};
-    __m256 ia = _mm256_mask_mul_ps(u, 0b01010101, u, alpha);
-    __m256 ib = _mm256_permute_ps(ia, _MM_SHUFFLE(2,3,0,1));
-    ib = _mm256_mask_mul_ps(ia, 0b10101010, ib, beta);
-    ib = _mm256_mask_add_ps(ia, 0b10101010, u, ib);
+    static const __m256 beta = {0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f};
+//    __m256 ia = _mm256_mask_mul_ps(u, 0b01010101, u, alpha);
+//    __m256 ib = _mm256_permute_ps(ia, _MM_SHUFFLE(2,3,0,1));
+//    ib = _mm256_mask_mul_ps(ia, 0b10101010, ib, beta);
+//    ib = _mm256_mask_add_ps(ia, 0b10101010, u, ib);
+
+    __m256 ia = _mm256_mul_ps(u, alpha);
+    __m256 ib = _mm256_mul_ps(beta, _mm256_permute_ps(ia, _MM_SHUFFLE(2,3,0,1)));
+    ib = _mm256_add_ps(ia, ib);
 
     return ib;
 }
