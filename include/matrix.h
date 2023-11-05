@@ -72,6 +72,12 @@ static const __m512i ORIGIN_SHIFT_UINT8 = {
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f};
 static const __m512 ONES = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+static const __m512 alpha = {
+        0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,
+        0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
+static const __m512 beta = {
+        0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,
+        0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f};
 #elif defined(HAS_AVX)
 static const __m256 ALL_64S = {
         64.f, 64.f, 64.f, 64.f,
@@ -103,5 +109,7 @@ static const __m256i ORIGIN_SHIFT_UINT8 = {
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f,
         -0x7e7e7e7e7e7e7e7f};
+static const __m256 alpha = {0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
+static const __m256 beta = {0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f};
 #endif
 #endif //DEMODULATOR_MATRIX_H

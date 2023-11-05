@@ -42,45 +42,6 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc) {
-
-    static const float BW_CONSTS[16][2] = {
-            {-0.0980171f, 0.995185f},
-            {-0.290285f,  0.95694f},
-            {-0.471397f,  0.881921f},
-            {-0.634393f,  0.77301f},
-            {-0.77301f,   0.634393f},
-            {-0.881921f,  0.471397f},
-            {-0.95694f,   0.290285f},
-            {-0.995185f,  0.0980171f},
-            {-0.995185f,  -0.0980171f},
-            {-0.95694f,   -0.290285f},
-            {-0.881921f,  -0.471397f},
-            {-0.77301f,   -0.634393f},
-            {-0.634393f,  -0.77301f},
-            {-0.471397f,  -0.881921f},
-            {-0.290285f,  -0.95694f},
-            {-0.0980171f, -0.995185f}};
-    size_t i, j;
-    float accR, accJ, currR, currJ;
-    const float *constPtr;
-
-    for (i = 0; i < len; i += 2) {
-        accR = 1.f;
-        accJ = 1.f;
-        currR = buf[i] / wc;
-        currJ = buf[i + 1] / wc;
-        for (j = 0; j < 16; ++j) {
-            constPtr = BW_CONSTS[j];
-            accR *= currR - constPtr[0];
-            accJ *= currJ - constPtr[1];
-        }
-
-        buf[i] = buf[i] / accR;
-        buf[i + 1] = buf[i + 1] / accJ;
-    }
-}
-
 static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
 
     size_t i;
@@ -91,35 +52,12 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
-//void blockDc(uint8_t *buf, size_t len, float *__restrict__ out) {
-//
-//    static uint8_t prevR = 0;
-//    static uint8_t prevJ = 0;
-//    static float prevYR = 0;
-//    static float prevYJ = 0;
-//
-//    size_t i;
-//    for (i = 0; i < len; i+=2) {
-//        out[i] = (float)buf[i] - (float)prevR + 0.995f * prevYR;
-//        prevR = buf[i];
-//        prevYR = out[i];
-//
-//
-//        out[i+1] = (float)buf[i+1] - (float)prevJ + 0.995f * prevYJ;
-//        prevJ = buf[i+1];
-//        prevYJ = out[i+1];
-//    }
-//}
-
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
-    float lowpassWc = args->lowpassIn;
-    float highpassWc = 1.f/args->highpassIn;
-//    float lowpassOutWc = args->lowpassOut;
 
     while (!args->exitFlag) {
 
@@ -130,13 +68,6 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-//        blockDc(buf, DEFAULT_BUF_SIZE, fBuf);
-        if (lowpassWc) {
-            filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc);
-        }
-        if (highpassWc) {
-            filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc); //dc block
-        }
         fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }

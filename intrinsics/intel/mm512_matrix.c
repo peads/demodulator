@@ -72,14 +72,10 @@ static inline __m512 fmDemod(__m512 u) {
 }
 
 static inline __m512 balanceIq(__m512 u) {
-    const __m512 alpha = _mm512_set1_ps(0.99212598425f);
-    const __m512 beta = _mm512_set1_ps(0.00787401574f);
-    __m512 ia = _mm512_mask_mul_ps(u, 0b0101010101010101, u, alpha);
-    __m512 ib = _mm512_permute_ps(ia, _MM_SHUFFLE(2,3,0,1));
-    ib = _mm512_mask_mul_ps(ia, 0b1010101010101010, ib, beta);
-
-    ib = _mm512_mask_add_ps(ia, 0b1010101010101010, u, ib);
-    return ib;
+    
+    __m512 ia = _mm512_mul_ps(u, alpha);
+    __m512 ib = _mm512_mul_ps(beta, _mm512_permute_ps(ia, _MM_SHUFFLE(2,3,0,1)));
+    return _mm512_add_ps(ia, ib);
 }
 
 void *processMatrix(void *ctx) {
