@@ -60,7 +60,7 @@ function executeRun() {
     | tee -i uint8.dat \
     | build/demodulator -i - -o - \
     | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
-    | dsd -i - -o/dev/null -n -w/mnt/c/Users/peads/Desktop/out.wav
+    | dsd -i - -o/dev/null -n
 }
 
 function executeRun2() {

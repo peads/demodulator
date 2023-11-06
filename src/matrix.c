@@ -63,12 +63,33 @@ static inline void balanceIq(float *__restrict__ buf, size_t len) {
      }
 }
 
+size_t filter(float *__restrict__ x, size_t len, float *__restrict__ y) {
+
+    float ym2 = 0;
+    float ym1 = 0;
+    size_t m, i;
+    y[0] = ym2;
+    y[1] = ym1;
+    for (m = 0; m < len; m+=1024) {
+        ym2 = ym1 = 0;
+        for (i = m ; i < m+1024; ++i) {
+            ym2 = ym1;
+//            ym1 = y[i] = 0.0200834f * x[i - 2] + 0.0401667f * x[i - 1]
+//                    + 0.0200834f * x[i] - 0.641352f * ym1 + 1.56102f * ym2;
+            ym1 = y[i] = 1.00056e-12f * x[i - 2] + 2.00113e-13f * x[i - 1]
+                         + 1.00056e-12f * x[i] - ym1 + 2.f * ym2;
+        }
+    }
+
+    return m;
+}
+#define THREE_QTRS_PI 2.35619f
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
-    float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *result = calloc(DEFAULT_BUF_SIZE >> 2, sizeof(float));
+    float *fBuf = calloc(DEFAULT_BUF_SIZE , sizeof(float));
+    float *result = calloc(3 + (DEFAULT_BUF_SIZE >> 2), sizeof(float));
 
     while (!args->exitFlag) {
 
@@ -81,6 +102,7 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
+        filter(result,  DEFAULT_BUF_SIZE >> 2, fBuf);
         fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
     free(buf);
