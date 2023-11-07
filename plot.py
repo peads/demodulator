@@ -81,7 +81,7 @@ def animate(y, dt, fftlen):
     amps = np.abs(fft.fft(y, n=fftlen, norm='backward'))
     freqs = np.fft.fftfreq(len(amps))
     ax_t.plot(freqs, amps)
-    ax_w.specgram(y, Fs=dt) #, sides='twosided')
+    ax_w.specgram(y, Fs=dt, sides='twosided')
 
     if w_xlim != (0, 1) and w_ylim != (0, 1):
         ax_w.set_xlim(w_xlim)
@@ -102,6 +102,5 @@ with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     dt = 1 / sampRate
     ani = animation.FuncAnimation(fig, animate, fargs=(dt,fftlen),
                                   frames=partial(generateData, f, bufsize),
-                                  # partial(generateData, f),
                                   save_count=8, interval=40)
     plt.show()
