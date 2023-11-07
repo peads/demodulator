@@ -24,7 +24,7 @@
 
 static const float coeffB[] = {1.f, 3.f, 3.f, 1.f};
 
-float butter(float fs, float fc, float *__restrict__ coeff) {
+static inline float butter(float fs, float fc, float *__restrict__ coeff) {
 
     const float ANG = M_PI * fc / fs;
     const float COS = cosf(ANG);
@@ -38,7 +38,7 @@ float butter(float fs, float fc, float *__restrict__ coeff) {
     }
 
     return K;
-    // TODO QR decomp for general poly?
+    // TODO QR decomp for n-degree poly?
 //    for(k = 0; k < 2; ++k) {
 //        coeff[k] = expf(
 //                lgammaf((float)NP1)
@@ -79,19 +79,19 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
-void balanceIq(float *__restrict__ buf, size_t len) {
+//void balanceIq(float *__restrict__ buf, size_t len) {
+//
+//    static const float alpha = 0.99212598425f;
+//    static const float beta = 0.00787401574f;
+//
+//    size_t i;
+//    for (i = 0; i < len; i += 2) {
+//        buf[i] *= alpha;
+//        buf[i + 1] += beta * buf[i];
+//    }
+//}
 
-    static const float alpha = 0.99212598425f;
-    static const float beta = 0.00787401574f;
-
-    size_t i;
-    for (i = 0; i < len; i += 2) {
-        buf[i] *= alpha;
-        buf[i + 1] += beta * buf[i];
-    }
-}
-
-void filterOut(float *__restrict__ x,
+static inline void filterOut(float *__restrict__ x,
                size_t len,
                size_t filterLen,
                float *__restrict__ y,
@@ -118,8 +118,9 @@ void *processMatrix(void *ctx) {
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float coeff[4];
-    butter(125000.f, 15000.f, coeff);
+    float coeffLow[4];
+//    float coeffHigh[4] = {1,-3,3,-1};
+    butter(125000.f, 15000.f, coeffLow);
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
@@ -130,9 +131,8 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-//        balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 4, filterRet, coeff);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 4, filterRet, coeffLow);
         fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
