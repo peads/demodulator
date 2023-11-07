@@ -26,7 +26,7 @@ static const float coeffB[] = {1.f, 3.f, 3.f, 1.f};
 
 float butter(float fs, float fc, float *__restrict__ coeff) {
 
-    const float ANG = fc * (float) M_PI / fs;
+    const float ANG = M_PI * fc / fs;
     const float COS = cosf(ANG);
     const float SIN = sinf(ANG);
     const float K = 2.f * SIN * SIN * SIN / ((COS + SIN) * (2.f + sinf(2.f * ANG)));
@@ -79,7 +79,7 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
-static inline void balanceIq(float *__restrict__ buf, size_t len) {
+void balanceIq(float *__restrict__ buf, size_t len) {
 
     static const float alpha = 0.99212598425f;
     static const float beta = 0.00787401574f;
@@ -91,42 +91,38 @@ static inline void balanceIq(float *__restrict__ buf, size_t len) {
     }
 }
 
-size_t filter(const float *__restrict__ x, size_t len, float *__restrict__ y, const float *__restrict__ coeff) {
+void filterOut(float *__restrict__ x,
+               size_t len,
+               size_t filterLen,
+               float *__restrict__ y,
+               const float *__restrict__ coeffA) {
 
-    float ym3 = 0;
-    float ym2 = 0;
-    float ym1 = 0;
-    size_t m, i;
-    y[0] = ym3;
-    y[1] = ym2;
-    y[2] = ym1;
-    for (m = 0; m < len; m += 1024) {
-        ym3 = ym2 = ym1 = 0;
-        for (i = m; i < m + 1024; ++i) {
-            ym3 = ym2;
-            ym2 = ym1;
-            ym1 = y[i] /* * a[0]*/ = coeff[0] * x[i - 3] + coeff[1] * x[i - 2] + coeff[2] * x[i - 1]
-                    + coeff[3] * x[i] - ym1 - 2.f * ym2 - 2.f * ym3;
-//            ym1 = y[i] = 1.00056e-12f * x[i - 2] + 2.00113e-13f * x[i - 1]
-//                         + 1.00056e-12f * x[i] - ym1 + 2.f * ym2;
+    float *xp, *yp, acc;
+    size_t i, j, k;
+
+    for (i = 0; i < len; ++i) {
+        xp = &x[3 + i];
+        yp = &y[3 + i];
+        acc = 0;
+        for (j = 0; j < filterLen; ++j) {
+            k = filterLen - j - 1;
+            acc += coeffA[k] * xp[j] - coeffB[k] * yp[j];
         }
+        y[i] = acc;
     }
-
-    return m;
 }
-
-#define THREE_QTRS_PI 2.35619f
 
 void *processMatrix(void *ctx) {
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *result = calloc(3 + (DEFAULT_BUF_SIZE >> 2), sizeof(float));
+    float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float coeff[4];
-    butter(250000, 0.0796f, coeff);
+    butter(125000.f, 15000.f, coeff);
     while (!args->exitFlag) {
 
+        float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
@@ -134,14 +130,15 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        balanceIq(fBuf, DEFAULT_BUF_SIZE);
-        fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
-        filter(result, DEFAULT_BUF_SIZE >> 2, fBuf, coeff);
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+//        balanceIq(fBuf, DEFAULT_BUF_SIZE);
+        fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 4, filterRet, coeff);
+        fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        free(filterRet);
     }
     free(buf);
     free(fBuf);
-    free(result);
+    free(demodRet);
 
     return NULL;
 }
