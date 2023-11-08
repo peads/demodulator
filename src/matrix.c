@@ -78,6 +78,14 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
     }
 }
+//void blockDc(float fs, float *x, size_t len) {
+//    static float K = 0.f;
+//    K = !K ? 0.75f * tanf(M_PI_2 / fs) : K;
+//    size_t i;
+//    for (i = 0; i < len-2; ++i) {
+//        x[i] = K * (x[i+2] + x[i+1]) - x[i];
+//    }
+//}
 
 //void balanceIq(float *__restrict__ buf, size_t len) {
 //
@@ -114,13 +122,14 @@ static inline void filterOut(float *__restrict__ x,
 
 void *processMatrix(void *ctx) {
 
+    static const float fs = 125000.f;
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float coeffLow[4];
 //    float coeffHigh[4] = {1,-3,3,-1};
-    butter(125000.f, 15000.f, coeffLow);
+    butter(fs, 15000.f, coeffLow);
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
