@@ -117,12 +117,6 @@ void *processMatrix(void *ctx) {
 
     static const float coeffALow[] = {0.0034f,0.0236f,0.0707f,0.1178f,0.1178f,0.0707f,0.0236f,0.0034f};
     static const float coeffBLow[] = {1.0000f,-1.8072f,2.3064f,-1.7368f,0.9219f,-0.3115f,0.0641f,-0.0060f};
-    static const float coeffADc[] = {
-            0.0001f,-0.0019f,0.0171f,-0.0969f,0.3875f,-1.1624f,2.7124f,-5.0373f,7.5559f,-9.2350f,
-            9.2350f,-7.5559f,5.0373f,-2.7124f,1.1624f,-0.3875f,0.0969f,-0.0171f,0.0019f,-0.0001f};
-    static const float coeffBDc[] = {
-            0.0001f,-0.0019f,0.0171f,-0.0969f,0.3876f,-1.1626f,2.7127f,-5.0377f,7.5563f,-9.2351f,
-            9.2348f,-7.5555f,5.0369f,-2.7121f,1.1623f,-0.3874f,0.0969f,-0.0171f,0.0019f,-0.0001f};
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
@@ -139,9 +133,8 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 20, filterRet, coeffADc, coeffBDc);
-        filterOut(filterRet, DEFAULT_BUF_SIZE >> 2, 8, demodRet, coeffALow, coeffBLow);
-        fwrite(demodRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 8, filterRet, coeffALow, coeffBLow);
+        fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
     free(buf);
