@@ -22,91 +22,79 @@
 #include "matrix.h"
 #include "fmath.h"
 
-typedef void (*findFilterPolesFn_t)(size_t, size_t, float, float, void *);
+typedef void (*findFilterPolesFn_t)(size_t, size_t, double, double, double *);
 
-static const float epsilon = 1e-6f;
-
-void cAdd(void *a, const void *b, const void *c) {
-
-    float *dest = a;
-    const float *src1 = b;
-    const float *src2 = c;
-    dest[0] = src1[0] + src2[0];
-    dest[1] = src1[1] + src2[1];
-
-    dest[0] = ((fabsf(0 - dest[0]) < epsilon) ? 0 : dest[0]);
-    dest[1] = ((fabsf(0 - dest[1]) < epsilon) ? 0 : dest[1]);
-}
-
-void cMul(void *a, void *b, void *c) {
-
-    float *dest = a;
-    const float *src1 = b;
-    const float *src2 = c;
-
-    dest[0] = src1[0] * src2[0] - src1[1] * src2[1];
-    dest[1] = src1[0] * src2[1] + src1[1] * src2[0];
-}
+static const double epsilon = 1e-15;
 
 static inline void butterworthPole(size_t k,
                                    size_t n,
-                                   float fs,
-                                   float fc,
-                                   void *out) {
+                                   double fs,
+                                   double fc,
+                                   double *result) {
     // Simplification of bilinear transform of Butterworth transfer fn
     // ((1 + Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs])
     // / (1 - Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs]))
-    const float ratio = M_PI * 2.f * fc / fs;
-    const float ratio1 = M_PI_2 / (float) n * (1 - 2.f * (float) k);
-    const float SIN = sinf(ratio);
-    const float mag = SIN * sinf(ratio1) - 1.f;
+    const double ratio = 2. * M_PI * fc / fs;
+    const double ratio1 = M_PI_2 / (double) n * (1. - 2. * (double) k);
+    const double SIN = sin(ratio);
+    const double mag = SIN * sin(ratio1) - 1.;
 
-    float *result = out;
-    result[0] = -cosf(ratio) / mag;
-    result[1] = -cosf(ratio1) * SIN / mag;
+    result[0] = -cos(ratio) / mag;
+    result[1] = -cos(ratio1) * SIN / mag;
 
-    result[0] = 1.f + ((fabsf(0 - result[0]) < epsilon) ? 0 : -result[0]);
-    result[1] = -((fabsf(0 - result[1]) < epsilon) ? 0 : -result[1]);
+    result[0] = ((fabs(0 - result[0]) < epsilon) ? 0 : result[0]);
+    result[1] = ((fabs(0 - result[1]) < epsilon) ? 0 : result[1]);
 }
 
-void polynomialExpand(size_t len,
-                      float fs,
-                      float fc,
+double polynomialExpand(size_t len,
+                      double fs,
+                      double fc,
                       findFilterPolesFn_t fn,
-                      void *out) {
+                      double *roots) {
 
-    double *roots = out;
     size_t i;
 
     // already negated for ease
-    for (i = 1; i <= len; ++i) {
-        fn(i, len, fs, fc, &roots[len - i]);
+    for (i = 2; i <= len; i+=2) {
+        fn(i >> 1, len >> 1, fs, fc, &roots[len - i]);
+        roots[len - i] = 1 - roots[len - i];
+        roots[len - i + 1] = -roots[len - i + 1];
+    }
+//    double ac;
+//    double bd;
+    for (i = 2; i < len; i+=2) {
+//        ac = roots[0] * roots[len - i];
+//        bd = roots[1] * roots[len - i + 1];
+//        roots[0] = ac - bd;
+//        roots[1] = (roots[0] + roots[1])*(roots[len - i] + roots[len - i + 1]) - ac - bd;
+        roots[0] = roots[0] * roots[len - i] - roots[1] * roots[len - i + 1];
+        roots[1] = roots[0] * roots[len - i + 1] + roots[1] * roots[len - i];
     }
 
-    for (i = 1; i < len; ++i) {
-        cMul(&roots[0], &roots[0], &roots[len - i]);
-    }
+    return roots[0];
 }
 
-float mapFilterAnalogToDigitalDomain(size_t len, float fc, float fs, findFilterPolesFn_t fn) {
+float mapFilterAnalogToDigitalDomain(size_t len, double fc, double fs, findFilterPolesFn_t fn) {
 
     const size_t n = (len >> 1) + 1;
     const size_t NP1 = len + 1;
-    float coeffB[n];
-    float *roots = calloc(NP1, sizeof(float));
+    double coeffB[n];
+    double *roots = calloc(len << 1, sizeof(double));
     size_t i, j;
-    float sumB = 0;
+    double sum = 0;
 
     for (i = 0, j = 0; i < n; ++i, j += 2) {
-        coeffB[i] = roundf(expf(
-                lgammaf((float) NP1)
-                - lgammaf((float) (i + 1))
-                - lgammaf((float) (NP1 - i))));
-        sumB += coeffB[i];
+        coeffB[i] = round(exp(
+                lgamma((double) NP1)
+                - lgamma((double) (i + 1))
+                - lgamma((double) (NP1 - i))));
+        sum += coeffB[i];
     }
-    polynomialExpand(len, fs, fc, fn, roots);
+    sum *= 2.;
+    sum /= polynomialExpand(len << 1, fs, fc, fn, roots);
     free(roots);
-    return sumB * 2.f;
+
+    return sum;
 }
 
 static inline void fmDemod(const float *__restrict__ in,
@@ -181,7 +169,7 @@ void *processMatrix(void *ctx) {
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     fprintf(stderr, "\nSum: %f\n",
-            mapFilterAnalogToDigitalDomain(12, 1.3e4f, 1.25e5f, butterworthPole));
+            mapFilterAnalogToDigitalDomain(5, 1.3e4, 1.25e5, butterworthPole));
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
