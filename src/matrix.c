@@ -44,11 +44,8 @@ void cMul(void *a, void *b, void *c) {
     const float *src1 = b;
     const float *src2 = c;
 
-    float ac = src1[0] * src2[0];
-    float bd = src1[1] * src2[1];
-    float apbcpd = (src1[0] + src2[0]) * (src1[1] + src2[1]);
-    dest[0] = ac - bd;
-    dest[1] = apbcpd - ac - bd;
+    dest[0] = src1[0] * src2[0] - src1[1] * src2[1];
+    dest[1] = src1[0] * src2[1] + src1[1] * src2[0];
 }
 
 static inline void butterworthPole(size_t k,
@@ -83,7 +80,7 @@ void polynomialExpand(size_t len,
 
     // already negated for ease
     for (i = 1; i <= len; ++i) {
-        fn(i, len, fs, fc, &roots[i - 1]);
+        fn(i, len, fs, fc, &roots[len - i]);
     }
 
     for (i = 1; i < len; ++i) {
@@ -106,13 +103,7 @@ float mapFilterAnalogToDigitalDomain(size_t len, float fc, float fs, findFilterP
                 - lgammaf((float) (i + 1))
                 - lgammaf((float) (NP1 - i))));
         sumB += coeffB[i];
-        fprintf(stderr, "%f, ", coeffB[i]);
-//        fn(i + 1, len, fs, fc, roots + j);
-//        fn(i + n, len,  fs, fc, roots + j + n);
-//        coeffA[i] = i + 1;
-//        coeffA[n - i] = i + 2;
     }
-    fprintf(stderr, "\n");
     polynomialExpand(len, fs, fc, fn, roots);
     free(roots);
     return sumB * 2.f;
@@ -190,7 +181,7 @@ void *processMatrix(void *ctx) {
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     fprintf(stderr, "\nSum: %f\n",
-            mapFilterAnalogToDigitalDomain(3, 1.3e4f, 1.25e5f, butterworthPole));
+            mapFilterAnalogToDigitalDomain(12, 1.3e4f, 1.25e5f, butterworthPole));
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
