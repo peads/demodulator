@@ -22,31 +22,20 @@
 #include "matrix.h"
 #include "fmath.h"
 
-typedef void (*findFilterPolesFn_t)(size_t, size_t, float *);
+typedef void (*findFilterPolesFn_t)(size_t, size_t, float, float, void *);
 
-//float butter(float fs, float fc, float *__restrict__ coeff) {
-//
-//    static const float coeffB[] = {1.f, 3.f, 3.f, 1.f};
-//    const float ANG = M_PI * fc / fs;
-//    const float COS = cosf(ANG);
-//    const float SIN = sinf(ANG);
-//    const float K = 2.f * SIN * SIN * SIN / ((COS + SIN) * (2.f + sinf(2.f * ANG)));
-//
-//    size_t i;
-//
-//    for (i = 0; i < 4; ++i) {
-//        coeff[i] = coeffB[i] * K;
-//    }
-//
-//    return K;
-//}
-void cAdd(void *a, void *b, void *c) {
+static const float epsilon = 1e-6f;
+
+void cAdd(void *a, const void *b, const void *c) {
 
     float *dest = a;
     const float *src1 = b;
     const float *src2 = c;
     dest[0] = src1[0] + src2[0];
     dest[1] = src1[1] + src2[1];
+
+    dest[0] = ((fabsf(0 - dest[0]) < epsilon) ? 0 : dest[0]);
+    dest[1] = ((fabsf(0 - dest[1]) < epsilon) ? 0 : dest[1]);
 }
 
 void cMul(void *a, void *b, void *c) {
@@ -56,100 +45,60 @@ void cMul(void *a, void *b, void *c) {
     const float *src2 = c;
 
     float ac = src1[0] * src2[0];
-    float bd = src1[1] * src2[2];
+    float bd = src1[1] * src2[1];
     float apbcpd = (src1[0] + src2[0]) * (src1[1] + src2[1]);
     dest[0] = ac - bd;
     dest[1] = apbcpd - ac - bd;
-
 }
 
-//void cPow(float *a, size_t n) {
-//
-//    size_t i;
-//    for (i = 0; i < n; ++i) {
-//        cMul(a, a);
-//    }
-//}
+static inline void butterworthPole(size_t k,
+                                   size_t n,
+                                   float fs,
+                                   float fc,
+                                   void *out) {
+    // Simplification of bilinear transform of Butterworth transfer fn
+    // ((1 + Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs])
+    // / (1 - Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs]))
+    const float ratio = M_PI * 2.f * fc / fs;
+    const float ratio1 = M_PI_2 / (float) n * (1 - 2.f * (float) k);
+    const float SIN = sinf(ratio);
+    const float mag = SIN * sinf(ratio1) - 1.f;
 
-static inline void butterworthPole(size_t k, size_t n, float *result) {
+    float *result = out;
+    result[0] = -cosf(ratio) / mag;
+    result[1] = -cosf(ratio1) * SIN / mag;
 
-    static const float epsilon = 1e-6f;
-    const float x = M_PI_2 / (float) n * (float) (2 * k + n - 1);
-    result[k] = cosf(x);
-    result[k + 1] = sinf(x);
-
-    result[k] = (fabsf(0 - result[0]) < epsilon) ? 0 : result[k];
-    result[k + 1] = (fabsf(0 - result[1]) < epsilon) ? 0 : result[k + 1];
+    result[0] = 1.f + ((fabsf(0 - result[0]) < epsilon) ? 0 : -result[0]);
+    result[1] = -((fabsf(0 - result[1]) < epsilon) ? 0 : -result[1]);
 }
 
-int factorial(int x) {
+void polynomialExpand(size_t len,
+                      float fs,
+                      float fc,
+                      findFilterPolesFn_t fn,
+                      void *out) {
 
-    int i;
-    int y = 1;
+    double *roots = out;
+    size_t i;
 
-    for (i = 1; i <= x; i++) {
-        y *= i;
-    }
-    return y;
-}
-
-void permute(float *a, int size) {
-
-    int idx, i, j = 0;//, idx;
-    int f = factorial(size);
-    int *arr = calloc(f, sizeof(int));       // the members are initialized to 0
-    float temp;
-    fprintf(stderr, "\n");
-    // print the original array
-    for (i = 0; i < size; i++) {
-//        butterworthPole(i, size, a);
-        a[i] = i+1;
-//        a[i+1] = i+2;
-        fprintf(stderr, "%f%s", a[i], i == size - 1 ? "\n" : " ");
+    // already negated for ease
+    for (i = 1; i <= len; ++i) {
+        fn(i, len, fs, fc, &roots[i - 1]);
     }
 
-    while (j < size) {
-        if (arr[j] < j) {
-            if (j & 2/*j % 2 == 0*/) {
-                idx = 0;
-            } else {
-                idx = arr[j];
-            }
-            temp = a[j];
-            a[j] = a[idx];
-            a[idx] = temp;
-
-            // print the rearranged array
-            for (i = 0; i < size; i++) {
-                fprintf(stderr, "%f%s", a[i], i == size - 1 ? "\n" : " ");
-            }
-
-            arr[j]++;
-            j = 0;
-        } else {
-            arr[j] = 0;
-            j++;
-        }
+    for (i = 1; i < len; ++i) {
+        cMul(&roots[0], &roots[0], &roots[len - i]);
     }
-    free(arr);
 }
 
 float mapFilterAnalogToDigitalDomain(size_t len, float fc, float fs, findFilterPolesFn_t fn) {
 
     const size_t n = (len >> 1) + 1;
     const size_t NP1 = len + 1;
-    const float ratio = fc / fs;
-    const float tanRat = tanf(M_PI * ratio);
     float coeffB[n];
-    float roots[len << 1];
-    float *coeffA = calloc(len << 1, sizeof(float));
+    float *roots = calloc(NP1, sizeof(float));
     size_t i, j;
     float sumB = 0;
-
-    fprintf(stderr,
-            "Ratio: %f\nTangent: %f\nWe only need to calculate first half due to symmetry: ",
-            ratio,
-            tanRat);
 
     for (i = 0, j = 0; i < n; ++i, j += 2) {
         coeffB[i] = roundf(expf(
@@ -158,13 +107,14 @@ float mapFilterAnalogToDigitalDomain(size_t len, float fc, float fs, findFilterP
                 - lgammaf((float) (NP1 - i))));
         sumB += coeffB[i];
         fprintf(stderr, "%f, ", coeffB[i]);
-        fn(i + 1, len, roots + j);
-        fn(i + n, len, roots + j + n);
+//        fn(i + 1, len, fs, fc, roots + j);
+//        fn(i + n, len,  fs, fc, roots + j + n);
 //        coeffA[i] = i + 1;
 //        coeffA[n - i] = i + 2;
     }
-    permute(coeffA, 3);
-    free(coeffA);
+    fprintf(stderr, "\n");
+    polynomialExpand(len, fs, fc, fn, roots);
+    free(roots);
     return sumB * 2.f;
 }
 
@@ -240,7 +190,7 @@ void *processMatrix(void *ctx) {
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     fprintf(stderr, "\nSum: %f\n",
-            mapFilterAnalogToDigitalDomain(3, 1.3e5f, 1.25e6f, butterworthPole));
+            mapFilterAnalogToDigitalDomain(3, 1.3e4f, 1.25e5f, butterworthPole));
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
