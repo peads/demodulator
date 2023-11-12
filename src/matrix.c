@@ -22,81 +22,6 @@
 #include "matrix.h"
 #include "fmath.h"
 
-typedef void (*findFilterPolesFn_t)(size_t, size_t, double, double, double *);
-
-static const double epsilon = 1e-15;
-
-static inline void butterworthPole(size_t k,
-                                   size_t n,
-                                   double fs,
-                                   double fc,
-                                   double *result) {
-    // Simplification of bilinear transform of Butterworth transfer fn
-    // ((1 + Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs])
-    // / (1 - Exp[(2 k + n - 1)/(2 n) Pi I] Tan[Pi fc/fs]))
-    const double ratio = 2. * M_PI * fc / fs;
-    const double ratio1 = M_PI_2 / (double) n * (1. - 2. * (double) k);
-    const double SIN = sin(ratio);
-    const double mag = SIN * sin(ratio1) - 1.;
-
-    result[0] = -cos(ratio) / mag;
-    result[1] = -cos(ratio1) * SIN / mag;
-
-    result[0] = ((fabs(0 - result[0]) < epsilon) ? 0 : result[0]);
-    result[1] = ((fabs(0 - result[1]) < epsilon) ? 0 : result[1]);
-}
-
-double polynomialExpand(size_t len,
-                      double fs,
-                      double fc,
-                      findFilterPolesFn_t fn,
-                      double *roots) {
-
-    size_t i;
-
-    // already negated for ease
-    for (i = 2; i <= len; i+=2) {
-        fn(i >> 1, len >> 1, fs, fc, &roots[len - i]);
-        roots[len - i] = 1 - roots[len - i];
-        roots[len - i + 1] = -roots[len - i + 1];
-    }
-//    double ac;
-//    double bd;
-    for (i = 2; i < len; i+=2) {
-//        ac = roots[0] * roots[len - i];
-//        bd = roots[1] * roots[len - i + 1];
-//        roots[0] = ac - bd;
-//        roots[1] = (roots[0] + roots[1])*(roots[len - i] + roots[len - i + 1]) - ac - bd;
-        roots[0] = roots[0] * roots[len - i] - roots[1] * roots[len - i + 1];
-        roots[1] = roots[0] * roots[len - i + 1] + roots[1] * roots[len - i];
-    }
-
-    return roots[0];
-}
-
-float mapFilterAnalogToDigitalDomain(size_t len, double fc, double fs, findFilterPolesFn_t fn) {
-
-    const size_t n = (len >> 1) + 1;
-    const size_t NP1 = len + 1;
-    double coeffB[n];
-    double *roots = calloc(len << 1, sizeof(double));
-    size_t i, j;
-    double sum = 0;
-
-    for (i = 0, j = 0; i < n; ++i, j += 2) {
-        coeffB[i] = round(exp(
-                lgamma((double) NP1)
-                - lgamma((double) (i + 1))
-                - lgamma((double) (NP1 - i))));
-        sum += coeffB[i];
-    }
-    sum *= 2.;
-    sum /= polynomialExpand(len << 1, fs, fc, fn, roots);
-    free(roots);
-
-    return sum;
-}
-
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
                            float *__restrict__ out) {
@@ -162,14 +87,13 @@ static inline void filterOut(float *__restrict__ x,
 
 void *processMatrix(void *ctx) {
 
-    static const float coeffALow[] = {0.0034f, 0.0236f, 0.0707f, 0.1178f, 0.1178f, 0.0707f, 0.0236f, 0.0034f};
-    static const float coeffBLow[] = {1.0000f, -1.8072f, 2.3064f, -1.7368f, 0.9219f, -0.3115f, 0.0641f, -0.0060f};
+    static const float coeffALow[] = {0.0005e-4f, 0.0063e-4f, 0.0377e-4f, 0.1384e-4f, 0.3460e-4f, 0.6227e-4f, 0.8303e-4f, 0.8303e-4f, 0.6227e-4f, 0.3460e-4f, 0.1384e-4f, 0.0377e-4f, 0.0063e-4f, 0.0005e-4f};
+    static const float coeffBLow[] = {1.0000f, -7.5823f, 27.2800f, -61.4122f, 96.2248f, -110.5639f, 95.6695f, -63.0250f, 31.5708f, -11.8641f, 3.2480f, -0.6130f, 0.0714f, -0.0039f};
+    static const float N = 14;
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    fprintf(stderr, "\nSum: %f\n",
-            mapFilterAnalogToDigitalDomain(5, 1.3e4, 1.25e5, butterworthPole));
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
@@ -182,7 +106,7 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, 8, filterRet, coeffALow, coeffBLow);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, N, filterRet, coeffALow, coeffBLow);
         fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
