@@ -41,20 +41,36 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-void scaleButterworthPoles(size_t n, float *result, float fs, float fc) {
+float scaleSumButterworthPoles(size_t n, float fs, float fc) {
 
     size_t k;
     const float theta = (float)M_PI * fc/fs;
+    float result[2] = {};
+    float w;
+    float a;
+    float d;
+    float zr;
+    float zj;
+
     for (k = 1; k <= n; ++k) {
-        const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
-        const float a = cosf(w);
-        const float d = -a + 1.f / sinf(2.f * theta);
-        float zr = 2.f + cosf(w)/d - 1.f/tanf(theta)/d;
-        float zj = -sinf(w) / d;
-        result[0] = zr;
-        result[1] = zj;
+        w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
+        a = cosf(w);
+        d = -a + 1.f / sinf(2.f * theta);
+        zr = 2.f + cosf(w)/d - 1.f/tanf(theta)/d;
+        zj = -sinf(w) / d;
+        if (k > 1) {
+            result[0] = zr * result[0] - zj * result[1];
+            result[1] = zr * result[1] + zj * result[0];
+        } else {
+            result[0] = zr;
+            result[1] = zj;
+        }
+
+        fprintf(stderr, "%f + I %f, ", zr, zj);
     }
 
+    fprintf(stderr, "\n");
+    return result[0];
 }
 
 static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
@@ -106,12 +122,15 @@ void *processMatrix(void *ctx) {
     static const float coeffALow[] = {0.0005e-4f, 0.0063e-4f, 0.0377e-4f, 0.1384e-4f, 0.3460e-4f, 0.6227e-4f, 0.8303e-4f, 0.8303e-4f, 0.6227e-4f, 0.3460e-4f, 0.1384e-4f, 0.0377e-4f, 0.0063e-4f, 0.0005e-4f};
     static const float coeffBLow[] = {1.0000f, -7.5823f, 27.2800f, -61.4122f, 96.2248f, -110.5639f, 95.6695f, -63.0250f, 31.5708f, -11.8641f, 3.2480f, -0.6130f, 0.0714f, -0.0039f};
     static const float N = 14;
+    size_t i = 3;
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float M[2];
-    scaleButterworthPoles(7, M, 125.f, 13.f);
+
+    for (; i < 21; ++i) {
+        fprintf(stderr, "\n%lu: %f\n", i+1, scaleSumButterworthPoles(i, 125.f, 13.f));
+    }
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
