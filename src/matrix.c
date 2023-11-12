@@ -41,6 +41,22 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
+void scaleButterworthPoles(size_t n, float *result, float fs, float fc) {
+
+    size_t k;
+    const float theta = (float)M_PI * fc/fs;
+    for (k = 1; k <= n; ++k) {
+        const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
+        const float a = cosf(w);
+        const float d = -a + 1.f / sinf(2.f * theta);
+        float zr = 2.f + cosf(w)/d - 1.f/tanf(theta)/d;
+        float zj = -sinf(w) / d;
+        result[0] = zr;
+        result[1] = zj;
+    }
+
+}
+
 static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
 
     size_t i;
@@ -94,6 +110,8 @@ void *processMatrix(void *ctx) {
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
+    float M[2];
+    scaleButterworthPoles(7, M, 125.f, 13.f);
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
