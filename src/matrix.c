@@ -45,7 +45,7 @@ float scaleSumButterworthPoles(size_t n, float fs, float fc) {
 
     size_t k;
     const float theta = (float)M_PI * fc/fs;
-    float result[2] = {};
+    float acc[2] = {1.f, 0};
     float w;
     float a;
     float d;
@@ -55,22 +55,18 @@ float scaleSumButterworthPoles(size_t n, float fs, float fc) {
     for (k = 1; k <= n; ++k) {
         w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
         a = cosf(w);
-        d = -a + 1.f / sinf(2.f * theta);
-        zr = 2.f + cosf(w)/d - 1.f/tanf(theta)/d;
-        zj = -sinf(w) / d;
-        if (k > 1) {
-            result[0] = zr * result[0] - zj * result[1];
-            result[1] = zr * result[1] + zj * result[0];
-        } else {
-            result[0] = zr;
-            result[1] = zj;
-        }
+        d = a - 1.f / sinf(2.f * theta);
+        zr = cosf(w)/d - tanf(theta)/d;
+        zj = sinf(w) / d;
 
+        a = zr * acc[0] - zj * acc[1];
+        acc[1] = zr * acc[1] + zj * acc[0];
+        acc[0] = a;
         fprintf(stderr, "%f + I %f, ", zr, zj);
     }
 
     fprintf(stderr, "\n");
-    return result[0];
+    return acc[0];
 }
 
 static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
