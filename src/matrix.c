@@ -75,15 +75,15 @@ float butter(size_t n, float *B) {
         B[k] *= acc[0];
     }
 
-    float z[] = {1,2,3};
-    float p[] = {1,0,0,0};
-    float t[4] = {};
-    for (j = 0; j < 3; ++j) {
-        for (k = 1; k <= j+1; ++k) {
-            t[k] = z[j] * p[k-1];
+    float z[] = {1,2,3,4,5,6,7};
+    float p[] = {1,0,0,0,0,0,0,0};
+    float t[3] = {};
+    for (j = 0; j < n; ++j) {
+        for (k = 0; k <= j; ++k) {
+            t[k] = z[j] * p[k];
         }
-        for (k = 0; k < 4; ++k) {
-            p[k] -= t[k];
+        for (k = 0; k < j+1; ++k) {
+            p[k+1] -= t[k];
         }
     }
     p[0]=p[0];
