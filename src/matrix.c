@@ -49,7 +49,7 @@ float butter(size_t n, float *B) {
     float w, a, b = 1.f, d, zr, zj;
     float acc[2] = {1.f, 0};
     float *z = calloc((n << 1), sizeof(float));
-    float *p = calloc((n<<1) + 1, sizeof(float));
+    float *p = calloc((n<<1) + 2, sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
     p[0] = 1.f;
     B[0] = 1.f;
@@ -63,26 +63,30 @@ float butter(size_t n, float *B) {
 
         B[k] = B[k-1] * (float)(n - k + 1) / (float)(k);
 
-        z[j] = zr;
-        z[j + 1] = zj;
-
         b += B[k];
 
         a = zr * acc[0] - zj * acc[1];
         acc[1] = zr * acc[1] + zj * acc[0];
         acc[0] = a;
+
+//        w = M_PI/(float)n*(-0.5f+(float)k);
+        z[j] = cosf(2.f*theta)/(1-cosf(w)*sinf(2.f * theta));
+        z[j + 1] = zj;
     }
     acc[0] /= b;
+    for (k = 0; k < n; ++k) {
+        B[k] *= acc[0];
+    }
 
-    for (j = 0; j < n; ++j) {
-        for (k = 0; k <= j; ++k) {
-            t[k] = z[j] * p[k];
+    for (j = 0; j < n<<1; j+=2) {
+        for (k = 0; k <= j; k+=2) {
+            t[k] = z[j] * p[k] - z[j+1] * p[k+1];
+            t[k+1] = z[j] * p[k+1] + z[j+1] * p[k];
         }
-        for (k = 0; k < j+1; ++k) {
-            p[k+1] -= t[k];
+        for (k = 0; k < j+2; k+=2) {
+            p[k+2] -= t[k];
+            p[k+3] -= t[k+1];
         }
-
-        B[j] *= acc[0];
     }
     free(t);
     free(p);
