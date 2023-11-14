@@ -62,7 +62,7 @@ static inline void butter(const size_t k, const size_t n, float *acc, float *z) 
 
 static inline float transformBilinear(const size_t n, float *__restrict__ A, float *__restrict__ B, poleGenerator_t fn) {
 
-    size_t k, j;
+    size_t i, j, k;
     float b = 1.f;
     float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
@@ -71,23 +71,22 @@ static inline float transformBilinear(const size_t n, float *__restrict__ A, flo
     p[0] = 1.f;
     B[0] = 1.f;
 
-    // Generate roots of bilinear transform, perform running sum of coefficients
+    // Generate roots of bilinear transform
+    // Perform running sum of coefficients
+    // Expand roots into coefficients of monic polynomial
     for (j = 0, k = 1; k <= n; j += 2, ++k) {
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         b += B[k];
         fn(k, n, acc, z);
-    }
 
-    // Expand roots into coefficients of the monic polynomial
-    for (j = 0; j < n << 1; j += 2) {
-        for (k = 0; k <= j; k += 2) {
-            t[k] = z[j] * p[k] - z[j + 1] * p[k + 1];
-            t[k + 1] = z[j] * p[k + 1] + z[j + 1] * p[k];
+        for (i = 0; i <= j; i += 2) {
+            t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
+            t[i + 1] = z[j] * p[i + 1] + z[j + 1] * p[i];
         }
-        for (k = 0; k < j + 2; k += 2) {
-            p[k + 2] -= t[k];
-            p[k + 3] -= t[k + 1];
+        for (i = 0; i < j + 2; i += 2) {
+            p[i + 2] -= t[i];
+            p[i + 3] -= t[i + 1];
         }
     }
 
