@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:l:L:h:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:l:S:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
