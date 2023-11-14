@@ -43,13 +43,13 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-float butter(size_t n, float *B) {
+float butter(size_t n, float *A, float *B) {
 
     size_t k, j;
     float w, a, b = 1.f, d, zr, zj;
     float acc[2] = {1.f, 0};
+    float *p = calloc(((n+1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
-    float *p = calloc((n<<1) + 2, sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
     p[0] = 1.f;
     B[0] = 1.f;
@@ -69,13 +69,8 @@ float butter(size_t n, float *B) {
         acc[1] = zr * acc[1] + zj * acc[0];
         acc[0] = a;
 
-//        w = M_PI/(float)n*(-0.5f+(float)k);
         z[j] = cosf(2.f*theta)/(1-cosf(w)*sinf(2.f * theta));
         z[j + 1] = zj;
-    }
-    acc[0] /= b;
-    for (k = 0; k < n; ++k) {
-        B[k] *= acc[0];
     }
 
     for (j = 0; j < n<<1; j+=2) {
@@ -88,8 +83,13 @@ float butter(size_t n, float *B) {
             p[k+3] -= t[k+1];
         }
     }
+
+    acc[0] /= b;
+    for (k = 0; k < n+1; ++k) {
+        B[k] *= acc[0];
+        A[k] = p[k<<1];
+    }
     free(t);
-    free(p);
     free(z);
     return acc[0];
 }
@@ -140,22 +140,21 @@ static inline void filterOut(float *__restrict__ x,
 
 void *processMatrix(void *ctx) {
 
-    static const float coeffALow[] = {0.0005e-4f, 0.0063e-4f, 0.0377e-4f, 0.1384e-4f, 0.3460e-4f, 0.6227e-4f, 0.8303e-4f, 0.8303e-4f, 0.6227e-4f, 0.3460e-4f, 0.1384e-4f, 0.0377e-4f, 0.0063e-4f, 0.0005e-4f};
-    static const float coeffBLow[] = {1.0000f, -7.5823f, 27.2800f, -61.4122f, 96.2248f, -110.5639f, 95.6695f, -63.0250f, 31.5708f, -11.8641f, 3.2480f, -0.6130f, 0.0714f, -0.0039f};
-    static const size_t n = 14;
-    float B[(n+1) << 1];
+    static const size_t filterLength = 7;
+    float *A = calloc(filterLength + 1, sizeof(float));
+    float *B = calloc(filterLength + 1, sizeof(float));
 
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float k = butter(n >> 1, B);
+    float k = butter(filterLength, A, B);
     fprintf(stderr, "%f\n", k);
     theta = args->lowpassOut ? (float) M_PI * args->lowpassOut / 125000.f : theta;
 
 #ifdef DEBUG
     for (i = 3; i < 21; ++i) {
-        fprintf(stderr, "\n%lu: %f\n", i + 1, scaleSumButterworthPoles(i, 125.f, 13.f));
+        fprintf(stderr, "\filterLength%lu: %f\filterLength", i + 1, scaleSumButterworthPoles(i, 125.f, 13.f));
     }
 #endif
 
@@ -171,13 +170,15 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, n, filterRet, coeffALow, coeffBLow);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength + 1, filterRet, B, A);
         fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
     free(buf);
     free(fBuf);
     free(demodRet);
+    free(A);
+    free(B);
 
     return NULL;
 }
