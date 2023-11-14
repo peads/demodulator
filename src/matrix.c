@@ -22,7 +22,7 @@
 #include "matrix.h"
 #include "fmath.h"
 
-float theta = (float) M_PI * 13.f / 125.f;
+static float theta = (float) M_PI * 13.f / 125.f;
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -43,7 +43,7 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-float butter(size_t n, float *A, float *B) {
+static inline float butter(const size_t n, float *__restrict__ A, float *__restrict__ B) {
 
     size_t k, j;
     float w, a, b = 1.f, d, zr, zj;
@@ -143,14 +143,13 @@ void *processMatrix(void *ctx) {
     static const size_t filterLength = 7;
     float *A = calloc(filterLength + 1, sizeof(float));
     float *B = calloc(filterLength + 1, sizeof(float));
-
-    consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float k = butter(filterLength, A, B);
-    fprintf(stderr, "%f\n", k);
+    consumerArgs *args = ctx;
+
     theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
+    butter(filterLength, A, B);
 
     while (!args->exitFlag) {
 
