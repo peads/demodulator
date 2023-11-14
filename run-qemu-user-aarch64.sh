@@ -29,7 +29,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DIS_NATIVE=OFF -DNO_INTRINSICS=ON -DIS_VERBOSE=ON \
   -G Ninja -S . -B build
 cmake --build build
-sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r512k - \
+sox -v1.75 -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r384k - \
   | qemu-aarch64 -L /usr/aarch64-linux-gnu/ build/demodulator -i - -o - \
-  | sox -q -D -traw -b32 -ef -r128k - -traw -es -b16 -r48k - \
+  | sox -q -D -traw -b32 -ef -r192k - -traw -es -b16 -r48k - \
   | dsd -i - -o /dev/null -n
