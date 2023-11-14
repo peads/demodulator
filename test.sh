@@ -24,9 +24,6 @@ wavFile2=FLEX_Pager_IQ_20150816_929613kHz_IQ.wav
 audioOutOpts=""
 compilers=()
 
-if [ ! -z "$1" ] && [ "$1" ~= "(y|Y)" ]; then
-  dontWait=$1
-fi
 if [ ! -z "$2" ]; then
   wavFile=$2
 fi
@@ -58,19 +55,21 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
+
+  sox -v1.75 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -h10 \
+    | build/demodulator -i - -o - \
     | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
-    | dsd -i - -o/dev/null -n ${audioOutOpts}
+    | dsd -i - -o/dev/null -n
 }
 
 function executeRun2() {
-  sox -q -D -v20 -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
-    | build/demodulator -i - -o - -h10 \
+
+  sox -v20 -q -D -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
+    | build/demodulator -i - -o - \
     | tee -i uint8.dat \
-    | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
-    | multimon-ng -c -aFLEX_NEXT -
+    | sox -v2 -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
+    | multimon-ng -q -c -aFLEX_NEXT -
 }
 
 function join_by() {
@@ -120,7 +119,7 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} (default options)"
   rm -rf file uint8.dat
 
-  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=OFF -DNO_AVX512=ON" | grep "The C compiler identification"
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DNO_AVX512=ON" | grep "The C compiler identification"
   executeRun $compiler "192k" 1
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_AVX512=ON"
@@ -138,16 +137,16 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_AVX512=ON"
   rm -rf file uint8.dat
 
-  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
-  executeRun $compiler "96k" 1
-
-  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
-  executeTimedRun
-  executeTimedRun
-  executeTimedRun
-  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
-  rm -rf file uint8.dat
-
+#  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
+#  executeRun $compiler "96k" 1
+#
+#  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+#  executeTimedRun
+#  executeTimedRun
+#  executeTimedRun
+#  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+#  rm -rf file uint8.dat
+#
   ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
   executeRun $compiler "192k" 1
 
@@ -165,9 +164,5 @@ for compiler in ${compilers[@]}; do
   executeTimedRun
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
   rm -rf file uint8.dat
-  i=$(( i + 1 ))
-#  waitForUserIntput $i
 done
-
-
 echo "Job's done."

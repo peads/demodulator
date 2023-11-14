@@ -20,12 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix.h"
+#include "fmath.h"
 
-typedef float (*butterWorthScalingFn_t)(float, float);
+float theta = (float) M_PI * 13.f / 125.f;
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
                            float *__restrict__ out) {
+
     size_t i;
     float zr, zj;
 
@@ -35,82 +37,124 @@ static inline void fmDemod(const float *__restrict__ in,
         // a(-d)+bc=-ad+bc
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
-        zr = atan2f(zj, zr);
-        out[i >> 2] = zr;
-//        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
-//
-//        out[i >> 3] = isnan(zr) ? 0.f : gain ? zr * gain : zr;
+
+        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
+        out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
 
-static inline float scaleButterworthHighpass(float wc, float x) {
-    return wc/x;
-}
+float butter(size_t n, float *A, float *B) {
 
-static inline float scaleButterworthLowpass(float wc, float x) {
-    return x/wc;
-}
+    size_t k, j;
+    float w, a, b = 1.f, d, zr, zj;
+    float acc[2] = {1.f, 0};
+    float *p = calloc(((n + 1) << 1), sizeof(float));
+    float *z = calloc((n << 1), sizeof(float));
+    float *t = calloc((n << 1), sizeof(float));
+    p[0] = 1.f;
+    B[0] = 1.f;
 
-static inline void filterButterWorth(float *__restrict__ buf, const size_t len, const float wc, butterWorthScalingFn_t fn) {
+    for (j = 0, k = 1; k <= n; j += 2, ++k) {
+        w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
+        a = cosf(w);
+        d = 1.f / (a - 1.f / sinf(2.f * theta));
+        zr = (cosf(w) - tanf(theta)) * d;
+        zj = sinf(w) * d;
 
-    static const float BW_CONSTS[16][2] = {
-           {-0.0980171f, 0.995185f},
-           {-0.290285f, 0.95694f},
-           {-0.471397f,  0.881921f},
-           {-0.634393f,  0.77301f},
-           {-0.77301f,   0.634393f},
-           {-0.881921f,  0.471397f},
-           {-0.95694f,   0.290285f},
-           {-0.995185f,  0.0980171f},
-           {-0.995185f,  -0.0980171f},
-           {-0.95694f,   -0.290285f},
-           {-0.881921f,  -0.471397f},
-           {-0.77301f,   -0.634393f},
-           {-0.634393f,-0.77301f},
-           {-0.471397f,-0.881921f},
-           {-0.290285f,-0.95694f},
-           {-0.0980171f,-0.995185f}};
-    size_t i,j;
-    float accR, accJ, currR, currJ;
-    const float *constPtr;
+        B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
 
-    for (i = 0; i < len; i+=2) {
-        accR = 1.f;
-        accJ = 1.f;
-        currR = fn(wc, buf[i]);
-        currJ = fn(wc, buf[i + 1]);
-        for (j = 0; j < 16; ++j) {
-            constPtr = BW_CONSTS[j];
-            accR *= currR - constPtr[0];
-            accJ *= currJ - constPtr[1];
+        b += B[k];
+
+        a = zr * acc[0] - zj * acc[1];
+        acc[1] = zr * acc[1] + zj * acc[0];
+        acc[0] = a;
+        // TODO figure out why this is different than straight zr
+        z[j] = cosf(2.f * theta) / (1 - cosf(w) * sinf(2.f * theta));
+        z[j + 1] = zj;
+    }
+
+    for (j = 0; j < n << 1; j += 2) {
+        for (k = 0; k <= j; k += 2) {
+            t[k] = z[j] * p[k] - z[j + 1] * p[k + 1];
+            t[k + 1] = z[j] * p[k + 1] + z[j + 1] * p[k];
         }
-
-        buf[i] = buf[i]/accR;
-        buf[i + 1] = buf[i+1]/accJ;
+        for (k = 0; k < j + 2; k += 2) {
+            p[k + 2] -= t[k];
+            p[k + 3] -= t[k + 1];
+        }
     }
+
+    acc[0] /= b;
+    for (k = 0; k < n + 1; ++k) {
+        B[k] *= acc[0];
+        A[k] = p[k << 1];
+    }
+    free(t);
+    free(z);
+    return acc[0];
 }
 
 static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
 
     size_t i;
     int8_t *buf = in;
-    for (i = 0; i < len; i+=2) {
-        out[i] = (int8_t)(buf[i] - 127);
-        out[i+1] = (int8_t)(buf[i+1] - 127);
+    for (i = 0; i < len; i += 2) {
+        out[i] = (int8_t) (buf[i] - 127);
+        out[i + 1] = (int8_t) (buf[i + 1] - 127);
+    }
+}
+
+static inline void balanceIq(float *__restrict__ buf, size_t len) {
+
+    static const float alpha = 0.99212598425f;
+    static const float beta = 0.00787401574f;
+
+    size_t i;
+    for (i = 0; i < len; i += 2) {
+        buf[i] *= alpha;
+        buf[i + 1] += beta * buf[i];
+    }
+}
+
+static inline void filterOut(float *__restrict__ x,
+                             size_t len,
+                             size_t filterLen,
+                             float *__restrict__ y,
+                             const float *__restrict__ coeffA,
+                             const float *__restrict__ coeffB) {
+
+    float *xp, *yp, acc;
+    size_t i, j, k;
+
+    for (i = 0; i < len; ++i) {
+        xp = &x[3 + i];
+        yp = &y[3 + i];
+        acc = 0;
+        for (j = 0; j < filterLen; ++j) {
+            k = filterLen - j - 1;
+            acc += coeffA[k] * xp[j] - coeffB[k] * yp[j];
+        }
+        y[i] = acc;
     }
 }
 
 void *processMatrix(void *ctx) {
 
+    static const size_t filterLength = 7;
+    float *A = calloc(filterLength + 1, sizeof(float));
+    float *B = calloc(filterLength + 1, sizeof(float));
+
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *result = calloc(DEFAULT_BUF_SIZE>>2, sizeof(float));
-    float lowpassWc = !args->lowpassIn ? 12500.f : args->lowpassIn;
-    float highpassWc = !args->highpassIn ? 1.f : args->highpassIn;
+    float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
+    float k = butter(filterLength, A, B);
+    fprintf(stderr, "%f\n", k);
+    theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
 
     while (!args->exitFlag) {
 
+        float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
@@ -118,14 +162,17 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, lowpassWc, scaleButterworthLowpass);
-        filterButterWorth(fBuf, DEFAULT_BUF_SIZE, highpassWc, scaleButterworthHighpass); //dc block
-        fmDemod(fBuf, DEFAULT_BUF_SIZE, result);
-        fwrite(result, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        balanceIq(fBuf, DEFAULT_BUF_SIZE);
+        fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength + 1, filterRet, B, A);
+        fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        free(filterRet);
     }
     free(buf);
     free(fBuf);
-    free(result);
+    free(demodRet);
+    free(A);
+    free(B);
 
     return NULL;
 }

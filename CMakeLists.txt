@@ -165,9 +165,9 @@ else()
         target_link_libraries(${PROJECT_NAME} PUBLIC pthread)
     endif()
 
-    if(NO_AVX512 AND NO_AVX2 AND NO_NEON)
+#    if(NO_AVX512 AND NO_AVX2 AND NO_NEON)
         target_link_libraries(${PROJECT_NAME} PUBLIC m)
-    endif()
+#    endif()
 endif()
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin COMPONENT Runtime LIBRARY DESTINATION lib COMPONENT Runtime)

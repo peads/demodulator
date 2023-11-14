@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "matrix.h"
@@ -38,68 +37,60 @@ static inline int printIfError(void *file) {
 
 static inline int startProcessingMatrix(
         FILE *inFile,
-        const float lowpassIn,
-        float highpassIn,
-        FILE *outFile) {
+        consumerArgs *args) {
 
     size_t elementsRead;
     pthread_t pid;
 
-    consumerArgs args = {
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .lowpassIn = lowpassIn,
-            .highpassIn = highpassIn,
-            .outFile = outFile,
-            .exitFlag = 0,
-    };
+    allocateBuffer(&args->buf, DEFAULT_BUF_SIZE);
 
-    SEM_INIT(args.empty, "/empty", 1)
-    SEM_INIT(args.full, "/full", 0)
-
-    args.exitFlag |= printIfError(
-            pthread_create(&pid, NULL, processMatrix, &args)
+    args->exitFlag |= printIfError(
+            pthread_create(&pid, NULL, processMatrix, args)
             ? NULL
             : &args);
 
-    allocateBuffer(&args.buf, DEFAULT_BUF_SIZE);
+    while (!args->exitFlag) {
 
-    while (!args.exitFlag) {
+        sem_wait(args->empty);
+        pthread_mutex_lock(&args->mutex);
+        elementsRead = fread(args->buf, 1, DEFAULT_BUF_SIZE, inFile);
 
-        sem_wait(args.empty);
-        pthread_mutex_lock(&args.mutex);
-        elementsRead = fread(args.buf, 1, DEFAULT_BUF_SIZE, inFile);
-
-        if ((args.exitFlag = ferror(inFile))) {
+        if ((args->exitFlag = ferror(inFile))) {
             perror(NULL);
+            args->exitFlag = -2;
             break;
         } else if (feof(inFile)) {
-            args.exitFlag = EOF;
+            args->exitFlag = EOF;
         } else if (!elementsRead) {
-            fprintf(stderr, "This shouldn't happen, but I need to use the result of"
-                            "fread. Stupid compiler.");
+            args->exitFlag = -3;
+            break;
         }
-        pthread_mutex_unlock(&args.mutex);
-        sem_post(args.full);
+        pthread_mutex_unlock(&args->mutex);
+        sem_post(args->full);
     }
 
     pthread_join(pid, NULL);
-    pthread_mutex_destroy(&args.mutex);
-    SEM_DESTROY(args.empty, "/empty")
-    SEM_DESTROY(args.full, "/full")
-
-    fclose(outFile);
+    pthread_mutex_destroy(&args->mutex);
+    fclose(args->outFile);
     fclose(inFile);
-    return args.exitFlag != EOF;
+    return args->exitFlag != EOF;
 }
 
 int main(int argc, char **argv) {
 
-    float lowpassIn = 0.f;
-    float highpassIn = 0.f;
+    consumerArgs args = {
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .sampleRate = 0.f,
+            .highpassIn = 0.f,
+            .lowpassOut = 0.f,
+            .exitFlag = 0,
+    };
+    SEM_INIT(args.empty, "/empty", 1)
+    SEM_INIT(args.full, "/full", 0)
+
     int ret = 0;
     int opt;
     FILE *inFile = NULL;
-    FILE *outFile = NULL;
 
     if (argc < 3) {
         return -1;
@@ -116,32 +107,18 @@ int main(int argc, char **argv) {
                     break;
                 case 'o':
                     if (!strstr(optarg, "-")) {
-                        ret += printIfError(outFile = fopen(optarg, "wb"));
+                        ret += printIfError(args.outFile = fopen(optarg, "wb"));
                     } else {
                         ret += printIfError(freopen(NULL, "wb", stdout));
-                        outFile = stdout;
+                        args.outFile = stdout;
                     }
                     break;
                 case 'l':
-#if !(defined(NO_INTRINSICS) || defined(IS_NVIDIA))
-                    if (!lowpassIn) {
-                        lowpassIn = strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
-#endif
-                case 'L':
-                    if (!lowpassIn) {
-                        lowpassIn = 1.f/strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
-                case 'h':
-                    if (!highpassIn) {
-                        highpassIn = strtof(optarg, NULL);
-                        break;
-                    }
-                    return -1;
+                    args.lowpassOut = strtof(optarg, NULL);
+                    break;
+                case 'S':
+                    args.sampleRate = strtof(optarg, NULL);
+                    break;
                 default:
                     break;
             }
@@ -149,7 +126,10 @@ int main(int argc, char **argv) {
     }
 
     if (!ret) {
-        startProcessingMatrix(inFile, lowpassIn, highpassIn, outFile);
+        startProcessingMatrix(inFile, &args);
     }
+
+    SEM_DESTROY(args.empty, "/empty")
+    SEM_DESTROY(args.full, "/full")
     return ret;
 }
