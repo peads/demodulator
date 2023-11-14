@@ -48,46 +48,46 @@ float butter(size_t n, float *A, float *B) {
     size_t k, j;
     float w, a, b = 1.f, d, zr, zj;
     float acc[2] = {1.f, 0};
-    float *p = calloc(((n+1) << 1), sizeof(float));
+    float *p = calloc(((n + 1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
     p[0] = 1.f;
     B[0] = 1.f;
 
-    for (j = 0, k = 1; k <= n; j+=2, ++k) {
+    for (j = 0, k = 1; k <= n; j += 2, ++k) {
         w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
         a = cosf(w);
         d = 1.f / (a - 1.f / sinf(2.f * theta));
         zr = (cosf(w) - tanf(theta)) * d;
         zj = sinf(w) * d;
 
-        B[k] = B[k-1] * (float)(n - k + 1) / (float)(k);
+        B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
 
         b += B[k];
 
         a = zr * acc[0] - zj * acc[1];
         acc[1] = zr * acc[1] + zj * acc[0];
         acc[0] = a;
-
-        z[j] = cosf(2.f*theta)/(1-cosf(w)*sinf(2.f * theta));
+        // TODO figure out why this is different than straight zr
+        z[j] = cosf(2.f * theta) / (1 - cosf(w) * sinf(2.f * theta));
         z[j + 1] = zj;
     }
 
-    for (j = 0; j < n<<1; j+=2) {
-        for (k = 0; k <= j; k+=2) {
-            t[k] = z[j] * p[k] - z[j+1] * p[k+1];
-            t[k+1] = z[j] * p[k+1] + z[j+1] * p[k];
+    for (j = 0; j < n << 1; j += 2) {
+        for (k = 0; k <= j; k += 2) {
+            t[k] = z[j] * p[k] - z[j + 1] * p[k + 1];
+            t[k + 1] = z[j] * p[k + 1] + z[j + 1] * p[k];
         }
-        for (k = 0; k < j+2; k+=2) {
-            p[k+2] -= t[k];
-            p[k+3] -= t[k+1];
+        for (k = 0; k < j + 2; k += 2) {
+            p[k + 2] -= t[k];
+            p[k + 3] -= t[k + 1];
         }
     }
 
     acc[0] /= b;
-    for (k = 0; k < n+1; ++k) {
+    for (k = 0; k < n + 1; ++k) {
         B[k] *= acc[0];
-        A[k] = p[k<<1];
+        A[k] = p[k << 1];
     }
     free(t);
     free(z);
@@ -150,13 +150,7 @@ void *processMatrix(void *ctx) {
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float k = butter(filterLength, A, B);
     fprintf(stderr, "%f\n", k);
-    theta = args->lowpassOut ? (float) M_PI * args->lowpassOut / 125000.f : theta;
-
-#ifdef DEBUG
-    for (i = 3; i < 21; ++i) {
-        fprintf(stderr, "\filterLength%lu: %f\filterLength", i + 1, scaleSumButterworthPoles(i, 125.f, 13.f));
-    }
-#endif
+    theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
 
     while (!args->exitFlag) {
 
