@@ -33,3 +33,8 @@ sox -v1.75 -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-
   | qemu-arm -L /usr/arm-linux-gnueabihf/ build/demodulator -i - -o - \
   | sox -q -D -traw -b32 -ef -r192k - -traw -es -b16 -r48k - \
   | dsd -i - -o /dev/null -n
+sox -v20 -q -D -twav FLEX_Pager_IQ_20150816_929613kHz_IQ.wav -traw -b8 -eunsigned-int -r250k -c2 - \
+    | qemu-arm -L /usr/arm-linux-gnueabihf/ build/demodulator -i - -o - \
+    | tee -i uint8.dat \
+    | sox -v2 -traw -r125k -ef -b32 - -traw -b16 -es -r22050 - \
+    | multimon-ng -q -c -aFLEX_NEXT -
