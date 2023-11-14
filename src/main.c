@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .lowpassIn = 0.f,
+            .sampleRate = 0.f,
             .highpassIn = 0.f,
             .lowpassOut = 0.f,
             .exitFlag = 0,
@@ -116,11 +116,8 @@ int main(int argc, char **argv) {
                 case 'l':
                     args.lowpassOut = strtof(optarg, NULL);
                     break;
-                case 'L':
-                    args.lowpassIn = strtof(optarg, NULL);
-                    break;
-                case 'h':
-                    args.highpassIn = strtof(optarg, NULL);
+                case 'S':
+                    args.sampleRate = strtof(optarg, NULL);
                     break;
                 default:
                     break;

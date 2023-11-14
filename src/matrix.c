@@ -22,6 +22,8 @@
 #include "matrix.h"
 #include "fmath.h"
 
+float theta = (float) M_PI * 13.f / 125.f;
+
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
                            float *__restrict__ out) {
@@ -41,31 +43,69 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-float scaleSumButterworthPoles(size_t n, float fs, float fc) {
+float butter(size_t n, float *B) {
 
-    size_t k;
-    const float theta = (float)M_PI * fc/fs;
+    size_t k, j;
+    float w, a, b = 1.f, d, zr, zj, temp;
     float acc[2] = {1.f, 0};
-    float w;
-    float a;
-    float d;
-    float zr;
-    float zj;
+    float *A = calloc((n << 1), sizeof(float));
+    B[0] = 1.f;
 
-    for (k = 1; k <= n; ++k) {
+    for (j = 0, k = 1; k <= n; j+=2, ++k) {
         w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
         a = cosf(w);
-        d = a - 1.f / sinf(2.f * theta);
-        zr = cosf(w)/d - tanf(theta)/d;
-        zj = sinf(w) / d;
+        d = 1.f / (a - 1.f / sinf(2.f * theta));
+        zr = (cosf(w) - tanf(theta)) * d;
+        zj = sinf(w) * d;
+
+        B[k] = B[k-1] * (float)(n - k + 1) / (float)(k);
+
+        temp = zr*zr + zj*zj;
+        A[j+1] = -zj/temp;
+        A[j] = zr/temp;
+
+        b += B[k];
 
         a = zr * acc[0] - zj * acc[1];
         acc[1] = zr * acc[1] + zj * acc[0];
         acc[0] = a;
-        fprintf(stderr, "%f + I %f, ", zr, zj);
+    }
+    acc[0] /= b;
+    for (k = 0; k < n; ++k) {
+        B[k] *= acc[0];
     }
 
-    fprintf(stderr, "\n");
+    float z[] = {1,2,3};
+    float p[] = {1,0,0,0};
+    float t[4] = {};
+    for (j = 0; j < 3; ++j) {
+        for (k = 1; k <= j+1; ++k) {
+            t[k] = z[j] * p[k-1];
+        }
+        for (k = 0; k < 4; ++k) {
+            p[k] -= t[k];
+        }
+    }
+    p[0]=p[0];
+    z[0]=z[0];
+    t[0]=t[0];
+
+//    float *result = calloc((n << 1) + 2, sizeof(float));
+//    result[0] = 1.f;
+//    float temp[2] = {};
+//    for (j = 0; j < (n << 1); j+=2) {
+//
+//        result[j+2] = -A[j] * result[j] - A[j + 1] * result[j + 1];
+//        result[j+3] = -A[j] * result[j + 1] + A[j+1] * result[j];
+//
+//        for (k = j+1; k >= 2; k -=2) {
+//            temp[0] = A[j] * result[k-3] - A[j+1] * result[k-2];
+//            temp[1] = A[j] * result[k-2] + A[j+1] * result[k-3];
+//            result[k-1] -= temp[0];
+//            result[k] -= temp[1];
+//        }
+//    }
+    free(A);
     return acc[0];
 }
 
@@ -117,16 +157,23 @@ void *processMatrix(void *ctx) {
 
     static const float coeffALow[] = {0.0005e-4f, 0.0063e-4f, 0.0377e-4f, 0.1384e-4f, 0.3460e-4f, 0.6227e-4f, 0.8303e-4f, 0.8303e-4f, 0.6227e-4f, 0.3460e-4f, 0.1384e-4f, 0.0377e-4f, 0.0063e-4f, 0.0005e-4f};
     static const float coeffBLow[] = {1.0000f, -7.5823f, 27.2800f, -61.4122f, 96.2248f, -110.5639f, 95.6695f, -63.0250f, 31.5708f, -11.8641f, 3.2480f, -0.6130f, 0.0714f, -0.0039f};
-    static const float N = 14;
-    size_t i = 3;
+    static const size_t n = 14;
+    float B[(n+1) << 1];
+
     consumerArgs *args = ctx;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
+    float k = butter(n >> 1, B);
+    fprintf(stderr, "%f\n", k);
+    theta = args->lowpassOut ? (float) M_PI * args->lowpassOut / 125000.f : theta;
 
-    for (; i < 21; ++i) {
-        fprintf(stderr, "\n%lu: %f\n", i+1, scaleSumButterworthPoles(i, 125.f, 13.f));
+#ifdef DEBUG
+    for (i = 3; i < 21; ++i) {
+        fprintf(stderr, "\n%lu: %f\n", i + 1, scaleSumButterworthPoles(i, 125.f, 13.f));
     }
+#endif
+
     while (!args->exitFlag) {
 
         float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
@@ -139,7 +186,7 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, N, filterRet, coeffALow, coeffBLow);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, n, filterRet, coeffALow, coeffBLow);
         fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
