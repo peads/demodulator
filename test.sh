@@ -58,17 +58,17 @@ function executeRun() {
 
   sox -v1.75 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r384k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - \
-    | sox -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -i - -o - -S192000 -l12500 \
+    | sox -v5 -q -D -traw -b32 -ef -r${2} - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
 
 function executeRun2() {
 
   sox -v20 -q -D -twav ${wavFile2} -traw -b8 -eunsigned-int -r250k -c2 - 2>/dev/null \
-    | build/demodulator -i - -o - \
+    | build/demodulator -i - -o - -S125000 -l10000 \
     | tee -i uint8.dat \
-    | sox -v2 -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
+    | sox -traw -r${1} -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -
 }
 
