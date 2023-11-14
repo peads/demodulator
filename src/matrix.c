@@ -42,11 +42,28 @@ static inline void fmDemod(const float *__restrict__ in,
         out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
+typedef void (*poleGenerator_t)(size_t,size_t,float*,float*);
+static inline void butter(const size_t k, const size_t n, float *acc, float *z) {
 
-static inline float butter(const size_t n, float *__restrict__ A, float *__restrict__ B) {
+    size_t j = (k - 1) << 1;
+    float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
+    float a = cosf(w);
+    float d = 1.f / (a - 1.f / sinf(2.f * theta));
+    float zr = (cosf(w) - tanf(theta)) * d;
+    float zj = sinf(w) * d;
+
+    z[j] = 1.f - zr;
+    z[j + 1] = zj;
+
+    a = zr * acc[0] - zj * acc[1];
+    acc[1] = zr * acc[1] + zj * acc[0];
+    acc[0] = a;
+}
+
+static inline float transformBilinear(const size_t n, float *__restrict__ A, float *__restrict__ B, poleGenerator_t fn) {
 
     size_t k, j;
-    float w, a, b = 1.f, d, zr, zj;
+    float b = 1.f;
     float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
@@ -54,25 +71,15 @@ static inline float butter(const size_t n, float *__restrict__ A, float *__restr
     p[0] = 1.f;
     B[0] = 1.f;
 
+    // Generate roots of bilinear transform, perform running sum of coefficients
     for (j = 0, k = 1; k <= n; j += 2, ++k) {
-        w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
-        a = cosf(w);
-        d = 1.f / (a - 1.f / sinf(2.f * theta));
-        zr = (cosf(w) - tanf(theta)) * d;
-        zj = sinf(w) * d;
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
-
         b += B[k];
-
-        a = zr * acc[0] - zj * acc[1];
-        acc[1] = zr * acc[1] + zj * acc[0];
-        acc[0] = a;
-        // TODO figure out why this is different than straight zr
-        z[j] = cosf(2.f * theta) / (1 - cosf(w) * sinf(2.f * theta));
-        z[j + 1] = zj;
+        fn(k, n, acc, z);
     }
 
+    // Expand roots into coefficients of the monic polynomial
     for (j = 0; j < n << 1; j += 2) {
         for (k = 0; k <= j; k += 2) {
             t[k] = z[j] * p[k] - z[j + 1] * p[k + 1];
@@ -84,11 +91,13 @@ static inline float butter(const size_t n, float *__restrict__ A, float *__restr
         }
     }
 
+    // Store the output
     acc[0] /= b;
     for (k = 0; k < n + 1; ++k) {
         B[k] *= acc[0];
         A[k] = p[k << 1];
     }
+    free(p);
     free(t);
     free(z);
     return acc[0];
@@ -149,7 +158,7 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
 
     theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
-    butter(filterLength, A, B);
+    transformBilinear(filterLength, A, B, butter);
 
     while (!args->exitFlag) {
 
