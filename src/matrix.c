@@ -46,9 +46,12 @@ static inline void fmDemod(const float *__restrict__ in,
 float butter(size_t n, float *B) {
 
     size_t k, j;
-    float w, a, b = 1.f, d, zr, zj, temp;
+    float w, a, b = 1.f, d, zr, zj;
     float acc[2] = {1.f, 0};
-    float *A = calloc((n << 1), sizeof(float));
+    float *z = calloc((n << 1), sizeof(float));
+    float *p = calloc((n<<1) + 1, sizeof(float));
+    float *t = calloc((n << 1), sizeof(float));
+    p[0] = 1.f;
     B[0] = 1.f;
 
     for (j = 0, k = 1; k <= n; j+=2, ++k) {
@@ -60,9 +63,8 @@ float butter(size_t n, float *B) {
 
         B[k] = B[k-1] * (float)(n - k + 1) / (float)(k);
 
-        temp = zr*zr + zj*zj;
-        A[j+1] = -zj/temp;
-        A[j] = zr/temp;
+        z[j] = zr;
+        z[j + 1] = zj;
 
         b += B[k];
 
@@ -71,13 +73,7 @@ float butter(size_t n, float *B) {
         acc[0] = a;
     }
     acc[0] /= b;
-    for (k = 0; k < n; ++k) {
-        B[k] *= acc[0];
-    }
 
-    float z[] = {1,2,3,4,5,6,7};
-    float p[] = {1,0,0,0,0,0,0,0};
-    float t[3] = {};
     for (j = 0; j < n; ++j) {
         for (k = 0; k <= j; ++k) {
             t[k] = z[j] * p[k];
@@ -85,27 +81,12 @@ float butter(size_t n, float *B) {
         for (k = 0; k < j+1; ++k) {
             p[k+1] -= t[k];
         }
-    }
-    p[0]=p[0];
-    z[0]=z[0];
-    t[0]=t[0];
 
-//    float *result = calloc((n << 1) + 2, sizeof(float));
-//    result[0] = 1.f;
-//    float temp[2] = {};
-//    for (j = 0; j < (n << 1); j+=2) {
-//
-//        result[j+2] = -A[j] * result[j] - A[j + 1] * result[j + 1];
-//        result[j+3] = -A[j] * result[j + 1] + A[j+1] * result[j];
-//
-//        for (k = j+1; k >= 2; k -=2) {
-//            temp[0] = A[j] * result[k-3] - A[j+1] * result[k-2];
-//            temp[1] = A[j] * result[k-2] + A[j+1] * result[k-3];
-//            result[k-1] -= temp[0];
-//            result[k] -= temp[1];
-//        }
-//    }
-    free(A);
+        B[j] *= acc[0];
+    }
+    free(t);
+    free(p);
+    free(z);
     return acc[0];
 }
 
