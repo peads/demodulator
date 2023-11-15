@@ -22,6 +22,7 @@
 #include "matrix.h"
 #include "fmath.h"
 
+typedef void (*poleGenerator_t)(size_t, size_t, float *, float *);
 static float theta = (float) M_PI * 13.f / 125.f;
 
 static inline void fmDemod(const float *__restrict__ in,
@@ -42,7 +43,7 @@ static inline void fmDemod(const float *__restrict__ in,
         out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
-typedef void (*poleGenerator_t)(size_t,size_t,float*,float*);
+
 static inline void butter(const size_t k, const size_t n, float *acc, float *z) {
 
     size_t j = (k - 1) << 1;
@@ -60,7 +61,10 @@ static inline void butter(const size_t k, const size_t n, float *acc, float *z) 
     acc[0] = a;
 }
 
-static inline float transformBilinear(const size_t n, float *__restrict__ A, float *__restrict__ B, poleGenerator_t fn) {
+static inline float transformBilinear(const size_t n,
+                                      float *__restrict__ A,
+                                      float *__restrict__ B,
+                                      poleGenerator_t fn) {
 
     size_t i, j, k;
     float b = 1.f;
@@ -112,7 +116,7 @@ static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *_
     }
 }
 
-static inline void balanceIq(float *__restrict__ buf, size_t len) {
+static inline void balanceIq(float *__restrict__ buf, const size_t len) {
 
     static const float alpha = 0.99212598425f;
     static const float beta = 0.00787401574f;
@@ -125,22 +129,22 @@ static inline void balanceIq(float *__restrict__ buf, size_t len) {
 }
 
 static inline void filterOut(float *__restrict__ x,
-                             size_t len,
-                             size_t filterLen,
+                             const size_t len,
+                             const size_t filterLen,
                              float *__restrict__ y,
-                             const float *__restrict__ coeffA,
-                             const float *__restrict__ coeffB) {
+                             const float *__restrict__ A,
+                             const float *__restrict__ B) {
 
     float *xp, *yp, acc;
     size_t i, j, k;
 
     for (i = 0; i < len; ++i) {
-        xp = &x[3 + i];
-        yp = &y[3 + i];
+        xp = &x[filterLen + i];
+        yp = &y[filterLen + i];
         acc = 0;
         for (j = 0; j < filterLen; ++j) {
             k = filterLen - j - 1;
-            acc += coeffA[k] * xp[j] - coeffB[k] * yp[j];
+            acc += A[k] * xp[j] - B[k] * yp[j];
         }
         y[i] = acc;
     }

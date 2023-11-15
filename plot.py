@@ -31,6 +31,7 @@ fig, (ax_t, ax_w) = plt.subplots(2, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
 ax_t.set_ylim(-0.01, 10)
 
+
 class Chunker(Iterable):
     def __init__(self, file, bufsize=250000):
         self.file = file
@@ -63,7 +64,6 @@ def generateData(file, bufsize):
 
 
 def animate(y, dt, fftlen):
-
     t_xlim = ax_t.get_xlim()
     t_ylim = ax_t.get_ylim()
 
@@ -91,16 +91,16 @@ def animate(y, dt, fftlen):
 
 
 argc = len(sys.argv)
-sampRate = int(sys.argv[1]) if argc > 1 else 250000
+sampRate = int(sys.argv[1]) if argc > 1 else 125000
 print(f'Sampling rate: {sampRate}')
 bufsize = int(sys.argv[2]) if argc > 2 else 32768
 print(f'Size of buffer: {bufsize}')
-fftlen=pow(2,int(np.ceil(np.log2(sampRate))))
+fftlen = pow(2, int(np.ceil(np.log2(sampRate))))
 print(f'FFT len: {fftlen}')
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     dt = 1 / sampRate
-    ani = animation.FuncAnimation(fig, animate, fargs=(dt,fftlen),
+    ani = animation.FuncAnimation(fig, animate, fargs=(dt, fftlen),
                                   frames=partial(generateData, f, bufsize),
                                   save_count=8, interval=40)
     plt.show()
