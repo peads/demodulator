@@ -23,7 +23,7 @@
 #include "fmath.h"
 
 typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
-typedef void (*storeCoeefsFn_t)(uint8_t, size_t, float*, float*, const float*, const float*);
+typedef void (*storeCoeefsFn_t)(uint8_t, size_t, float *, float *, const float *, const float *);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -77,7 +77,7 @@ static inline void butterLow(const size_t k,
     acc[0] = a;
 }
 
-static inline void butterHigh(const size_t k,
+void butterHigh(const size_t k,
                               const size_t n,
                               const float theta,
                               float *acc,
@@ -91,6 +91,7 @@ static inline void butterHigh(const size_t k,
     acc[1] = (2.f + zr) * acc[1] + zj * acc[0];
     acc[0] = a;
 }
+
 static inline void storeWarpedRealButter(uint8_t isHighpass,
                                          size_t n,
                                          float *__restrict__ A,
@@ -106,19 +107,19 @@ static inline void storeWarpedRealButter(uint8_t isHighpass,
 }
 
 static inline void storeWarpedCButter(uint8_t isHighpass,
-                                         size_t n,
-                                         float *__restrict__ A,
-                                         float *__restrict__ b,
-                                         const float *__restrict__ p,
-                                         const float *__restrict__ acc) {
+                                      size_t n,
+                                      float *__restrict__ A,
+                                      float *__restrict__ b,
+                                      const float *__restrict__ p,
+                                      const float *__restrict__ acc) {
 
     size_t k;
     uint8_t highPassEnabled = 0;
     float *B = malloc(sizeof(float) * n);
     for (k = 0; k < n; k += 2) {
         highPassEnabled = isHighpass && ((k >> 1) & 1);
-        B[k] = b[k>>1] * (highPassEnabled ? -acc[0] : acc[0]);
-        B[k + 1] = b[k>>1] * (highPassEnabled ? -acc[1] : acc[1]);
+        B[k] = b[k >> 1] * (highPassEnabled ? -acc[0] : acc[0]);
+        B[k + 1] = b[k >> 1] * (highPassEnabled ? -acc[1] : acc[1]);
         A[k + 1] = A[k] = p[k];
     }
 
@@ -130,20 +131,19 @@ static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      poleGenerator_t fn,
+                                      poleGenerator_t getPole,
                                       const uint8_t mode) {
 
     size_t i, j, k;
     float b = 1.f;
-    float acc[4] = {1.f, 0};
+    float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
-    p[0] = 1.f;
-    B[0] = 1.f;
+    p[0] = B[0] = 1.f;
     const uint8_t isHighpass = mode & 1;
     const uint8_t isImag = (mode & 2) >> 1;
-    const  storeCoeefsFn_t store = isImag ? storeWarpedCButter : storeWarpedRealButter;
+    const storeCoeefsFn_t store = isImag ? storeWarpedCButter : storeWarpedRealButter;
 
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
@@ -152,7 +152,7 @@ static inline float transformBilinear(const size_t n,
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         b += B[k];
-        fn(k, n, theta, acc, z);
+        getPole(k, n, theta, acc, z);
 
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
@@ -166,7 +166,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    store(isHighpass, isImag ? (n+1) << 1 : n+1, A, B, p, acc);
+    store(isHighpass, isImag ? (n + 1) << 1 : n + 1, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -195,6 +195,34 @@ static inline void balanceIq(float *__restrict__ buf, const size_t len) {
     for (i = 0; i < len; i += 2) {
         buf[i] *= alpha;
         buf[i + 1] += beta * buf[i];
+    }
+}
+
+void filterIn(float *__restrict__ x,
+                            const size_t len,
+                            const size_t filterLen,
+                            float *__restrict__ y,
+                            const float *__restrict__ A,
+                            const float *__restrict__ B) {
+
+    float *xp, *yp, temp[2], acc[2];
+    size_t i, j, k;
+
+    for (i = 0; i < len; i += 2) {
+        xp = &x[filterLen + i];
+        yp = &y[filterLen + i];
+        acc[0] = acc[1] = 0;
+        for (j = 0; j < filterLen; j += 2) {
+            k = filterLen - j - 2;
+            temp[0] =   A[k] * xp[j] -      A[k + 1] * xp[j + 1];// - (B[k] * temp[j] - B[k+1] * temp[j+1]);
+            temp[1] =   A[k] * xp[j + 1] +  A[k + 1] * xp[j];
+            temp[0] -=  B[k] * yp[j] -      B[k + 1] * yp[j + 1];
+            temp[1] -=  B[k] * yp[j + 1] +  B[k + 1] * yp[j];
+            acc[0] += temp[0];
+            acc[1] += temp[1];
+        }
+        y[i] = acc[0];
+        y[i + 1] = acc[1];
     }
 }
 
@@ -236,10 +264,10 @@ void *processMatrix(void *ctx) {
     args->highpassIn = args->highpassIn ? args->highpassIn : 0.000008f;
 
     const float theta0 = M_PI * (args->lowpassOut / args->sampleRate);
-    const float theta1 = M_PI * (args->highpassIn / args->sampleRate);
+//    const float theta1 = M_PI * (args->highpassIn / args->sampleRate);
 
     transformBilinear(filterLength, theta0, A, B, butterLow, 0);
-    transformBilinear(filterLength, theta1, C, D, butterHigh, 3);
+//    transformBilinear(filterLength, theta1, C, D, butterHigh, 3);
 
     while (!args->exitFlag) {
 
@@ -251,6 +279,7 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+//        filterIn(fBuf, DEFAULT_BUF_SIZE, (filterLength + 1) << 1, filterRet, D, C);
         balanceIq(fBuf, DEFAULT_BUF_SIZE);
         fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
         filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength + 1, filterRet, B, A);
