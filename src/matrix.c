@@ -50,7 +50,7 @@ static inline void butter(const size_t k, const size_t n, float *acc, float *z) 
     float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
     float a = cosf(w);
     float d = 1.f / (a - 1.f / sinf(2.f * theta));
-    float zr = (cosf(w) - tanf(theta)) * d;
+    float zr = (a - tanf(theta)) * d;
     float zj = sinf(w) * d;
 
     z[j] = 1.f - zr;
@@ -59,16 +59,21 @@ static inline void butter(const size_t k, const size_t n, float *acc, float *z) 
     a = zr * acc[0] - zj * acc[1];
     acc[1] = zr * acc[1] + zj * acc[0];
     acc[0] = a;
+
+    a = (2.f - zr) * acc[2] - zj * acc[3];
+    acc[3] = (2.f - zr) * acc[3] + zj * acc[2];
+    acc[2] = a;
 }
 
 static inline float transformBilinear(const size_t n,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
+                                      float *__restrict__ C,
                                       poleGenerator_t fn) {
 
     size_t i, j, k;
     float b = 1.f;
-    float acc[2] = {1.f, 0};
+    float acc[4] = {1.f, 0, 1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
@@ -96,7 +101,9 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
+    acc[2] /= b;
     for (k = 0; k < n + 1; ++k) {
+        C[k] = (!(k & 1) ? B[k] : -B[k]) * acc[2];
         B[k] *= acc[0];
         A[k] = p[k << 1];
     }
@@ -155,13 +162,14 @@ void *processMatrix(void *ctx) {
     static const size_t filterLength = 7;
     float *A = calloc(filterLength + 1, sizeof(float));
     float *B = calloc(filterLength + 1, sizeof(float));
+    float *C = calloc(filterLength + 1, sizeof(float));
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     consumerArgs *args = ctx;
 
     theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
-    transformBilinear(filterLength, A, B, butter);
+    transformBilinear(filterLength, A, B, C, butter);
 
     while (!args->exitFlag) {
 
@@ -184,6 +192,7 @@ void *processMatrix(void *ctx) {
     free(demodRet);
     free(A);
     free(B);
+    free(C);
 
     return NULL;
 }
