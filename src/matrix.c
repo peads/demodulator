@@ -23,6 +23,7 @@
 #include "fmath.h"
 
 typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
+typedef void (*storeCoeefsFn_t)(uint8_t, size_t, float*, float*, const float*, const float*);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -90,13 +91,47 @@ static inline void butterHigh(const size_t k,
     acc[1] = (2.f + zr) * acc[1] + zj * acc[0];
     acc[0] = a;
 }
+static inline void storeWarpedRealButter(uint8_t isHighpass,
+                                         size_t n,
+                                         float *__restrict__ A,
+                                         float *__restrict__ B,
+                                         const float *__restrict__ p,
+                                         const float *__restrict__ acc) {
+
+    size_t k;
+    for (k = 0; k < n + 1; ++k) {
+        B[k] *= (isHighpass && (k & 1)) ? -acc[0] : acc[0];
+        A[k] = p[k << 1];
+    }
+}
+
+static inline void storeWarpedCButter(uint8_t isHighpass,
+                                         size_t n,
+                                         float *__restrict__ A,
+                                         float *__restrict__ b,
+                                         const float *__restrict__ p,
+                                         const float *__restrict__ acc) {
+
+    size_t k;
+    uint8_t highPassEnabled = 0;
+    float *B = malloc(sizeof(float) * n);
+    for (k = 0; k < n; k += 2) {
+        highPassEnabled = isHighpass && ((k >> 1) & 1);
+        B[k] = b[k>>1] * (highPassEnabled ? -acc[0] : acc[0]);
+        B[k + 1] = b[k>>1] * (highPassEnabled ? -acc[1] : acc[1]);
+        A[k + 1] = A[k] = p[k];
+    }
+
+    memcpy(b, B, sizeof(float) * n);
+    free(B);
+}
 
 static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
                                       poleGenerator_t fn,
-                                      uint8_t isHighpass) {
+                                      const uint8_t mode) {
 
     size_t i, j, k;
     float b = 1.f;
@@ -106,7 +141,10 @@ static inline float transformBilinear(const size_t n,
     float *t = calloc((n << 1), sizeof(float));
     p[0] = 1.f;
     B[0] = 1.f;
-    uint8_t foo;
+    const uint8_t isHighpass = mode & 1;
+    const uint8_t isImag = (mode & 2) >> 1;
+    const  storeCoeefsFn_t store = isImag ? storeWarpedCButter : storeWarpedRealButter;
+
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
@@ -128,12 +166,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    for (k = 0; k < n + 1; ++k) {
-        foo = (isHighpass && (k & 1));
-        B[k] *= foo ? -acc[0] : acc[0];
-//        B[k] *= acc[0];
-        A[k] = p[k << 1];
-    }
+    store(isHighpass, isImag ? (n+1) << 1 : n+1, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -192,21 +225,21 @@ void *processMatrix(void *ctx) {
     static const size_t filterLength = 7;
     float *A = calloc(filterLength + 1, sizeof(float));
     float *B = calloc(filterLength + 1, sizeof(float));
-    float *C = calloc(filterLength + 1, sizeof(float));
-    float *D = calloc(filterLength + 1, sizeof(float));
+    float *C = calloc((filterLength + 1) << 1, sizeof(float));
+    float *D = calloc((filterLength + 1) << 1, sizeof(float));
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     consumerArgs *args = ctx;
     args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
-    args->highpassOut = args->highpassOut ? args->highpassOut : 0.000008f;
+    args->highpassIn = args->highpassIn ? args->highpassIn : 0.000008f;
 
     const float theta0 = M_PI * (args->lowpassOut / args->sampleRate);
-    const float theta1 = M_PI * (args->highpassOut / args->sampleRate);
+    const float theta1 = M_PI * (args->highpassIn / args->sampleRate);
 
     transformBilinear(filterLength, theta0, A, B, butterLow, 0);
-    transformBilinear(filterLength, theta1, C, D, butterHigh, 1);
+    transformBilinear(filterLength, theta1, C, D, butterHigh, 3);
 
     while (!args->exitFlag) {
 

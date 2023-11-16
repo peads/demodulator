@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .sampleRate = 0.f,
-            .highpassOut = 0.f,
+            .highpassIn = 0.f,
             .lowpassOut = 0.f,
             .exitFlag = 0,
     };
