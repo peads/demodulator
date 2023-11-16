@@ -22,8 +22,7 @@
 #include "matrix.h"
 #include "fmath.h"
 
-typedef void (*poleGenerator_t)(size_t, size_t, float *, float *);
-static float theta = (float) M_PI * 13.f / 125.f;
+typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -44,7 +43,10 @@ static inline void fmDemod(const float *__restrict__ in,
     }
 }
 
-static inline void butter(const size_t k, const size_t n, float *acc, float *z) {
+static inline float warpButter(const size_t k,
+                               const size_t n,
+                               const float theta,
+                               float *z) {
 
     size_t j = (k - 1) << 1;
     float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
@@ -56,30 +58,55 @@ static inline void butter(const size_t k, const size_t n, float *acc, float *z) 
     z[j] = 1.f - zr;
     z[j + 1] = zj;
 
+    return zr;
+}
+
+static inline void butterLow(const size_t k,
+                             const size_t n,
+                             const float theta,
+                             float *acc,
+                             float *z) {
+
+    float a, zj;
+    float zr = warpButter(k, n, theta, z);
+    zj = z[((k - 1) << 1) + 1];
+
     a = zr * acc[0] - zj * acc[1];
     acc[1] = zr * acc[1] + zj * acc[0];
     acc[0] = a;
+}
 
-    a = (2.f - zr) * acc[2] - zj * acc[3];
-    acc[3] = (2.f - zr) * acc[3] + zj * acc[2];
-    acc[2] = a;
+static inline void butterHigh(const size_t k,
+                              const size_t n,
+                              const float theta,
+                              float *acc,
+                              float *z) {
+
+    float a, zj;
+    float zr = warpButter(k, n, theta, z);
+    zj = z[((k - 1) << 1) + 1];
+
+    a = (2.f + zr) * acc[0] - zj * acc[1];
+    acc[1] = (2.f + zr) * acc[1] + zj * acc[0];
+    acc[0] = a;
 }
 
 static inline float transformBilinear(const size_t n,
+                                      const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      float *__restrict__ C,
-                                      poleGenerator_t fn) {
+                                      poleGenerator_t fn,
+                                      uint8_t isHighpass) {
 
     size_t i, j, k;
     float b = 1.f;
-    float acc[4] = {1.f, 0, 1.f, 0};
+    float acc[4] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
     float *z = calloc((n << 1), sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
     p[0] = 1.f;
     B[0] = 1.f;
-
+    uint8_t foo;
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
@@ -87,7 +114,7 @@ static inline float transformBilinear(const size_t n,
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         b += B[k];
-        fn(k, n, acc, z);
+        fn(k, n, theta, acc, z);
 
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
@@ -101,10 +128,10 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    acc[2] /= b;
     for (k = 0; k < n + 1; ++k) {
-        C[k] = (!(k & 1) ? B[k] : -B[k]) * acc[2];
-        B[k] *= acc[0];
+        foo = (isHighpass && (k & 1));
+        B[k] *= foo ? -acc[0] : acc[0];
+//        B[k] *= acc[0];
         A[k] = p[k << 1];
     }
     free(p);
@@ -113,7 +140,10 @@ static inline float transformBilinear(const size_t n,
     return acc[0];
 }
 
-static inline void shiftOrigin(void *__restrict__ in, const size_t len, float *__restrict__ out) {
+static inline void shiftOrigin(
+        void *__restrict__ in,
+        const size_t len,
+        float *__restrict__ out) {
 
     size_t i;
     int8_t *buf = in;
@@ -163,13 +193,20 @@ void *processMatrix(void *ctx) {
     float *A = calloc(filterLength + 1, sizeof(float));
     float *B = calloc(filterLength + 1, sizeof(float));
     float *C = calloc(filterLength + 1, sizeof(float));
+    float *D = calloc(filterLength + 1, sizeof(float));
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     consumerArgs *args = ctx;
+    args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
+    args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
+    args->highpassOut = args->highpassOut ? args->highpassOut : 0.000008f;
 
-    theta = args->lowpassOut && args->sampleRate ? (float) M_PI * args->lowpassOut / args->sampleRate : theta;
-    transformBilinear(filterLength, A, B, C, butter);
+    const float theta0 = M_PI * (args->lowpassOut / args->sampleRate);
+    const float theta1 = M_PI * (args->highpassOut / args->sampleRate);
+
+    transformBilinear(filterLength, theta0, A, B, butterLow, 0);
+    transformBilinear(filterLength, theta1, C, D, butterHigh, 1);
 
     while (!args->exitFlag) {
 
@@ -193,6 +230,7 @@ void *processMatrix(void *ctx) {
     free(A);
     free(B);
     free(C);
+    free(D);
 
     return NULL;
 }

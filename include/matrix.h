@@ -44,7 +44,7 @@ typedef struct {
     FILE *outFile;
     pthread_mutex_t mutex;
     float sampleRate;
-    float highpassIn;
+    float highpassOut;
     float lowpassOut;
 } consumerArgs;
 
