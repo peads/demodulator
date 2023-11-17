@@ -226,9 +226,8 @@ void *processMatrix(void *ctx) {
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
 
     const float w = M_PI / args->sampleRate;
-    const float theta0 = args->lowpassOut * w;
 
-    transformBilinear(filterDegree, theta0, A, B, butterLow, storeWarpedButter, 0);
+    transformBilinear(filterDegree, args->lowpassOut * w, A, B, butterLow, storeWarpedButter, 0);
     if (args->lowpassIn) {
         C =  calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
@@ -249,7 +248,7 @@ void *processMatrix(void *ctx) {
             fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
             filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet, B, A);
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
-        }else{
+        } else {
             shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
             filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
             balanceIq(filterRet, DEFAULT_BUF_SIZE);
