@@ -228,7 +228,7 @@ void *processMatrix(void *ctx) {
 
     transformBilinear(filterDegree, args->lowpassOut * w, A, B, butterLow, storeWarpedButter, 0);
     if (args->lowpassIn) {
-        C =  calloc(filterLength, sizeof(float));
+        C = calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
         transformBilinear(filterDegree, args->lowpassIn * w, C, D, butterLow, storeWarpedButter, 0);
     }
