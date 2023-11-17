@@ -216,42 +216,47 @@ void *processMatrix(void *ctx) {
 
     float *A = calloc(filterLength, sizeof(float));
     float *B = calloc(filterLength, sizeof(float));
-    float *C = calloc(filterLength, sizeof(float));
-    float *D = calloc(filterLength, sizeof(float));
+    float *C = NULL;
+    float *D = NULL;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     consumerArgs *args = ctx;
     args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
-    args->lowpassIn = 25000;
 
-    const float theta0 = M_PI * args->lowpassOut / args->sampleRate;
+    const float w = M_PI / args->sampleRate;
+    const float theta0 = args->lowpassOut * w;
 
     transformBilinear(filterDegree, theta0, A, B, butterLow, storeWarpedButter, 0);
-    transformBilinear(filterDegree,
-            M_PI * args->lowpassIn / args->sampleRate,
-            C,
-            D,
-            butterLow,
-            storeWarpedButter,
-            0);
+    if (args->lowpassIn) {
+        C =  calloc(filterLength, sizeof(float));
+        D = calloc(filterLength, sizeof(float));
+        transformBilinear(filterDegree, args->lowpassIn * w, C, D, butterLow, storeWarpedButter, 0);
+    }
 
     while (!args->exitFlag) {
 
-        float *filterRet = calloc(DEFAULT_BUF_SIZE << 1, sizeof(float));
+        float *filterRet = calloc(args->lowpassIn ? DEFAULT_BUF_SIZE << 1 : DEFAULT_BUF_SIZE, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
 
-        shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
-        balanceIq(filterRet, DEFAULT_BUF_SIZE);
-        fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet + DEFAULT_BUF_SIZE, B, A);
-        fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        if (!args->lowpassIn) {
+            shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+            fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet, B, A);
+            fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        }else{
+            shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+            filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
+            balanceIq(filterRet, DEFAULT_BUF_SIZE);
+            fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet + DEFAULT_BUF_SIZE, B, A);
+            fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        }
         free(filterRet);
     }
     free(buf);
