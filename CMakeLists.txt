@@ -122,7 +122,7 @@ else()
 
     if(NO_INTRINSICS AND NO_AVX2 AND NO_AVX512)
         message("-- USING VANILLA C")
-        set(SRCS ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/src/matrix.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/fmath.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c")
+        set(SRCS ${SRCS} "${CMAKE_CURRENT_SOURCE_DIR}/src/matrix.c" "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c")
     elseif(TARGET_ARCH STREQUAL "x86_64" AND (HAS_AVX2 OR HAS_AVX512))
         message("-- USING INTEL INTRINSICS")
 

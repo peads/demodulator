@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix.h"
-#include "fmath.h"
 
 typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
 typedef void (*storeCoeffsFn_t)(uint8_t, size_t, float *, float *, const float *, const float *);
@@ -39,7 +38,7 @@ static inline void fmDemod(const float *__restrict__ in,
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
 
-        zr = 64.f * zj * frcpf(23.f * zr + 41.f * hypotf(zr, zj));
+        zr = 64.f * zj * 1.f/(23.f * zr + 41.f * hypotf(zr, zj));
         out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
