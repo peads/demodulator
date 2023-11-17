@@ -86,7 +86,7 @@ static inline void storeWarpedButter(uint8_t isHighpass,
 
     size_t k;
     for (k = 0; k < n + 1; ++k) {
-        B[k] *= (isHighpass && (k & 1)) ? -acc[0] : acc[0];
+        B[k] *= (isHighpass & k & 1) ? -acc[0] : acc[0];
         A[k] = p[k << 1];
     }
 }
@@ -95,11 +95,12 @@ static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      poleGenerator_t getPole,
+                                      const poleGenerator_t getPole,
                                       const storeCoeffsFn_t store,
                                       const uint8_t mode) {
 
     size_t i, j, k;
+    uint8_t isHighpass = mode & 1;
     float b = 1.f;
     float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
@@ -128,7 +129,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    store(mode, n + 1, A, B, p, acc);
+    store(isHighpass, n + 1, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -171,8 +172,9 @@ static inline void filterOut(float *__restrict__ x,
     size_t i, j, k;
 
     for (i = 0; i < len; ++i) {
-        xp = &x[filterLen + i];
-        yp = &y[filterLen + i];
+        k = filterLen + i;
+        xp = &x[k];
+        yp = &y[k];
         acc = 0;
         for (j = 0; j < filterLen; ++j) {
             k = filterLen - j - 1;
@@ -182,25 +184,62 @@ static inline void filterOut(float *__restrict__ x,
     }
 }
 
+void filterIn(float *__restrict__ x,
+                            const size_t len,
+                            const size_t filterLen,
+                            float *__restrict__ y,
+                            const float *__restrict__ A,
+                            const float *__restrict__ B) {
+
+    float *xp, *yp, acc[2];
+    size_t i, j, k, m;
+
+    for (i = 0; i < len; i += 2) {
+        k = (filterLen << 1) + i;
+        xp = &x[k];
+        yp = &y[k];
+        acc[0] = acc[1] = 0;
+        for (j = 0, m = 0; j < filterLen; ++j, m = j << 1) {
+            k = filterLen - j - 1;
+            acc[0] += A[k] * xp[m] - B[k] * yp[m];
+            acc[1] += A[k] * xp[m + 1] - B[k] * yp[m + 1];
+        }
+        y[i] = acc[0];
+        y[i + 1] = acc[1];
+    }
+}
+
 void *processMatrix(void *ctx) {
 
-    static const size_t filterLength = 7;
-    float *A = calloc(filterLength + 1, sizeof(float));
-    float *B = calloc(filterLength + 1, sizeof(float));
+    static const size_t filterDegree = 7;
+    static const size_t filterLength = filterDegree + 1;
+
+    float *A = calloc(filterLength, sizeof(float));
+    float *B = calloc(filterLength, sizeof(float));
+    float *C = calloc(filterLength, sizeof(float));
+    float *D = calloc(filterLength, sizeof(float));
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
     float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     consumerArgs *args = ctx;
     args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
+    args->lowpassIn = 25000;
 
-    const float theta0 = M_PI * (args->lowpassOut / args->sampleRate);
+    const float theta0 = M_PI * args->lowpassOut / args->sampleRate;
 
-    transformBilinear(filterLength, theta0, A, B, butterLow, storeWarpedButter, 0);
+    transformBilinear(filterDegree, theta0, A, B, butterLow, storeWarpedButter, 0);
+    transformBilinear(filterDegree,
+            M_PI * args->lowpassIn / args->sampleRate,
+            C,
+            D,
+            butterLow,
+            storeWarpedButter,
+            0);
 
     while (!args->exitFlag) {
 
-        float *filterRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
+        float *filterRet = calloc(DEFAULT_BUF_SIZE << 1, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
@@ -208,10 +247,11 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-        balanceIq(fBuf, DEFAULT_BUF_SIZE);
-        fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength + 1, filterRet, B, A);
-        fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+        filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
+        balanceIq(filterRet, DEFAULT_BUF_SIZE);
+        fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
+        filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet + DEFAULT_BUF_SIZE, B, A);
+        fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         free(filterRet);
     }
     free(buf);
