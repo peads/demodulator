@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
             .sampleRate = 0.f,
-            .highpassIn = 0.f,
+            .lowpassIn = 0.f,
             .lowpassOut = 0.f,
             .exitFlag = 0,
     };
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:l:S:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -112,6 +112,9 @@ int main(int argc, char **argv) {
                         ret += printIfError(freopen(NULL, "wb", stdout));
                         args.outFile = stdout;
                     }
+                    break;
+                case 'L':
+                    args.lowpassIn = strtof(optarg, NULL);
                     break;
                 case 'l':
                     args.lowpassOut = strtof(optarg, NULL);

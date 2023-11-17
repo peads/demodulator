@@ -51,14 +51,14 @@ function findCompiler() {
 }
 
 function executeTimedRun() {
-   time build/demodulator -i uint8.dat -o file -S96000 -l6500 ${1}
+   time build/demodulator -i uint8.dat -o file
 }
 
 function executeRun() {
 
-  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  sox -v1.75 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -S96000 -l12500 ${1}\
+    | build/demodulator -i - -o - -S96000 -l12500 \
     | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
@@ -67,7 +67,7 @@ function executeRun2() {
 
   sox -v50 -q -D -twav ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null    \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -S96000 -l6500 ${1}\
+    | build/demodulator -i - -o - -S96000 -l6500 \
     | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r22050 - \
     | multimon-ng -q -c -aFLEX_NEXT -
 }
@@ -101,39 +101,68 @@ findCompiler nvcc hasNvcc
 set -e
 i=0
 for compiler in ${compilers[@]}; do
-  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DNO_INTRINSICS=ON" | grep "The C compiler identification"
-  executeRun
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON" | grep "The C compiler identification"
+  executeRun $compiler "192k" 1
 
-  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd no lowpass in"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} (default options)"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd no lowpass in"
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} (default options)"
   rm -rf file uint8.dat
 
-  executeRun2
-  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} (default options)"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} (default options)"
   rm -rf file uint8.dat
 
-  executeRun "-L12500"
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DNO_AVX512=ON" | grep "The C compiler identification"
+  executeRun $compiler "192k" 1
 
-  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_AVX512=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_AVX512=ON"
   rm -rf file uint8.dat
 
-  executeRun2 "-L7500"
-  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-L7500"
-  executeTimedRun "-L7500"
-  executeTimedRun "-L7500"
-  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_AVX512=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_AVX512=ON"
+  rm -rf file uint8.dat
+
+#  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=ON" | grep "The C compiler identification"
+#  executeRun $compiler "96k" 1
+#
+#  echo ":: STARTING TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+#  executeTimedRun
+#  executeTimedRun
+#  executeTimedRun
+#  echo ":: COMPLETED TIMED RUNS FOR: ${compiler} -DIS_NVIDIA=ON"
+#  rm -rf file uint8.dat
+#
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DIS_NVIDIA=OFF -DNO_INTRINSICS=ON -DNO_AVX512=OFF" | grep "The C compiler identification"
+  executeRun $compiler "192k" 1
+
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  rm -rf file uint8.dat
+
+  executeRun2 "125k" 1
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
+  executeTimedRun
+  executeTimedRun
+  executeTimedRun
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON"
   rm -rf file uint8.dat
 done
 echo "Job's done."

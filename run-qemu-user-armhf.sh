@@ -29,12 +29,11 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DIS_NATIVE=OFF -DNO_INTRINSICS=ON -DIS_VERBOSE=ON \
   -G Ninja -S . -B build
 cmake --build build
-sox -v1.75 -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r384k - \
-  | qemu-arm -L /usr/arm-linux-gnueabihf/ build/demodulator -i - -o - \
-  | sox -q -D -traw -b32 -ef -r192k - -traw -es -b16 -r48k - \
-  | dsd -i - -o /dev/null -n
-sox -v20 -q -D -twav FLEX_Pager_IQ_20150816_929613kHz_IQ.wav -traw -b8 -eunsigned-int -r250k -c2 - \
-    | qemu-arm -L /usr/arm-linux-gnueabihf/ build/demodulator -i - -o - \
-    | tee -i uint8.dat \
-    | sox -v2 -traw -r125k -ef -b32 - -traw -b16 -es -r22050 - \
+sox -q -D -twav SDRSharp_20160101_231914Z_12kHz_IQ.wav  -traw -eunsigned-int -b8 -r192k - \
+    | qemu-arm -L /usr/arm-linux-gnueabihf/  build/demodulator -i - -o - -S96000 -l12500 -L12500 \
+    | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - \
+    | dsd -i - -o /dev/null -n
+sox -v50 -q -D -twav FLEX_Pager_IQ_20150816_929613kHz_IQ.wav -traw -b8 -eunsigned-int -r192k -c2 - \
+    | qemu-arm -L /usr/arm-linux-gnueabihf/ build/demodulator -i - -o - -S96000 -l6500 -L12500 \
+    | sox -q -D -traw -r96k -ef -b32 - -traw -b16 -es -r22050 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -
