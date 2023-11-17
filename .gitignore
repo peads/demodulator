@@ -8,3 +8,4 @@ build*/
 *.raw
 .DS_Store
 CMakeFiles
+junk/
