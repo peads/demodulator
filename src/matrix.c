@@ -77,21 +77,6 @@ static inline void butterLow(const size_t k,
     acc[0] = a;
 }
 
-//static inline void butterHigh(const size_t k,
-//                              const size_t n,
-//                              const float theta,
-//                              float *acc,
-//                              float *z) {
-//
-//    float a, zj;
-//    float zr = warpButter(k, n, theta, z);
-//    zj = z[((k - 1) << 1) + 1];
-//
-//    a = (2.f + zr) * acc[0] - zj * acc[1];
-//    acc[1] = (2.f + zr) * acc[1] + zj * acc[0];
-//    acc[0] = a;
-//}
-
 static inline void storeWarpedButter(uint8_t isHighpass,
                                      size_t n,
                                      float *__restrict__ A,
@@ -105,27 +90,6 @@ static inline void storeWarpedButter(uint8_t isHighpass,
         A[k] = p[k << 1];
     }
 }
-
-//static inline void storeWarpedCButter(uint8_t isHighpass,
-//                                      size_t n,
-//                                      float *__restrict__ A,
-//                                      float *__restrict__ b,
-//                                      const float *__restrict__ p,
-//                                      const float *__restrict__ acc) {
-//
-//    size_t k;
-//    uint8_t highPassEnabled = 0;
-//    float *B = malloc(sizeof(float) * n);
-//    for (k = 0; k < n; k += 2) {
-//        highPassEnabled = isHighpass && ((k >> 1) & 1);
-//        B[k] = b[k >> 1] * (highPassEnabled ? -acc[0] : acc[0]);
-//        B[k + 1] = b[k >> 1] * (highPassEnabled ? -acc[1] : acc[1]);
-//        A[k + 1] = A[k] = p[k];
-//    }
-//
-//    memcpy(b, B, sizeof(float) * n);
-//    free(B);
-//}
 
 static inline float transformBilinear(const size_t n,
                                       const float theta,
@@ -193,34 +157,6 @@ static inline void balanceIq(float *__restrict__ buf, const size_t len) {
     for (i = 0; i < len; i += 2) {
         buf[i] *= alpha;
         buf[i + 1] += beta * buf[i];
-    }
-}
-
-void filterIn(float *__restrict__ x,
-                            const size_t len,
-                            const size_t filterLen,
-                            float *__restrict__ y,
-                            const float *__restrict__ A,
-                            const float *__restrict__ B) {
-
-    float *xp, *yp, temp[2], acc[2];
-    size_t i, j, k;
-
-    for (i = 0; i < len; i += 2) {
-        xp = &x[filterLen + i];
-        yp = &y[filterLen + i];
-        acc[0] = acc[1] = 0;
-        for (j = 0; j < filterLen; j += 2) {
-            k = filterLen - j - 2;
-            temp[0] =   A[k] * xp[j] -      A[k + 1] * xp[j + 1];// - (B[k] * temp[j] - B[k+1] * temp[j+1]);
-            temp[1] =   A[k] * xp[j + 1] +  A[k + 1] * xp[j];
-            temp[0] -=  B[k] * yp[j] -      B[k + 1] * yp[j + 1];
-            temp[1] -=  B[k] * yp[j + 1] +  B[k + 1] * yp[j];
-            acc[0] += temp[0];
-            acc[1] += temp[1];
-        }
-        y[i] = acc[0];
-        y[i + 1] = acc[1];
     }
 }
 
