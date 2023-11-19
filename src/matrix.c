@@ -21,8 +21,7 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
-typedef void (*storeCoeffsFn_t)(uint8_t, size_t, float *, float *, const float *, const float *);
+typedef float (*warpGenerator_t)(size_t, size_t, float, float *);
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -83,14 +82,15 @@ static float warpCheby1(const size_t k, const size_t n, const float theta, float
     return zr;
 }
 
-static inline void butter(const size_t k,
-                          const size_t n,
-                          const float theta,
-                          float *acc,
-                          float *z) {
+static inline void generateCoeffs(const size_t k,
+                                  const size_t n,
+                                  const float theta,
+                                  const warpGenerator_t warp,
+                                  float *acc,
+                                  float *z) {
 
     float a, zj;
-    float zr = warpButter(k, n, theta, z);
+    float zr = warp(k, n, theta, z);
     zj = z[((k - 1) << 1) + 1];
 
     a = zr * acc[0] - zj * acc[1];
@@ -98,23 +98,12 @@ static inline void butter(const size_t k,
     acc[0] = a;
 }
 
-static inline void cheby1(const size_t k, const size_t n, const float theta, float *acc, float *z) {
-
-    float a, zj;
-    float zr = warpCheby1(k, n, theta, z);
-    zj = z[((k - 1) << 1) + 1];
-
-    a = zr * acc[0] - zj * acc[1];
-    acc[1] = zr * acc[1] + zj * acc[0];
-    acc[0] = a;
-}
-
-static inline void storeWarpedButter(uint8_t isHighpass,
-                                     size_t n,
-                                     float *__restrict__ A,
-                                     float *__restrict__ B,
-                                     const float *__restrict__ p,
-                                     const float *__restrict__ acc) {
+static inline void storeCoeffs(uint8_t isHighpass,
+                               size_t n,
+                               float *__restrict__ A,
+                               float *__restrict__ B,
+                               const float *__restrict__ p,
+                               const float *__restrict__ acc) {
 
     size_t k;
     for (k = 0; k < n + 1; ++k) {
@@ -127,8 +116,7 @@ static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      const poleGenerator_t getPole,
-                                      const storeCoeffsFn_t store,
+                                      const warpGenerator_t fn,
                                       const uint8_t mode) {
 
     size_t i, j, k;
@@ -147,7 +135,7 @@ static inline float transformBilinear(const size_t n,
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         b += B[k];
-        getPole(k, n, theta, acc, z);
+        generateCoeffs(k, n, theta, fn, acc, z);
 
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
@@ -161,7 +149,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    store(isHighpass, n + 1, A, B, p, acc);
+    storeCoeffs(isHighpass, n + 1, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -259,12 +247,12 @@ void *processMatrix(void *ctx) {
 
     const float w = M_PI / args->sampleRate;
 
-    transformBilinear(filterDegree, args->lowpassOut * w, A, B, cheby1, storeWarpedButter, 0);
-    transformBilinear(filterDegree, args->lowpassOut * w, A, B, butter, storeWarpedButter, 0);
+    transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpCheby1, 0);
+    transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpButter, 0);
     if (args->lowpassIn) {
         C = calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
-        transformBilinear(filterDegree, args->lowpassIn * w, C, D, butter, storeWarpedButter, 0);
+        transformBilinear(filterDegree, args->lowpassIn * w, C, D, warpButter, 0);
     }
 
 //    float z[2];
