@@ -22,6 +22,7 @@
 #include "matrix.h"
 
 typedef float (*warpGenerator_t)(size_t, size_t, float, float *);
+static float TAN = NAN; //TODO figure out partially applied fns in C to avoid this
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -51,7 +52,7 @@ static inline float warpButter(const size_t k,
     const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
     const float a = cosf(w);
     const float d = 1.f / (a - 1.f / sinf(2.f * theta));
-    const float zr = (a - tanf(theta)) * d;
+    const float zr = (a - TAN) * d;
     const float zj = sinf(w) * d;
 
     z[j] = 1.f - zr;
@@ -60,15 +61,12 @@ static inline float warpButter(const size_t k,
     return zr;
 }
 
-static float warpCheby1(const size_t k, const size_t n, const float theta, float *z) {
-
-    static const float ep = 0.1f;
+static float warpCheby1(const size_t k, const size_t n, const float ep, float *z) {
 
     size_t j = (k - 1) << 1;
     const float v = logf((1.f + powf(10.f, 0.5f * ep)) / sqrtf(powf(10.f, ep) - 1.f)) / (float) n;
     const float t = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)));
 
-    const float TAN = tanf(theta);
     const float a = cosf(t) * coshf(v) * TAN;
     const float b = sinf(t) * sinhf(v) * TAN;
     const float c = a * a + b * b;
@@ -246,17 +244,15 @@ void *processMatrix(void *ctx) {
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
 
     const float w = M_PI / args->sampleRate;
-
-    transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpCheby1, 0);
+    TAN = tanf(args->lowpassOut * w);
     transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpButter, 0);
+
     if (args->lowpassIn) {
+        TAN = tanf(args->lowpassIn * w);
         C = calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
-        transformBilinear(filterDegree, args->lowpassIn * w, C, D, warpButter, 0);
+        transformBilinear(filterDegree, 0.01f, C, D, warpCheby1, 0);
     }
-
-//    float z[2];
-//    warpCheby1(1, 7, args->lowpassOut * w, z);
 
     while (!args->exitFlag) {
 
