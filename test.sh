@@ -72,21 +72,6 @@ function executeRun2() {
     | multimon-ng -q -c -aFLEX_NEXT -
 }
 
-function join_by() {
-  local IFS="$1"; shift; echo "$*";
-}
-
-function findSmVersion() {
-  nvc=`which nvcc`
-  var=(`echo ${nvc} | sed 's/\// /g'`)
-  unset var[-1]
-  unset var[-1]
-  var="/`join_by "/" ${var[*]}`/extras/demo_suite/deviceQuery"
-  var=`eval $var | grep "CUDA Capability Major/Minor version number" \
-    | sed -e "s/\s\+CUDA Capability Major\/Minor version number:\s\+//g"`
-  echo $var
-}
-
 findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
@@ -119,20 +104,20 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500"
+  executeRun "-L12500 -D21"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
+  executeTimedRun "-L12500 -D21"
+  executeTimedRun "-L12500 -D21"
+  executeTimedRun "-L12500 -D21"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2 "-L7500"
+  executeRun2  "-L5000"
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-L6500"
-  executeTimedRun "-L6500"
-  executeTimedRun "-L6500"
+  executeTimedRun "-L5000"
+  executeTimedRun "-L5000"
+  executeTimedRun "-L5000"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done

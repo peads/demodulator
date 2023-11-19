@@ -147,7 +147,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    storeCoeffs(isHighpass, n + 1, A, B, p, acc);
+    storeCoeffs(isHighpass, n, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -229,11 +229,6 @@ void filterIn(float *__restrict__ x,
 
 void *processMatrix(void *ctx) {
 
-    static const size_t filterDegree = 7;
-    static const size_t filterLength = filterDegree + 1;
-
-    float *A = calloc(filterLength, sizeof(float));
-    float *B = calloc(filterLength, sizeof(float));
     float *C = NULL;
     float *D = NULL;
     void *buf = calloc(DEFAULT_BUF_SIZE, 1);
@@ -242,17 +237,24 @@ void *processMatrix(void *ctx) {
     consumerArgs *args = ctx;
     args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
+    args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
+    args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
+    args->epsilon = args->epsilon ? args->epsilon : 0.01f;
+
+    const size_t outFilterLength = args->outFilterDegree + 1;
+    const size_t inFilterLength = args->inFilterDegree + 1;
+    float *A = calloc(outFilterLength, sizeof(float));
+    float *B = calloc(outFilterLength, sizeof(float));
 
     const float w = M_PI / args->sampleRate;
-    const float ep = 0.01f;
     TAN = tanf(args->lowpassOut * w);
-    transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpButter, 0);
+    transformBilinear(args->outFilterDegree, args->lowpassOut * w, A, B, warpButter, 0);
 
     if (args->lowpassIn) {
-        TAN = tanf(args->lowpassIn * coshf(1.f/(float)filterDegree * acoshf(1.f / sqrtf(powf(10, ep) - 1.f))) * w);
-        C = calloc(filterLength, sizeof(float));
-        D = calloc(filterLength, sizeof(float));
-        transformBilinear(filterDegree, ep, C, D, warpCheby1, 0);
+        TAN = tanf(args->lowpassIn * coshf(1.f / (float)args->inFilterDegree * acoshf(1.f / sqrtf(powf(10, args->epsilon) - 1.f))) * w);
+        C = calloc(inFilterLength, sizeof(float));
+        D = calloc(inFilterLength, sizeof(float));
+        transformBilinear(args->inFilterDegree, args->epsilon, C, D, warpCheby1, 0);
     }
 
     while (!args->exitFlag) {
@@ -268,16 +270,16 @@ void *processMatrix(void *ctx) {
         if (!args->lowpassIn) {
             shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
             fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet, B, A);
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, outFilterLength, filterRet, B, A);
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         } else {
             shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
-            filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
+            filterIn(fBuf, DEFAULT_BUF_SIZE, inFilterLength, filterRet, D, C);
             balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
             filterOut(demodRet,
                     DEFAULT_BUF_SIZE >> 2,
-                    filterLength,
+                    outFilterLength,
                     filterRet + DEFAULT_BUF_SIZE,
                     B,
                     A);

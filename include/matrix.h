@@ -46,6 +46,9 @@ typedef struct {
     float sampleRate;
     float lowpassIn;
     float lowpassOut;
+    size_t inFilterDegree;
+    size_t outFilterDegree;
+    float epsilon;
 } consumerArgs;
 
 #ifdef HAS_AVX512

@@ -83,6 +83,9 @@ int main(int argc, char **argv) {
             .sampleRate = 0.f,
             .lowpassIn = 0.f,
             .lowpassOut = 0.f,
+            .inFilterDegree = 0,
+            .outFilterDegree = 0,
+            .epsilon = 0.f,
             .exitFlag = 0,
     };
     SEM_INIT(args.empty, "/empty", 1)
@@ -95,7 +98,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -121,6 +124,15 @@ int main(int argc, char **argv) {
                     break;
                 case 'S':
                     args.sampleRate = strtof(optarg, NULL);
+                    break;
+                case 'D':
+                    args.inFilterDegree = strtol(optarg, NULL, 10);
+                    break;
+                case 'd':
+                    args.outFilterDegree = strtol(optarg, NULL, 10);
+                    break;
+                case 'e':
+                    args.epsilon = strtof(optarg, NULL) / 10.f;
                     break;
                 default:
                     break;
