@@ -21,8 +21,8 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-typedef void (*poleGenerator_t)(size_t, size_t, float, float *, float *);
-typedef void (*storeCoeffsFn_t)(uint8_t, size_t, float *, float *, const float *, const float *);
+typedef float (*warpGenerator_t)(size_t, size_t, float, float *);
+static float TAN = NAN; //TODO figure out partially applied fns in C to avoid this
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -38,7 +38,7 @@ static inline void fmDemod(const float *__restrict__ in,
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
 
-        zr = 64.f * zj * 1.f/(23.f * zr + 41.f * hypotf(zr, zj));
+        zr = 64.f * zj * 1.f / (23.f * zr + 41.f * hypotf(zr, zj));
         out[i >> 2] = isnan(zr) ? 0.f : zr;
     }
 }
@@ -49,11 +49,11 @@ static inline float warpButter(const size_t k,
                                float *z) {
 
     size_t j = (k - 1) << 1;
-    float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
-    float a = cosf(w);
-    float d = 1.f / (a - 1.f / sinf(2.f * theta));
-    float zr = (a - tanf(theta)) * d;
-    float zj = sinf(w) * d;
+    const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
+    const float a = cosf(w);
+    const float d = 1.f / (a - 1.f / sinf(2.f * theta));
+    const float zr = (a - TAN) * d;
+    const float zj = sinf(w) * d;
 
     z[j] = 1.f - zr;
     z[j + 1] = zj;
@@ -61,14 +61,34 @@ static inline float warpButter(const size_t k,
     return zr;
 }
 
-static inline void butterLow(const size_t k,
-                             const size_t n,
-                             const float theta,
-                             float *acc,
-                             float *z) {
+static float warpCheby1(const size_t k, const size_t n, const float ep, float *z) {
+
+    size_t j = (k - 1) << 1;
+    const float v = logf((1.f + powf(10.f, 0.5f * ep)) / sqrtf(powf(10.f, ep) - 1.f)) / (float) n;
+    const float t = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)));
+
+    const float a = cosf(t) * coshf(v) * TAN;
+    const float b = sinf(t) * sinhf(v) * TAN;
+    const float c = a * a + b * b;
+    const float d = 1.f / (1.f + c + 2.f * b);
+    float zj = 2.f * a * d;
+    float zr = 2.f * (b + c) * d;
+
+    z[j] = 1.f - zr;
+    z[j + 1] = zj;
+
+    return zr;
+}
+
+static inline void generateCoeffs(const size_t k,
+                                  const size_t n,
+                                  const float theta,
+                                  const warpGenerator_t warp,
+                                  float *acc,
+                                  float *z) {
 
     float a, zj;
-    float zr = warpButter(k, n, theta, z);
+    float zr = warp(k, n, theta, z);
     zj = z[((k - 1) << 1) + 1];
 
     a = zr * acc[0] - zj * acc[1];
@@ -76,12 +96,12 @@ static inline void butterLow(const size_t k,
     acc[0] = a;
 }
 
-static inline void storeWarpedButter(uint8_t isHighpass,
-                                     size_t n,
-                                     float *__restrict__ A,
-                                     float *__restrict__ B,
-                                     const float *__restrict__ p,
-                                     const float *__restrict__ acc) {
+static inline void storeCoeffs(uint8_t isHighpass,
+                               size_t n,
+                               float *__restrict__ A,
+                               float *__restrict__ B,
+                               const float *__restrict__ p,
+                               const float *__restrict__ acc) {
 
     size_t k;
     for (k = 0; k < n + 1; ++k) {
@@ -94,8 +114,7 @@ static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      const poleGenerator_t getPole,
-                                      const storeCoeffsFn_t store,
+                                      const warpGenerator_t fn,
                                       const uint8_t mode) {
 
     size_t i, j, k;
@@ -114,7 +133,7 @@ static inline float transformBilinear(const size_t n,
 
         B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         b += B[k];
-        getPole(k, n, theta, acc, z);
+        generateCoeffs(k, n, theta, fn, acc, z);
 
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
@@ -128,7 +147,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    store(isHighpass, n + 1, A, B, p, acc);
+    storeCoeffs(isHighpass, n + 1, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -184,11 +203,11 @@ static inline void filterOut(float *__restrict__ x,
 }
 
 void filterIn(float *__restrict__ x,
-                            const size_t len,
-                            const size_t filterLen,
-                            float *__restrict__ y,
-                            const float *__restrict__ A,
-                            const float *__restrict__ B) {
+              const size_t len,
+              const size_t filterLen,
+              float *__restrict__ y,
+              const float *__restrict__ A,
+              const float *__restrict__ B) {
 
     float *xp, *yp, acc[2];
     size_t i, j, k, m;
@@ -225,17 +244,21 @@ void *processMatrix(void *ctx) {
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
 
     const float w = M_PI / args->sampleRate;
+    const float ep = 0.01f;
+    TAN = tanf(args->lowpassOut * w);
+    transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpButter, 0);
 
-    transformBilinear(filterDegree, args->lowpassOut * w, A, B, butterLow, storeWarpedButter, 0);
     if (args->lowpassIn) {
+        TAN = tanf(args->lowpassIn * coshf(1.f/(float)filterDegree * acoshf(1.f / sqrtf(powf(10, ep) - 1.f))) * w);
         C = calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
-        transformBilinear(filterDegree, args->lowpassIn * w, C, D, butterLow, storeWarpedButter, 0);
+        transformBilinear(filterDegree, ep, C, D, warpCheby1, 0);
     }
 
     while (!args->exitFlag) {
 
-        float *filterRet = calloc(args->lowpassIn ? DEFAULT_BUF_SIZE << 1 : DEFAULT_BUF_SIZE, sizeof(float));
+        float *filterRet = calloc(args->lowpassIn ? DEFAULT_BUF_SIZE << 1 : DEFAULT_BUF_SIZE,
+                sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
@@ -252,8 +275,16 @@ void *processMatrix(void *ctx) {
             filterIn(fBuf, DEFAULT_BUF_SIZE, filterLength, filterRet, D, C);
             balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, filterLength, filterRet + DEFAULT_BUF_SIZE, B, A);
-            fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+            filterOut(demodRet,
+                    DEFAULT_BUF_SIZE >> 2,
+                    filterLength,
+                    filterRet + DEFAULT_BUF_SIZE,
+                    B,
+                    A);
+            fwrite(filterRet + DEFAULT_BUF_SIZE,
+                    sizeof(float),
+                    DEFAULT_BUF_SIZE >> 2,
+                    args->outFile);
         }
         free(filterRet);
     }
