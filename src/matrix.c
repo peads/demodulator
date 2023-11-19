@@ -244,14 +244,15 @@ void *processMatrix(void *ctx) {
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
 
     const float w = M_PI / args->sampleRate;
+    const float ep = 0.01f;
     TAN = tanf(args->lowpassOut * w);
     transformBilinear(filterDegree, args->lowpassOut * w, A, B, warpButter, 0);
 
     if (args->lowpassIn) {
-        TAN = tanf(args->lowpassIn * w);
+        TAN = tanf(args->lowpassIn * coshf(1.f/(float)filterDegree * acoshf(1.f / sqrtf(powf(10, ep) - 1.f))) * w);
         C = calloc(filterLength, sizeof(float));
         D = calloc(filterLength, sizeof(float));
-        transformBilinear(filterDegree, 0.01f, C, D, warpCheby1, 0);
+        transformBilinear(filterDegree, ep, C, D, warpCheby1, 0);
     }
 
     while (!args->exitFlag) {
