@@ -96,8 +96,7 @@ static inline void generateCoeffs(const size_t k,
     acc[0] = a;
 }
 
-static inline void storeCoeffs(uint8_t isHighpass,
-                               size_t n,
+static inline void storeCoeffs(size_t n,
                                float *__restrict__ A,
                                float *__restrict__ B,
                                const float *__restrict__ p,
@@ -105,7 +104,7 @@ static inline void storeCoeffs(uint8_t isHighpass,
 
     size_t k;
     for (k = 0; k < n + 1; ++k) {
-        B[k] *= (isHighpass & k & 1) ? -acc[0] : acc[0];
+        B[k] *= acc[0];
         A[k] = p[k << 1];
     }
 }
@@ -114,11 +113,9 @@ static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float *__restrict__ A,
                                       float *__restrict__ B,
-                                      const warpGenerator_t fn,
-                                      const uint8_t mode) {
+                                      const warpGenerator_t fn) {
 
     size_t i, j, k;
-    uint8_t isHighpass = mode & 1;
     float b = 1.f;
     float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
@@ -147,7 +144,7 @@ static inline float transformBilinear(const size_t n,
 
     // Store the output
     acc[0] /= b;
-    storeCoeffs(isHighpass, n, A, B, p, acc);
+    storeCoeffs(n, A, B, p, acc);
     free(p);
     free(t);
     free(z);
@@ -227,6 +224,20 @@ void filterIn(float *__restrict__ x,
     }
 }
 
+static inline void processFilterOption(uint8_t mode, size_t degree, float *A, float *B, float fc, float fs, float epsilon) {
+
+    const float w = M_PI / fs;
+
+    if (mode) {
+        TAN = tanf(fc * coshf(1.f / (float) degree * acoshf(1.f / sqrtf(
+                powf(10, epsilon) - 1.f))) * w);
+        transformBilinear(degree, epsilon, A, B, warpCheby1);
+    } else {
+        TAN = tanf(w * fc);
+        transformBilinear(degree, w * fc, A, B, warpButter);
+    }
+}
+
 void *processMatrix(void *ctx) {
 
     float *C = NULL;
@@ -246,15 +257,14 @@ void *processMatrix(void *ctx) {
     float *A = calloc(outFilterLength, sizeof(float));
     float *B = calloc(outFilterLength, sizeof(float));
 
-    const float w = M_PI / args->sampleRate;
-    TAN = tanf(args->lowpassOut * w);
-    transformBilinear(args->outFilterDegree, args->lowpassOut * w, A, B, warpButter, 0);
+    processFilterOption(args->mode & 1,
+            args->outFilterDegree, A, B, args->lowpassOut, args->sampleRate, args->epsilon);
 
     if (args->lowpassIn) {
-        TAN = tanf(args->lowpassIn * coshf(1.f / (float)args->inFilterDegree * acoshf(1.f / sqrtf(powf(10, args->epsilon) - 1.f))) * w);
         C = calloc(inFilterLength, sizeof(float));
         D = calloc(inFilterLength, sizeof(float));
-        transformBilinear(args->inFilterDegree, args->epsilon, C, D, warpCheby1, 0);
+        processFilterOption((args->mode >> 1) & 1,
+                args->inFilterDegree,  C, D, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
     while (!args->exitFlag) {
@@ -277,16 +287,10 @@ void *processMatrix(void *ctx) {
             filterIn(fBuf, DEFAULT_BUF_SIZE, inFilterLength, filterRet, D, C);
             balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet,
-                    DEFAULT_BUF_SIZE >> 2,
-                    outFilterLength,
-                    filterRet + DEFAULT_BUF_SIZE,
-                    B,
-                    A);
-            fwrite(filterRet + DEFAULT_BUF_SIZE,
-                    sizeof(float),
-                    DEFAULT_BUF_SIZE >> 2,
-                    args->outFile);
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, outFilterLength,
+                    filterRet + DEFAULT_BUF_SIZE, B, A);
+            fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float),
+                    DEFAULT_BUF_SIZE >> 2, args->outFile);
         }
         free(filterRet);
     }

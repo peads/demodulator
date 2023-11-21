@@ -27,9 +27,10 @@ import numpy as np
 from scipy import fft
 
 plt.style.use('dark_background')
-fig, (ax_t, ax_w) = plt.subplots(2, 1, constrained_layout=True)
+fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
-ax_t.set_ylim(0, 1)
+ax_t.set_ylim(0, 10)
+ax_a.set_ylim(-0.01, 0.01)
 
 
 class Chunker(Iterable):
@@ -70,11 +71,18 @@ def animate(y, dt, fftlen):
     w_xlim = ax_w.get_xlim()
     w_ylim = ax_w.get_ylim()
 
+    a_xlim = ax_a.get_xlim()
+    a_ylim = ax_a.get_ylim()
+
     ax_t.clear()
     ax_w.clear()
+    ax_a.clear()
 
     ax_t.set_xlim(t_xlim)
     ax_t.set_ylim(t_ylim)
+
+    ax_a.set_xlim(a_xlim)
+    ax_a.set_ylim(a_ylim)
 
     # amps = np.abs(np.fft.fft(y))
     # freqs = np.fft.fftfreq(len(fft_data))
@@ -82,6 +90,7 @@ def animate(y, dt, fftlen):
     freqs = np.fft.fftfreq(len(amps))
     ax_t.plot(freqs, amps)
     ax_w.specgram(y, Fs=dt, sides='twosided')
+    ax_a.plot(np.arange(0.0, 1.0, 1/len(y)), y)
 
     if w_xlim != (0, 1) and w_ylim != (0, 1):
         ax_w.set_xlim(w_xlim)

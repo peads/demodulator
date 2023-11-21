@@ -49,6 +49,7 @@ typedef struct {
     size_t inFilterDegree;
     size_t outFilterDegree;
     float epsilon;
+    uint8_t mode;
 } consumerArgs;
 
 #ifdef HAS_AVX512

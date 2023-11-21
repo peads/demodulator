@@ -87,6 +87,7 @@ int main(int argc, char **argv) {
             .outFilterDegree = 0,
             .epsilon = 0.f,
             .exitFlag = 0,
+            .mode = 2
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
@@ -98,7 +99,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -133,6 +134,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'e':
                     args.epsilon = strtof(optarg, NULL) / 10.f;
+                    break;
+                case 'm':
+                    args.mode = strtol(optarg, NULL, 10);
                     break;
                 default:
                     break;
