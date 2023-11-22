@@ -280,7 +280,7 @@ void *processMatrix(void *ctx) {
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
-
+ 
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         if (!args->lowpassIn) {
             fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
