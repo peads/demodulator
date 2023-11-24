@@ -95,6 +95,9 @@ static inline void generateCoeffs(const size_t k,
     a = zr * acc[0] - zj * acc[1];
     acc[1] = zr * acc[1] + zj * acc[0];
     acc[0] = a;
+#ifdef VERBOSE
+    fprintf(stderr, "(%f + %f I), ", 1.f - zr, zj);
+#endif
 }
 
 static inline void storeCoeffs(size_t n,
@@ -124,6 +127,9 @@ static inline float transformBilinear(const size_t n,
     float *t = calloc((n << 1), sizeof(float));
     p[0] = B[0] = 1.f;
 
+#ifdef VERBOSE
+    fprintf(stderr, "p: ");
+#endif
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
@@ -143,6 +149,9 @@ static inline float transformBilinear(const size_t n,
         }
     }
 
+#ifdef VERBOSE
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\n", n);
+#endif
     // Store the output
     acc[0] /= b;
     storeCoeffs(n, A, B, p, acc);
@@ -224,19 +233,35 @@ void filterIn(float *__restrict__ x,
         y[i + 1] = acc[1];
     }
 }
-
-static inline void processFilterOption(uint8_t mode, size_t degree, float *A, float *B, float fc, float fs, float epsilon) {
+static inline float processFilterOption(uint8_t mode, size_t degree, float *A, float *B, float fc, float fs, float epsilon) {
 
     const float w = M_PI * fc / fs;
+    float k;
 
     if (mode) {
         TAN = tanf(coshf(1.f / (float) degree * acoshf(1.f / sqrtf(
                 powf(10, epsilon) - 1.f))) * w);
-        transformBilinear(degree, epsilon, A, B, warpCheby1);
+        k = transformBilinear(degree, epsilon, A, B, warpCheby1);
     } else {
         TAN = tanf(w);
-        transformBilinear(degree, w, A, B, warpButter);
+        k = transformBilinear(degree, w, A, B, warpButter);
     }
+
+#ifdef VERBOSE
+    fprintf(stderr, "k: %.5e\n", k);
+    fprintf(stderr, "A: ");
+    for (size_t i = 0; i < degree + 1; ++i) {
+        fprintf(stderr, "%f, ", A[i]);
+    }
+    fprintf(stderr, "\nB: ");
+    for (size_t i = 0; i < degree + 1; ++i) {
+        fprintf(stderr, "%.5e, ", B[i]);
+    }
+
+    fprintf(stderr, "\n");
+#endif
+
+    return k;
 }
 
 void *processMatrix(void *ctx) {
@@ -250,8 +275,8 @@ void *processMatrix(void *ctx) {
     size_t filterOutputLength = DEFAULT_BUF_SIZE;
     consumerArgs *args = ctx;
 
-    args->sampleRate = args->sampleRate ? args->sampleRate : 125.f;
-    args->lowpassOut = args->lowpassOut ? args->lowpassOut : 12.5f;
+    args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
+    args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
     args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
     args->epsilon = args->epsilon ? args->epsilon : 0.01f;
@@ -269,7 +294,7 @@ void *processMatrix(void *ctx) {
         C = calloc(inFilterLength, sizeof(float));
         D = calloc(inFilterLength, sizeof(float));
         processFilterOption((args->mode >> 1) & 1,
-                args->inFilterDegree,  C, D, args->lowpassIn, args->sampleRate, args->epsilon);
+                args->inFilterDegree, C, D, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
     while (!args->exitFlag) {
@@ -288,7 +313,8 @@ void *processMatrix(void *ctx) {
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         } else {
             filterIn(fBuf, DEFAULT_BUF_SIZE, inFilterLength, filterRet, D, C);
-            balanceIq(filterRet, DEFAULT_BUF_SIZE);
+//            if (0)
+                balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
             filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, outFilterLength,
                     filterRet + DEFAULT_BUF_SIZE, B, A);

@@ -15,6 +15,11 @@ if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 endif()
 
+if(IS_VERBOSE)
+    add_compile_definitions(VERBOSE=1)
+endif()
+
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
 target_architecture(TARGET_ARCH)
