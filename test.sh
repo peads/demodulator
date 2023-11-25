@@ -106,7 +106,7 @@ for compiler in ${compilers[@]}; do
 
   executeRun "-L12500 -D21"
 
-  echo ":: STARTING TIMED RUNS 1 FOR: ${complliler} -DNO_INTRINSICS=ON dsd with lowpass in"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
   executeTimedRun "-L12500 -D21"
   executeTimedRun "-L12500 -D21"
   executeTimedRun "-L12500 -D21"

@@ -48,22 +48,23 @@ static inline float warpButter(const size_t k,
                                const float theta,
                                float *z) {
 
-    size_t j = (k - 1) << 1;
+    size_t j = (k - 1) << 2;
     const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
     const float a = cosf(w);
     const float d = 1.f / (a - 1.f / sinf(2.f * theta));
     const float zr = (a - TAN) * d;
     const float zj = sinf(w) * d;
 
-    z[j] = 1.f - zr;
+    z[j + 2] = z[j] = 1.f - zr;
     z[j + 1] = zj;
+    z[j + 3] = -zj;
 
     return zr;
 }
 
 static float warpCheby1(const size_t k, const size_t n, const float ep, float *z) {
 
-    size_t j = (k - 1) << 1;
+    size_t j = (k - 1) << 2;
     const float oneOverN = 1.f  / (float) n;
     const float v = logf((1.f + powf(10.f, 0.5f * ep)) / sqrtf(powf(10.f, ep) - 1.f)) * oneOverN;
     const float t = M_PI_2 * (oneOverN * (-1.f + (float) (k << 1)));
@@ -75,8 +76,9 @@ static float warpCheby1(const size_t k, const size_t n, const float ep, float *z
     float zj = 2.f * a * d;
     float zr = 2.f * (b + c) * d;
 
-    z[j] = 1.f - zr;
+    z[j + 2] = z[j] = 1.f - zr;
     z[j + 1] = zj;
+    z[j + 3] = -zj;
 
     return zr;
 }
@@ -90,13 +92,19 @@ static inline void generateCoeffs(const size_t k,
 
     float a, zj;
     float zr = warp(k, n, theta, z);
-    zj = z[((k - 1) << 1) + 1];
+    zj = z[((k - 1) << 2) + 1]; // 2k - 1
 
-    a = zr * acc[0] - zj * acc[1];
-    acc[1] = zr * acc[1] + zj * acc[0];
-    acc[0] = a;
+    if (k <= n >> 1) {
+        a = zr*zr + zj*zj;
+        acc[0] *= a;
+        acc[1] *= a;
+    } else {
+        a = zr * acc[0] - zj * acc[1];
+        acc[1] = zr * acc[1] + zj * acc[0];
+        acc[0] = a;
+    }
 #ifdef VERBOSE
-    fprintf(stderr, "(%f + %f I), ", 1.f - zr, zj);
+    fprintf(stderr, "(%f +/- %f I), ", 1.f - zr, zj);
 #endif
 }
 
@@ -120,25 +128,27 @@ static inline float transformBilinear(const size_t n,
                                       const warpGenerator_t fn) {
 
     size_t i, j, k;
-    float b = 1.f;
     float acc[2] = {1.f, 0};
     float *p = calloc(((n + 1) << 1), sizeof(float));
-    float *z = calloc((n << 1), sizeof(float));
+    float *z = calloc(((n + 1) << 1), sizeof(float));
     float *t = calloc((n << 1), sizeof(float));
-    p[0] = B[0] = 1.f;
-
+    p[0] = B[0] = B[n] = 1.f;
+    size_t N = n >> 1;
+    N = (n & 1) ? N + 1 : N;
 #ifdef VERBOSE
-    fprintf(stderr, "p: ");
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
 #endif
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
-    for (j = 0, k = 1; k <= n; j += 2, ++k) {
+    for (j = 0, k = 1; k <= N; j += 2, ++k) {
 
-        B[k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
-        b += B[k];
+        B[k] = B[n - k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
         generateCoeffs(k, n, theta, fn, acc, z);
+    }
 
+    // TODO remove this once converted to 2nd order section cascade
+    for (j = 0; j < n << 1; j += 2) {
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
             t[i + 1] = z[j] * p[i + 1] + z[j + 1] * p[i];
@@ -149,11 +159,8 @@ static inline float transformBilinear(const size_t n,
         }
     }
 
-#ifdef VERBOSE
-    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\n", n);
-#endif
     // Store the output
-    acc[0] /= b;
+    acc[0] /= powf(2,(float)n);
     storeCoeffs(n, A, B, p, acc);
     free(p);
     free(t);
@@ -174,7 +181,7 @@ static inline void shiftOrigin(
     }
 }
 
-static inline void balanceIq(float *__restrict__ buf, const size_t len) {
+inline void balanceIq(float *__restrict__ buf, const size_t len) {
 
     static const float alpha = 0.99212598425f;
     static const float beta = 0.00787401574f;
@@ -241,6 +248,9 @@ static inline float processFilterOption(uint8_t mode, size_t degree, float *A, f
     if (mode) {
         TAN = tanf(coshf(1.f / (float) degree * acoshf(1.f / sqrtf(
                 powf(10, epsilon) - 1.f))) * w);
+#ifdef VERBOSE
+        fprintf(stderr, "\nepsilon: %f\nwarp factor: %f", epsilon * 10.f, TAN);
+#endif
         k = transformBilinear(degree, epsilon, A, B, warpCheby1);
     } else {
         TAN = tanf(w);
@@ -248,8 +258,7 @@ static inline float processFilterOption(uint8_t mode, size_t degree, float *A, f
     }
 
 #ifdef VERBOSE
-    fprintf(stderr, "k: %.5e\n", k);
-    fprintf(stderr, "A: ");
+    fprintf(stderr, "\nk: %.5e\nA: ", k);
     for (size_t i = 0; i < degree + 1; ++i) {
         fprintf(stderr, "%f, ", A[i]);
     }
@@ -313,8 +322,7 @@ void *processMatrix(void *ctx) {
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         } else {
             filterIn(fBuf, DEFAULT_BUF_SIZE, inFilterLength, filterRet, D, C);
-//            if (0)
-                balanceIq(filterRet, DEFAULT_BUF_SIZE);
+//            balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
             filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, outFilterLength,
                     filterRet + DEFAULT_BUF_SIZE, B, A);
