@@ -65,7 +65,7 @@ static inline float warpButter(const size_t k,
 static float warpCheby1(const size_t k, const size_t n, const float ep, float *z) {
 
     size_t j = (k - 1) << 2;
-    const float oneOverN = 1.f  / (float) n;
+    const float oneOverN = 1.f / (float) n;
     const float v = logf((1.f + powf(10.f, 0.5f * ep)) / sqrtf(powf(10.f, ep) - 1.f)) * oneOverN;
     const float t = M_PI_2 * (oneOverN * (-1.f + (float) (k << 1)));
 
@@ -95,7 +95,7 @@ static inline void generateCoeffs(const size_t k,
     zj = z[((k - 1) << 2) + 1]; // 2k - 1
 
     if (k <= n >> 1) {
-        a = zr*zr + zj*zj;
+        a = zr * zr + zj * zj;
         acc[0] *= a;
         acc[1] *= a;
     } else {
@@ -119,6 +119,89 @@ static inline void storeCoeffs(size_t n,
         B[k] *= acc[0];
         A[k] = p[k << 1];
     }
+}
+
+/// Note this simplification will not work for non-bilinear transform transfer functions
+void zp2Sos(const size_t n, float *z, float *p, const float k, float sos[][6]) {
+
+    size_t i, j;
+    size_t npc = n >> 1;
+    size_t npr = 0;
+
+    if (n & 1) {
+        npr = 1;
+    }
+
+    for (j = 0, i = 0; j < npc; i += 4, ++j) {
+        sos[j][3] = sos[j][0] = 1.f;
+        sos[j][1] = -2.f * z[i];
+        sos[j][2] = z[i] * z[i] + z[i + 1] * z[i + 1];
+        sos[j][4] = -2.f * p[i];
+        sos[j][5] = p[i] * p[i] + p[i + 1] * p[i + 1];
+    }
+
+    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
+        sos[j][3] = sos[j][0] = 1.f;
+        sos[j][1] = -z[i];
+        sos[j][5] = sos[j][2] = 0.f;
+        sos[j][4] = -p[i];
+    }
+}
+
+static inline float transformBilinearSos(const size_t n,
+                                         const float theta,
+                                         float sos[][6],
+                                         const warpGenerator_t fn) {
+
+    size_t i, j, k;
+    float acc[2] = {1.f, 0};
+    float *p = calloc(((n + 1) << 1), sizeof(float));
+    float *z = calloc(((n + 1) << 1), sizeof(float));
+    float *t = calloc((n << 1), sizeof(float));
+    size_t N = n >> 1;
+    N = (n & 1) ? N + 1 : N;
+#ifdef VERBOSE
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
+#endif
+    // Generate roots of bilinear transform
+    // Perform running sum of coefficients
+    // Expand roots into coefficients of monic polynomial
+    for (j = 0, k = 1; k <= N; j += 2, ++k) {
+        generateCoeffs(k, n, theta, fn, acc, p);
+    }
+
+    // Store the gain
+    acc[0] /= powf(2.f, (float) n);
+
+    for (i = 0; i < n << 1; i += 2) {
+        z[i] = -1.f;
+        z[i + 1] = 0;
+    }
+
+    k = n >> 1;
+    k = (n & 1) ? k + 1 : k;
+    for (i = 0; i < k; ++i) {
+        for (j = 0; j < 6; ++j) {
+            sos[i][j] = 0;
+        }
+    }
+
+    zp2Sos(n, z, p, acc[0], sos);
+
+#ifdef VERBOSE
+    fprintf(stderr, "\n");
+    for (i = 0; i < k; ++i) {
+        for (j = 0; j < 6; ++j) {
+            fprintf(stderr, "%f ", sos[i][j]);
+        }
+        fprintf(stderr, "\n");
+    }
+#endif
+
+    free(p);
+    free(t);
+    free(z);
+    return acc[0];
 }
 
 static inline float transformBilinear(const size_t n,
@@ -147,7 +230,6 @@ static inline float transformBilinear(const size_t n,
         generateCoeffs(k, n, theta, fn, acc, z);
     }
 
-    // TODO remove this once converted to 2nd order section cascade
     for (j = 0; j < n << 1; j += 2) {
         for (i = 0; i <= j; i += 2) {
             t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
@@ -160,8 +242,9 @@ static inline float transformBilinear(const size_t n,
     }
 
     // Store the output
-    acc[0] /= powf(2,(float)n);
+    acc[0] /= powf(2.f, (float) n);
     storeCoeffs(n, A, B, p, acc);
+
     free(p);
     free(t);
     free(z);
@@ -190,6 +273,29 @@ inline void balanceIq(float *__restrict__ buf, const size_t len) {
     for (i = 0; i < len; i += 2) {
         buf[i] *= alpha;
         buf[i + 1] += beta * buf[i];
+    }
+}
+
+static inline void filterOutSos(float *__restrict__ x,
+                                const size_t len,
+                                const size_t filterDegree,
+                                float *__restrict__ y,
+                                const float sos[][6], const float k) {
+
+    float a, b;
+    float *xp, *yp;
+    size_t i, m;
+
+    for (i = 0; i < len; ++i) {
+        xp = &x[i + filterDegree];
+        yp = &y[i + filterDegree];
+        b = 0;
+        a = 0;
+        for (m = 0; m < filterDegree; ++m) {
+            b += sos[m][0] + sos[m][1] * yp[m] + sos[m][2] * yp[m + 1];
+            a += sos[m][3] + sos[m][4] * xp[m] + sos[m][5] * xp[m + 1];
+        }
+        y[i] = -(a - b);
     }
 }
 
@@ -240,7 +346,14 @@ void filterIn(float *__restrict__ x,
         y[i + 1] = acc[1];
     }
 }
-static inline float processFilterOption(uint8_t mode, size_t degree, float *A, float *B, float fc, float fs, float epsilon) {
+
+static inline float processFilterOption(uint8_t mode,
+                                        size_t degree,
+                                        float *A,
+                                        float *B,
+                                        float fc,
+                                        float fs,
+                                        float epsilon) {
 
     const float w = M_PI * fc / fs;
     float k;
@@ -292,13 +405,30 @@ void *processMatrix(void *ctx) {
 
     const size_t outFilterLength = args->outFilterDegree + 1;
     const size_t inFilterLength = args->inFilterDegree + 1;
+    size_t m = args->outFilterDegree >> 1;
+    m = (args->outFilterDegree & 1) ? m + 1 : m;
     float *A = calloc(outFilterLength, sizeof(float));
     float *B = calloc(outFilterLength, sizeof(float));
+    float k = 1.f;
+    float sos[m][6];
 
-    processFilterOption(args->mode & 1,
-            args->outFilterDegree, A, B, args->lowpassOut, args->sampleRate, args->epsilon);
+    if (!args->lowpassIn) {
+        const float w = M_PI * args->lowpassOut / args->sampleRate;
 
-    if (args->lowpassIn) {
+        if (args->mode & 1) {
+            TAN = tanf(coshf(1.f / (float) args->outFilterDegree * acoshf(1.f / sqrtf(
+                    powf(10, args->epsilon) - 1.f))) * w);
+#ifdef VERBOSE
+            fprintf(stderr, "\nepsilon: %f\nwarp factor: %f", args->epsilon * 10.f, TAN);
+#endif
+            k = transformBilinearSos(args->outFilterDegree, args->epsilon, sos, warpCheby1);
+        } else {
+            TAN = tanf(w);
+            k = transformBilinearSos(args->outFilterDegree, w, sos, warpButter);
+        }
+    } else {
+        processFilterOption(args->mode & 1,
+                args->outFilterDegree, A, B, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
         C = calloc(inFilterLength, sizeof(float));
         D = calloc(inFilterLength, sizeof(float));
@@ -314,11 +444,11 @@ void *processMatrix(void *ctx) {
         memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
- 
+
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         if (!args->lowpassIn) {
             fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, outFilterLength, filterRet, B, A);
+            filterOutSos(demodRet, DEFAULT_BUF_SIZE >> 2, m, filterRet, sos, k);
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         } else {
             filterIn(fBuf, DEFAULT_BUF_SIZE, inFilterLength, filterRet, D, C);
