@@ -108,19 +108,6 @@ static inline void generateCoeffs(const size_t k,
 #endif
 }
 
-//static inline void storeCoeffs(size_t n,
-//                               float *__restrict__ A,
-//                               float *__restrict__ B,
-//                               const float *__restrict__ p,
-//                               const float *__restrict__ acc) {
-//
-//    size_t k;
-//    for (k = 0; k < n + 1; ++k) {
-//        B[k] *= acc[0];
-//        A[k] = p[k << 1];
-//    }
-//}
-
 /// Note this simplification will not work for non-bilinear transform transfer functions
 void zp2Sos(const size_t n, float *z, float *p, const float k, float sos[][6]) {
 
@@ -204,53 +191,6 @@ static inline float transformBilinearSos(const size_t n,
     return acc[0];
 }
 
-//static inline float transformBilinear(const size_t n,
-//                                      const float theta,
-//                                      float *__restrict__ A,
-//                                      float *__restrict__ B,
-//                                      const warpGenerator_t fn) {
-//
-//    size_t i, j, k;
-//    float acc[2] = {1.f, 0};
-//    float *p = calloc(((n + 1) << 1), sizeof(float));
-//    float *z = calloc(((n + 1) << 1), sizeof(float));
-//    float *t = calloc((n << 1), sizeof(float));
-//    p[0] = B[0] = B[n] = 1.f;
-//    size_t N = n >> 1;
-//    N = (n & 1) ? N + 1 : N;
-//#ifdef VERBOSE
-//    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
-//#endif
-//    // Generate roots of bilinear transform
-//    // Perform running sum of coefficients
-//    // Expand roots into coefficients of monic polynomial
-//    for (j = 0, k = 1; k <= N; j += 2, ++k) {
-//
-//        B[k] = B[n - k] = B[k - 1] * (float) (n - k + 1) / (float) (k);
-//        generateCoeffs(k, n, theta, fn, acc, z);
-//    }
-//
-//    for (j = 0; j < n << 1; j += 2) {
-//        for (i = 0; i <= j; i += 2) {
-//            t[i] = z[j] * p[i] - z[j + 1] * p[i + 1];
-//            t[i + 1] = z[j] * p[i + 1] + z[j + 1] * p[i];
-//        }
-//        for (i = 0; i < j + 2; i += 2) {
-//            p[i + 2] -= t[i];
-//            p[i + 3] -= t[i + 1];
-//        }
-//    }
-//
-//    // Store the output
-//    acc[0] /= powf(2.f, (float) n);
-//    storeCoeffs(n, A, B, p, acc);
-//
-//    free(p);
-//    free(t);
-//    free(z);
-//    return acc[0];
-//}
-
 static inline void shiftOrigin(
         void *__restrict__ in,
         const size_t len,
@@ -294,32 +234,9 @@ static inline void filterOutSos(float *__restrict__ x,
             b += sos[m][0] + sos[m][1] * yp[m] + sos[m][2] * yp[m + 1];
             a += sos[m][3] + sos[m][4] * xp[m] + sos[m][5] * xp[m + 1];
         }
-        y[i] = -(a - b);
+        y[i] = -k*(a - b);
     }
 }
-
-//static inline void filterOut(float *__restrict__ x,
-//                             const size_t len,
-//                             const size_t filterLen,
-//                             float *__restrict__ y,
-//                             const float *__restrict__ A,
-//                             const float *__restrict__ B) {
-//
-//    float *xp, *yp, acc;
-//    size_t i, j, k;
-//
-//    for (i = 0; i < len; ++i) {
-//        k = filterLen + i;
-//        xp = &x[k];
-//        yp = &y[k];
-//        acc = 0;
-//        for (j = 0; j < filterLen; ++j) {
-//            k = filterLen - j - 1;
-//            acc += A[k] * xp[j] - B[k] * yp[j];
-//        }
-//        y[i] = acc;
-//    }
-//}
 
 static inline void filterInSos(float *__restrict__ x,
                                const size_t len,
@@ -344,35 +261,10 @@ static inline void filterInSos(float *__restrict__ x,
             a[1] += sos[m][3] + sos[m][4] * xp[j + 1] + sos[m][5] * xp[j + 3];
             b[1] += sos[m][0] + sos[m][1] * yp[j + 1] + sos[m][2] * yp[j + 3];
         }
-        y[i] = -(a[0] - b[0]);
-        y[i + 1] = -(a[1] - b[1]);
+        y[i] = -k*(a[0] - b[0]);
+        y[i + 1] = -k*(a[1] - b[1]);
     }
 }
-
-//void filterIn(float *__restrict__ x,
-//              const size_t len,
-//              const size_t filterLen,
-//              float *__restrict__ y,
-//              const float *__restrict__ A,
-//              const float *__restrict__ B) {
-//
-//    float *xp, *yp, acc[2];
-//    size_t i, j, k, m;
-//
-//    for (i = 0; i < len; i += 2) {
-//        k = (filterLen << 1) + i;
-//        xp = &x[k];
-//        yp = &y[k];
-//        acc[0] = acc[1] = 0;
-//        for (j = 0, m = 0; j < filterLen; ++j, m = j << 1) {
-//            k = filterLen - j - 1;
-//            acc[0] += A[k] * xp[m] - B[k] * yp[m];
-//            acc[1] += A[k] * xp[m + 1] - B[k] * yp[m + 1];
-//        }
-//        y[i] = acc[0];
-//        y[i + 1] = acc[1];
-//    }
-//}
 
 static inline float processFilterOption(uint8_t mode,
                                         size_t degree,
@@ -428,7 +320,7 @@ void *processMatrix(void *ctx) {
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
         processFilterOption((args->mode >> 1) & 1,
-                args->inFilterDegree, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
+                args->outFilterDegree, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
     while (!args->exitFlag) {
