@@ -266,8 +266,8 @@ static inline void filterIn(float *__restrict__ x,
         xp = &x[j];
         yp = &y[j];
         b[0] = b[1] = a[0] = a[1] = 0;
-        for (m = 0; m < filterDegree; m += 2) {
-            j = m << 2;
+        for (m = 0; m < filterDegree; ++m) {
+            j = m << 1;
             a[0] += sos[m][3] + sos[m][4] * xp[j] + sos[m][5] * xp[j + 2];
             b[0] += sos[m][0] + sos[m][1] * yp[j] + sos[m][2] * yp[j + 2];
 
