@@ -113,11 +113,11 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2  "-m3 -L12.5"
+  executeRun2  "-e3 -m3 -L9.5"
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-m3 -L12.5"
-  executeTimedRun "-m3 -L12.5"
-  executeTimedRun "-m3 -L12.5"
+  executeTimedRun "-e3 -m3 -L9.5"
+  executeTimedRun "-e3 -m3 -L9.5"
+  executeTimedRun "-e3 -m3 -L9.5"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done

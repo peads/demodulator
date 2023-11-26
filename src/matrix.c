@@ -135,10 +135,10 @@ void zp2Sos(const size_t n, float *z, float *p, const float k, float sos[][6]) {
     }
 }
 
-static inline float transformBilinearSos(const size_t n,
-                                         const float theta,
-                                         float sos[][6],
-                                         const warpGenerator_t fn) {
+static inline float transformBilinear(const size_t n,
+                                      const float theta,
+                                      float sos[][6],
+                                      const warpGenerator_t fn) {
 
     size_t i, j, k;
     float acc[2] = {1.f, 0};
@@ -198,9 +198,21 @@ static inline void shiftOrigin(
 
     size_t i;
     int8_t *buf = in;
-    for (i = 0; i < len; i += 2) {
+    float mva[2] = {};
+    for (i = 0; i < len >> 1; i += 2) {
         out[i] = (int8_t) (buf[i] - 127);
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
+
+        out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
+        out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
+
+        mva[0] += (out[i] - out[len - i - 2])/(float)len;
+        mva[1] += (out[i+1] - out[len - i - 1])/(float)len ;
+    }
+
+    for (i = 0; i < len; i += 2) {
+        out[i] -= mva[0];
+        out[i+1] -= mva[1];
     }
 }
 
@@ -216,19 +228,20 @@ inline void balanceIq(float *__restrict__ buf, const size_t len) {
     }
 }
 
-static inline void filterOutSos(float *__restrict__ x,
-                                const size_t len,
-                                const size_t filterDegree,
-                                float *__restrict__ y,
-                                const float sos[][6], const float k) {
+static inline void filterOut(float *__restrict__ x,
+                             const size_t len,
+                             const size_t filterDegree,
+                             float *__restrict__ y,
+                             const float sos[][6], const float k) {
 
     float a, b;
     float *xp, *yp;
-    size_t i, m;
+    size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
-        xp = &x[i + filterDegree];
-        yp = &y[i + filterDegree];
+        j = i + filterDegree;
+        xp = &x[j];
+        yp = &y[j];
         b = a = 0;
         for (m = 0; m < filterDegree; ++m) {
             b += sos[m][0] + sos[m][1] * yp[m] + sos[m][2] * yp[m + 1];
@@ -238,18 +251,18 @@ static inline void filterOutSos(float *__restrict__ x,
     }
 }
 
-static inline void filterInSos(float *__restrict__ x,
-                               const size_t len,
-                               const size_t filterDegree,
-                               float *__restrict__ y,
-                               const float sos[][6], const float k) {
+static inline void filterIn(float *__restrict__ x,
+                            const size_t len,
+                            const size_t filterDegree,
+                            float *__restrict__ y,
+                            const float sos[][6], const float k) {
 
     float a[2], b[2];
     float *xp, *yp;
     size_t i, j, m;
 
-    for (i = 0; i < len; i += 2) {
-        j = (i + filterDegree);
+    for (i = 0; i < len; ++i) {
+        j = i + (filterDegree << 1);
         xp = &x[j];
         yp = &y[j];
         b[0] = b[1] = a[0] = a[1] = 0;
@@ -282,10 +295,10 @@ static inline float processFilterOption(uint8_t mode,
 #ifdef VERBOSE
         fprintf(stderr, "\nepsilon: %f\nwarp factor: %f", epsilon * 10.f, TAN);
 #endif
-        k = transformBilinearSos(degree, epsilon, sos, warpCheby1);
+        k = transformBilinear(degree, epsilon, sos, warpCheby1);
     } else {
         TAN = tanf(w);
-        k = transformBilinearSos(degree, w, sos, warpButter);
+        k = transformBilinear(degree, w, sos, warpButter);
     }
 
     return k;
@@ -304,7 +317,7 @@ void *processMatrix(void *ctx) {
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
     args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
-    args->epsilon = args->epsilon ? args->epsilon : 0.01f;
+    args->epsilon = args->epsilon ? args->epsilon : .3f;
 
     size_t m = args->outFilterDegree >> 1;
     m = (args->outFilterDegree & 1) ? m + 1 : m;
@@ -335,13 +348,13 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
         if (!args->lowpassIn) {
             fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-            filterOutSos(demodRet, DEFAULT_BUF_SIZE >> 2, m, filterRet, sosOut, k);
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, m, filterRet, sosOut, k);
             fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
         } else {
-            filterInSos(fBuf, DEFAULT_BUF_SIZE, m, filterRet, sosIn, k);
+            filterIn(fBuf, DEFAULT_BUF_SIZE, m, filterRet, sosIn, k);
 //            balanceIq(filterRet, DEFAULT_BUF_SIZE);
             fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
-            filterOutSos(demodRet, DEFAULT_BUF_SIZE >> 2, m,
+            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, m,
                     filterRet + DEFAULT_BUF_SIZE, sosOut, k);
             fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float),
                     DEFAULT_BUF_SIZE >> 2, args->outFile);
