@@ -65,6 +65,7 @@ static inline int startProcessingMatrix(
             args->exitFlag = -3;
             break;
         }
+        args->bufSize = elementsRead;
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->full);
     }
