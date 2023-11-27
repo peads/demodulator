@@ -53,7 +53,7 @@ static inline int startProcessingMatrix(
 
         sem_wait(args->empty);
         pthread_mutex_lock(&args->mutex);
-        elementsRead = fread(args->buf, 1, DEFAULT_BUF_SIZE, inFile);
+        elementsRead = fread(args->buf, 1, args->bufSize, inFile);
 
         if ((args->exitFlag = ferror(inFile))) {
             perror(NULL);
@@ -142,7 +142,8 @@ int main(int argc, char **argv) {
                     break;
                 case 'b':
                     args.bufSize = strtol(optarg, NULL, 10);
-                    args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args.bufSize;
+                    args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args
+                            .bufSize;
                     break;
                 default:
                     break;
