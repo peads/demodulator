@@ -42,7 +42,7 @@ static inline int startProcessingMatrix(
     size_t elementsRead;
     pthread_t pid;
 
-    allocateBuffer(&args->buf, DEFAULT_BUF_SIZE);
+    allocateBuffer(&args->buf, args->bufSize);
 
     args->exitFlag |= printIfError(
             pthread_create(&pid, NULL, processMatrix, args)
@@ -87,7 +87,8 @@ int main(int argc, char **argv) {
             .outFilterDegree = 0,
             .epsilon = 0.f,
             .exitFlag = 0,
-            .mode = 2
+            .mode = 2,
+            .bufSize = DEFAULT_BUF_SIZE
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
@@ -99,7 +100,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -127,8 +128,9 @@ int main(int argc, char **argv) {
                     args.sampleRate = strtof(optarg, NULL);
                     break;
                 case 'D':
-                    args.inFilterDegree = strtol(optarg, NULL, 10);
-                    break;
+                    // TODO re-separate these for different input and output degrees
+//                    args.inFilterDegree = strtol(optarg, NULL, 10);
+//                    break;
                 case 'd':
                     args.outFilterDegree = strtol(optarg, NULL, 10);
                     break;
@@ -137,6 +139,10 @@ int main(int argc, char **argv) {
                     break;
                 case 'm':
                     args.mode = strtol(optarg, NULL, 10);
+                    break;
+                case 'b':
+                    args.bufSize = strtol(optarg, NULL, 10);
+                    args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args.bufSize;
                     break;
                 default:
                     break;

@@ -22,6 +22,7 @@
 #include "matrix.h"
 
 typedef float (*warpGenerator_t)(size_t, size_t, float, float *);
+typedef float (*windowGenerator_t)(size_t, size_t);
 static float TAN = NAN; //TODO figure out partially applied fns in C to avoid this
 
 static inline void fmDemod(const float *__restrict__ in,
@@ -83,6 +84,23 @@ static float warpCheby1(const size_t k, const size_t n, const float ep, float *z
     return zr;
 }
 
+static inline float generateHannCoefficient(const size_t k, const size_t n) {
+//static float *windowIn = NULL;
+    static float *windowOut = NULL;
+    if (!windowOut) {
+        size_t i, N = n >> 1;
+        N = (n & 1) ? N + 1 : N;
+        windowOut = calloc(n, sizeof(float));
+        double x;
+        for (i = 0; i < N; ++i) {
+            x = sin(M_PI * (double) (i + 1) / (double) (n + 1));
+            x *= x;
+            windowOut[n - i - 1] = windowOut[i] = (float) x;
+        }
+    }
+    return windowOut[k];
+}
+
 static inline void generateCoeffs(const size_t k,
                                   const size_t n,
                                   const float theta,
@@ -109,7 +127,7 @@ static inline void generateCoeffs(const size_t k,
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
-void zp2Sos(const size_t n, float *z, float *p, const float k, float sos[][6]) {
+void zp2Sos(const size_t n, const float *z, const float *p, float sos[][6]) {
 
     size_t i, j;
     size_t npc = n >> 1;
@@ -138,7 +156,7 @@ void zp2Sos(const size_t n, float *z, float *p, const float k, float sos[][6]) {
 static inline float transformBilinear(const size_t n,
                                       const float theta,
                                       float sos[][6],
-                                      const warpGenerator_t fn) {
+                                      const warpGenerator_t warp) {
 
     size_t i, j, k;
     float acc[2] = {1.f, 0};
@@ -154,7 +172,7 @@ static inline float transformBilinear(const size_t n,
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
     for (j = 0, k = 1; k <= N; j += 2, ++k) {
-        generateCoeffs(k, n, theta, fn, acc, p);
+        generateCoeffs(k, n, theta, warp, acc, p);
     }
 
     // Store the gain
@@ -173,7 +191,7 @@ static inline float transformBilinear(const size_t n,
         }
     }
 
-    zp2Sos(n, z, p, acc[0], sos);
+    zp2Sos(n, z, p, sos);
 
 #ifdef VERBOSE
     fprintf(stderr, "\n");
@@ -206,13 +224,13 @@ static inline void shiftOrigin(
         out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
         out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
 
-        mva[0] += (out[i] - out[len - i - 2])/(float)len;
-        mva[1] += (out[i+1] - out[len - i - 1])/(float)len ;
+        mva[0] += (out[i] - out[len - i - 2]) / (float) len;
+        mva[1] += (out[i + 1] - out[len - i - 1]) / (float) len;
     }
 
     for (i = 0; i < len; i += 2) {
         out[i] -= mva[0];
-        out[i+1] -= mva[1];
+        out[i + 1] -= mva[1];
     }
 }
 
@@ -232,10 +250,12 @@ static inline void filterOut(float *__restrict__ x,
                              const size_t len,
                              const size_t filterDegree,
                              float *__restrict__ y,
-                             const float sos[][6], const float k) {
+                             const float sos[][6],
+                             const float k,
+                             const windowGenerator_t wind) {
 
     float a, b;
-    float *xp, *yp;
+    float *xp, *yp, c[2];
     size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
@@ -244,10 +264,14 @@ static inline void filterOut(float *__restrict__ x,
         yp = &y[j];
         b = a = 0;
         for (m = 0; m < filterDegree; ++m) {
+
+            c[0] = wind(m, filterDegree);
+            c[1] = wind(m + 1, filterDegree);
+
             b += sos[m][0] + sos[m][1] * yp[m] + sos[m][2] * yp[m + 1];
-            a += sos[m][3] + sos[m][4] * xp[m] + sos[m][5] * xp[m + 1];
+            a += sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
         }
-        y[i] = -k*(a - b);
+        y[i] = -k * (a - b);
     }
 }
 
@@ -255,27 +279,37 @@ static inline void filterIn(float *__restrict__ x,
                             const size_t len,
                             const size_t filterDegree,
                             float *__restrict__ y,
-                            const float sos[][6], const float k) {
+                            const float sos[][6],
+                            const float k,
+                            const windowGenerator_t wind) {
 
     float a[2], b[2];
-    float *xp, *yp;
-    size_t i, j, m;
+    float *xp, *yp, c[2] = {};
+    size_t i, l, j, m;
 
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < len; i += 2) {
+
         j = i + (filterDegree << 1);
+        yp = &y[i];
         xp = &x[j];
-        yp = &y[j];
         b[0] = b[1] = a[0] = a[1] = 0;
-        for (m = 0; m < filterDegree; ++m) {
-            j = m << 1;
-            a[0] += sos[m][3] + sos[m][4] * xp[j] + sos[m][5] * xp[j + 2];
-            b[0] += sos[m][0] + sos[m][1] * yp[j] + sos[m][2] * yp[j + 2];
 
-            a[1] += sos[m][3] + sos[m][4] * xp[j + 1] + sos[m][5] * xp[j + 3];
-            b[1] += sos[m][0] + sos[m][1] * yp[j + 1] + sos[m][2] * yp[j + 3];
+        for (m = 0; m < filterDegree; ++m) {
+
+            l = m << 1;
+
+            c[0] = wind(m, filterDegree);
+            c[1] = wind(m + 1, filterDegree);
+
+            a[0] += sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
+            b[0] += sos[m][0] + sos[m][1] * yp[l] + sos[m][2] * yp[l + 2];
+
+            a[1] += sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
+            b[1] += sos[m][0] + sos[m][1] * yp[l + 1] + sos[m][2] * yp[l + 3];
         }
-        y[i] = -k*(a[0] - b[0]);
-        y[i + 1] = -k*(a[1] - b[1]);
+
+        y[i] = -k * (a[0] - b[0]);
+        y[i + 1] = -k * (a[1] - b[1]);
     }
 }
 
@@ -306,12 +340,12 @@ static inline float processFilterOption(uint8_t mode,
 
 void *processMatrix(void *ctx) {
 
-    void *buf = calloc(DEFAULT_BUF_SIZE, 1);
-    float *fBuf = calloc(DEFAULT_BUF_SIZE, sizeof(float));
-    float *demodRet = calloc(DEFAULT_BUF_SIZE, sizeof(float));
     float *filterRet;
-    size_t filterOutputLength = DEFAULT_BUF_SIZE;
     consumerArgs *args = ctx;
+    void *buf = calloc(args->bufSize, 1);
+    float *fBuf = calloc(args->bufSize, sizeof(float));
+    float *demodRet = calloc(args->bufSize, sizeof(float));
+    size_t filterOutputLength = args->bufSize;
 
     args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
     args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
@@ -341,23 +375,29 @@ void *processMatrix(void *ctx) {
         filterRet = calloc(filterOutputLength, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
-        memcpy(buf, args->buf, DEFAULT_BUF_SIZE);
+        memcpy(buf, args->buf, args->bufSize);
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
 
-        shiftOrigin(buf, DEFAULT_BUF_SIZE, fBuf);
+        shiftOrigin(buf, args->bufSize, fBuf);
         if (!args->lowpassIn) {
-            fmDemod(fBuf, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, m, filterRet, sosOut, k);
-            fwrite(filterRet, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
+            fmDemod(fBuf, args->bufSize, demodRet);
+            filterOut(demodRet,
+                    args->bufSize >> 2,
+                    m,
+                    filterRet,
+                    sosOut,
+                    k,
+                    generateHannCoefficient);
+            fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
         } else {
-            filterIn(fBuf, DEFAULT_BUF_SIZE, m, filterRet, sosIn, k);
-//            balanceIq(filterRet, DEFAULT_BUF_SIZE);
-            fmDemod(filterRet, DEFAULT_BUF_SIZE, demodRet);
-            filterOut(demodRet, DEFAULT_BUF_SIZE >> 2, m,
-                    filterRet + DEFAULT_BUF_SIZE, sosOut, k);
-            fwrite(filterRet + DEFAULT_BUF_SIZE, sizeof(float),
-                    DEFAULT_BUF_SIZE >> 2, args->outFile);
+            filterIn(fBuf, args->bufSize, m, filterRet, sosIn, k, generateHannCoefficient);
+//            balanceIq(filterRet, args->bufSize);
+            fmDemod(filterRet, args->bufSize, demodRet);
+            filterOut(demodRet, args->bufSize >> 2, m,
+                    filterRet + args->bufSize, sosOut, k, generateHannCoefficient);
+            fwrite(filterRet + args->bufSize, sizeof(float),
+                    args->bufSize >> 2, args->outFile);
         }
         free(filterRet);
     }
