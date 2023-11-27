@@ -56,19 +56,19 @@ function executeTimedRun() {
 
 function executeRun() {
 
-  sox -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -S96000 -l12500 ${1}\
-    | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -i - -o - -l12.5 -S96\
+    | sox  -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
 
 function executeRun2() {
 
-  sox -v50 -q -D -twav ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null    \
+  sox -v100 -q -D -twav ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null    \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -S96000 -l6500 ${1}\
-    | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r22050 - \
+    | build/demodulator -i - -o - -l3.5 -S96${1}\
+    | sox -v0.5 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r22050 - \
     | multimon-ng -q -c -aFLEX_NEXT -
 }
 
@@ -104,20 +104,20 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500 -D21"
+  executeRun "-m3 -L12.5"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
-  executeTimedRun "-L12500 -D21"
-  executeTimedRun "-L12500 -D21"
-  executeTimedRun "-L12500 -D21"
+  executeTimedRun "-m3 -L12.5"
+  executeTimedRun "-m3 -L12.5"
+  executeTimedRun "-m3 -L12.5"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2  "-L5000"
+  executeRun2  "-e3 -m3 -L9.5"
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-L5000"
-  executeTimedRun "-L5000"
-  executeTimedRun "-L5000"
+  executeTimedRun "-e3 -m3 -L9.5"
+  executeTimedRun "-e3 -m3 -L9.5"
+  executeTimedRun "-e3 -m3 -L9.5"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done
