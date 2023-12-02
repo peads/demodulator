@@ -61,9 +61,6 @@ static inline int startProcessingMatrix(
             break;
         } else if (feof(inFile)) {
             args->exitFlag = EOF;
-        } else if (!elementsRead) {
-            args->exitFlag = -3;
-            break;
         }
         args->bufSize = elementsRead;
         pthread_mutex_unlock(&args->mutex);
@@ -96,6 +93,7 @@ int main(int argc, char **argv) {
 
     int ret = 0;
     int opt;
+    int64_t value;
     FILE *inFile = NULL;
 
     if (argc < 3) {
@@ -129,7 +127,7 @@ int main(int argc, char **argv) {
                     args.sampleRate = strtof(optarg, NULL);
                     break;
                 case 'D':
-                    // TODO re-separate these for different input and output degrees
+                    // TODO re-separate these for different input and output filter degrees
 //                    args.inFilterDegree = strtol(optarg, NULL, 10);
 //                    break;
                 case 'd':
@@ -142,9 +140,11 @@ int main(int argc, char **argv) {
                     args.mode = strtol(optarg, NULL, 10);
                     break;
                 case 'b':
-                    args.bufSize = strtol(optarg, NULL, 10);
-                    args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args
-                            .bufSize;
+                    value = strtol(optarg, NULL, 10);
+                    if (!value || value < -3) {
+                        break;
+                    }
+                    args.bufSize = (value < 0) ? DEFAULT_BUF_SIZE >> -value : DEFAULT_BUF_SIZE << value;
                     break;
                 default:
                     break;
