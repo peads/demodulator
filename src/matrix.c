@@ -128,7 +128,9 @@ static inline void generateCoeffs(const size_t k,
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
-void zp2Sos(const size_t n, const double *z, const double *p, double sos[][6]) {
+/// (i.e. z != +/-1)
+/// k is assumed 1, and multiplied in at the filter stage
+void zp2Sos(const size_t n, const uint8_t mode, const double *z, const double *p, double sos[][6]) {
 
     size_t i, j;
     size_t npc = n >> 1;
@@ -148,7 +150,7 @@ void zp2Sos(const size_t n, const double *z, const double *p, double sos[][6]) {
 
     for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
-        sos[j][1] = -z[i];
+        sos[j][1] = -z[i-2];
         sos[j][5] = sos[j][2] = 0.;
         sos[j][4] = -p[i];
     }
@@ -170,6 +172,9 @@ static inline double transformBilinear(const uint8_t mode,
     size_t N = n >> 1;
     N = (n & 1) ? N + 1 : N;
 #ifdef VERBOSE
+    if (mode) {
+        fprintf(stderr, "\nz: There are n = %zu zeros at z = 1 for (z-1)^n", n);
+    }
     fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
 #endif
     // Generate roots of bilinear transform
@@ -197,7 +202,7 @@ static inline double transformBilinear(const uint8_t mode,
         z[i + 1] = 0;
     }
 
-    k = n >> 1;
+    k = mode ? n : n >> 1;
     k = (n & 1) ? k + 1 : k;
     for (i = 0; i < k; ++i) {
         for (j = 0; j < 6; ++j) {
@@ -205,7 +210,10 @@ static inline double transformBilinear(const uint8_t mode,
         }
     }
 
-    zp2Sos(n, z, p, sos);
+    zp2Sos(n, mode, z, p, sos);
+    if (mode) {
+        zp2Sos(n, mode, z + (N << 1) + 2, p + ((n+1) << 1), &sos[k>>1]);
+    }
 
 #ifdef VERBOSE
     fprintf(stderr, "\n");
@@ -336,23 +344,25 @@ static inline double processFilterOption(uint8_t mode,
                                         double epsilon) {
 
     const double w = M_PI * fcp / fs;
-    double sos[m][6];
     double wh;
     double k;
     size_t i, j;
     const uint8_t isBandpass = (mode & 2) >> 1;
+    double sos[isBandpass ? m << 1 : m][6];
 
-    if (mode & 1) {
+    if (!(mode & 1)) {
+        TAN = tan(w);
+        k = transformBilinear(isBandpass, degree, w, sos, warpButter);
+    } else {
         wh = cosh(1. / (double) degree * acosh(1. / sqrt(
                 pow(10., epsilon) - 1.)));
         TAN = tan(w * wh);
         k = transformBilinear(isBandpass, degree, epsilon, sos, warpCheby1);
 #ifdef VERBOSE
-        fprintf(stderr, "\nepsilon: %f\nwarp factor: %f\nomegaH: %f\nk: %e", epsilon * 10., TAN, fcp * wh, k);
+        fprintf(stderr,
+                "\nepsilon: %f\nwarp factor: %f\nomegaH: %f\nk: %e",
+                epsilon * 10., TAN, fcp * wh, k);
 #endif
-    } else {
-        TAN = tan(w);
-        k = transformBilinear(isBandpass, degree, w, sos, warpButter);
     }
 
 #ifdef VERBOSE
@@ -376,7 +386,6 @@ static inline double processFilterOption(uint8_t mode,
 
 void *processMatrix(void *ctx) {
 
-    float *filterRet;
     consumerArgs *args = ctx;
     void *buf = calloc(args->bufSize, 1);
     float *fBuf = calloc(args->bufSize, sizeof(float));
@@ -410,10 +419,10 @@ void *processMatrix(void *ctx) {
 //        processFilterOption(((args->mode | 4) >> 1) & 3,
 //                args->outFilterDegree, m << 1, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
+    float *filterRet = calloc(filterOutputLength, sizeof(float));
 
     while (!args->exitFlag) {
 
-        filterRet = calloc(filterOutputLength, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, args->bufSize);
@@ -435,8 +444,10 @@ void *processMatrix(void *ctx) {
             fwrite(filterRet + args->bufSize, sizeof(float),
                     args->bufSize >> 2, args->outFile);
         }
-        free(filterRet);
+
+        memset(filterRet, 0, filterOutputLength*sizeof(float));
     }
+    free(filterRet);
     free(buf);
     free(fBuf);
     free(demodRet);
