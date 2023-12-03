@@ -78,13 +78,13 @@ int main(int argc, char **argv) {
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .sampleRate = 0.f,
-            .lowpassIn = 0.f,
-            .lowpassOut = 0.f,
-            .highpassIn = 1.f,
+            .sampleRate = 0.,
+            .lowpassIn = 0.,
+            .lowpassOut = 0.,
+            .highpassIn = 0.,
             .inFilterDegree = 0,
             .outFilterDegree = 0,
-            .epsilon = 0.f,
+            .epsilon = 0.,
             .exitFlag = 0,
             .mode = 2,
             .bufSize = DEFAULT_BUF_SIZE
@@ -119,13 +119,13 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'L':
-                    args.lowpassIn = strtof(optarg, NULL);
+                    args.lowpassIn = strtod(optarg, NULL);
                     break;
                 case 'l':
-                    args.lowpassOut = strtof(optarg, NULL);
+                    args.lowpassOut = strtod(optarg, NULL);
                     break;
                 case 'S':
-                    args.sampleRate = strtof(optarg, NULL);
+                    args.sampleRate = strtod(optarg, NULL);
                     break;
                 case 'D':
                     // TODO re-separate these for different input and output filter degrees
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
                     args.outFilterDegree = strtol(optarg, NULL, 10);
                     break;
                 case 'e':
-                    args.epsilon = strtof(optarg, NULL) / 10.f;
+                    args.epsilon = strtod(optarg, NULL) / 10.;
                     break;
                 case 'm':
                     args.mode = strtol(optarg, NULL, 10);
@@ -148,8 +148,7 @@ int main(int argc, char **argv) {
                     args.bufSize = (value < 0) ? DEFAULT_BUF_SIZE >> -value : DEFAULT_BUF_SIZE << value;
                     break;
                 case 'H':
-                    args.highpassIn = strtof(optarg, NULL);
-                    args.highpassIn = args.highpassIn >= 1.f ? args.highpassIn : 1.f;
+                    args.highpassIn = strtod(optarg, NULL);
                     break;
                 default:
                     break;

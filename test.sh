@@ -58,7 +58,7 @@ function executeRun() {
 
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -l12.5 -S96\
+    | build/demodulator -i - -o - -l12.5 -S96 \
     | sox  -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
@@ -113,11 +113,11 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2  "-e3 -m3 -L9.5"
+  executeRun2  "-e3 -m3 -L12.5"
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-e3 -m3 -L9.5"
-  executeTimedRun "-e3 -m3 -L9.5"
-  executeTimedRun "-e3 -m3 -L9.5"
+  executeTimedRun "-e3 -m3 -L12.5"
+  executeTimedRun "-e3 -m3 -L12.5"
+  executeTimedRun "-e3 -m3 -L12.5"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done

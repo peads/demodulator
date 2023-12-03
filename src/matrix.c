@@ -123,7 +123,7 @@ static inline void generateCoeffs(const size_t k,
         acc[0] = a;
     }
 #ifdef VERBOSE
-    fprintf(stderr, "(%f +/- %f I), ", 1.f - zr, zj);
+    fprintf(stderr, "(%f +/- %f I), ", 1. - zr, zj);
 #endif
 }
 
@@ -183,7 +183,7 @@ static inline double transformBilinear(const uint8_t mode,
     for (i = ((n+1)<<1), j = 0, k = 1; k <= N; j += 2, ++k) {
         generateCoeffs(k, n, theta, warp, acc, p);
         if (mode) {
-            generateCoeffs(k, n, HP_THETA, warpButter, acc + 2, p + i);
+            generateCoeffs(k, n, HP_THETA, warp, acc + 2, p + i);
         }
     }
 
@@ -348,7 +348,7 @@ static inline double processFilterOption(uint8_t mode,
     double k;
     size_t i, j;
     const uint8_t isBandpass = (mode & 2) >> 1;
-    double sos[isBandpass ? m << 1 : m][6];
+    double sos[(isBandpass ? m << 1 : m)][6];
 
     if (!(mode & 1)) {
         TAN = tan(w);
@@ -366,9 +366,9 @@ static inline double processFilterOption(uint8_t mode,
     }
 
 #ifdef VERBOSE
-    fprintf(stderr, "\n");
+    fprintf(stderr, "\n%lu\n", sizeof(sos)/sizeof(*sos));
 #endif
-    for (i = 0; i < m; ++i) {
+    for (i = 0; i < sizeof(sos)/sizeof(*sos); ++i) {
         for (j = 0; j < 6; ++j) {
             sosf[i][j] = (float) sos[i][j];
 
@@ -392,32 +392,34 @@ void *processMatrix(void *ctx) {
     float *demodRet = calloc(args->bufSize, sizeof(float));
     size_t filterOutputLength = args->bufSize;
 
-    args->sampleRate = args->sampleRate ? args->sampleRate : 10.f;
-    args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.f;
+    args->sampleRate = args->sampleRate ? args->sampleRate : 10.;
+    args->lowpassOut = args->lowpassOut ? args->lowpassOut : 1.;
     args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
-    args->epsilon = args->epsilon ? args->epsilon : .3f;
-    HP_THETA /= args->sampleRate;
+    args->epsilon = args->epsilon ? args->epsilon : .3;
+    args->mode |= args->highpassIn ? 4 : 0;
+    HP_THETA = HP_THETA * args->highpassIn / args->sampleRate;
 
     size_t m = args->outFilterDegree >> 1;
     m = (args->outFilterDegree & 1) ? m + 1 : m;
+    size_t M = args->highpassIn ? m << 1 : m;
     float k = 1.f;
-    float sosIn[m][6];
-    float sosOut[m<<1][6];
+    float *sosOut = calloc(m, 6*sizeof(float));
+    float *sosIn = calloc(m << 1, 6*sizeof(float));
     uint8_t outFilterType = args->mode & 1;
 
     if (!args->lowpassIn) {
         processFilterOption(outFilterType,
-                args->outFilterDegree, m, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
+                args->outFilterDegree, m,
+                sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
     } else {
         processFilterOption(outFilterType,
-                args->outFilterDegree, m, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
+                args->outFilterDegree, m,
+                sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
-        processFilterOption(((args->mode | 4) >> 1) & 3,
-                args->outFilterDegree, m, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
-// TODO
-//        processFilterOption(((args->mode | 4) >> 1) & 3,
-//                args->outFilterDegree, m << 1, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
+        processFilterOption((args->mode >> 1) & 3,
+                args->outFilterDegree, m,
+                sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
     float *filterRet = calloc(filterOutputLength, sizeof(float));
 
@@ -436,7 +438,7 @@ void *processMatrix(void *ctx) {
                     generateHannCoefficient);
             fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
         } else {
-            filterIn(fBuf, args->bufSize, m, filterRet, sosIn, k, generateHannCoefficient);
+            filterIn(fBuf, args->bufSize, M, filterRet, sosIn, k, generateHannCoefficient);
 //            balanceIq(filterRet, args->bufSize);
             fmDemod(filterRet, args->bufSize, demodRet);
             filterOut(demodRet, args->bufSize >> 2, m,
@@ -447,6 +449,10 @@ void *processMatrix(void *ctx) {
 
         memset(filterRet, 0, filterOutputLength*sizeof(float));
     }
+    if (args->lowpassIn) {
+        free(sosOut);
+    }
+    free(sosIn);
     free(filterRet);
     free(buf);
     free(fBuf);

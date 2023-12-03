@@ -43,13 +43,13 @@ typedef struct {
     int exitFlag;
     FILE *outFile;
     pthread_mutex_t mutex;
-    float sampleRate;
-    float lowpassIn;
-    float lowpassOut;
-    float highpassIn;
+    double sampleRate;
+    double lowpassIn;
+    double lowpassOut;
+    double highpassIn;
     size_t inFilterDegree;
     size_t outFilterDegree;
-    float epsilon;
+    double epsilon;
     uint8_t mode;
     size_t bufSize;
 } consumerArgs;
