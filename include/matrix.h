@@ -46,6 +46,7 @@ typedef struct {
     float sampleRate;
     float lowpassIn;
     float lowpassOut;
+    float highpassIn;
     size_t inFilterDegree;
     size_t outFilterDegree;
     float epsilon;

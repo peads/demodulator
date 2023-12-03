@@ -24,6 +24,7 @@
 typedef double (*warpGenerator_t)(size_t, size_t, const double, double *);
 typedef float (*windowGenerator_t)(size_t, size_t);
 static double TAN = NAN;
+static double HP_THETA = M_PI;
 
 static inline void fmDemod(const float *__restrict__ in,
                            const size_t len,
@@ -53,7 +54,7 @@ static inline double warpButter(const size_t k,
     const double w = M_PI_2 * (1. / (double) n * (-1. + (double) (k << 1)) + 1.);
     const double a = cos(w);
     const double d = 1. / (a - 1. / sin(2. * theta));
-    const double zr = (a - TAN) * d;
+    const double zr = (a - tan(theta)) * d;
     const double zj = sin(w) * d;
 
     z[j + 2] = z[j] = 1. - zr;
@@ -153,16 +154,19 @@ void zp2Sos(const size_t n, const double *z, const double *p, double sos[][6]) {
     }
 }
 
-static inline double transformBilinear(const size_t n,
+static inline double transformBilinear(const uint8_t mode,
+                                      const size_t n,
                                       const double theta,
                                       double sos[][6],
                                       const warpGenerator_t warp) {
 
     size_t i, j, k;
-    double acc[2] = {1.f, 0};
-    double *p = calloc(((n + 1) << 1), sizeof(double));
-    double *z = calloc(((n + 1) << 1), sizeof(double));
-    double *t = calloc((n << 1), sizeof(double));
+
+    double acc[4] = {1., 0, 1., 0};
+    uint8_t modeShift = mode ? 2 : 1;
+    double *p = calloc(((n + 1) << modeShift), sizeof(double));
+    double *z = calloc(((n + 1) << modeShift), sizeof(double));
+    double *t = calloc((n << modeShift), sizeof(double));
     size_t N = n >> 1;
     N = (n & 1) ? N + 1 : N;
 #ifdef VERBOSE
@@ -171,15 +175,25 @@ static inline double transformBilinear(const size_t n,
     // Generate roots of bilinear transform
     // Perform running sum of coefficients
     // Expand roots into coefficients of monic polynomial
-    for (j = 0, k = 1; k <= N; j += 2, ++k) {
+    for (i = ((n+1)<<1), j = 0, k = 1; k <= N; j += 2, ++k) {
         generateCoeffs(k, n, theta, warp, acc, p);
+        if (mode) {
+            generateCoeffs(k, n, HP_THETA, warpButter, acc + 2, p + i);
+        }
     }
 
     // Store the gain
     acc[0] /= pow(2., (double) n);
+    //TODO FIX THIS, pass mode to warps?
+//    if (mode) {
+//        acc[0] *= acc[1] / pow(2., (double) n);
+//    }
 
     for (i = 0; i < n << 1; i += 2) {
-        z[i] = -1.f;
+        if (mode) {
+            z[(n << 2) - i - 2] = 1.;
+        }
+        z[i] = -1.;
         z[i + 1] = 0;
     }
 
@@ -326,18 +340,19 @@ static inline double processFilterOption(uint8_t mode,
     double wh;
     double k;
     size_t i, j;
+    const uint8_t isBandpass = (mode & 2) >> 1;
 
-    if (mode) {
+    if (mode & 1) {
         wh = cosh(1. / (double) degree * acosh(1. / sqrt(
-                pow(10.f, epsilon) - 1.)));
+                pow(10., epsilon) - 1.)));
         TAN = tan(w * wh);
-        k = transformBilinear(degree, epsilon, sos, warpCheby1);
+        k = transformBilinear(isBandpass, degree, epsilon, sos, warpCheby1);
 #ifdef VERBOSE
         fprintf(stderr, "\nepsilon: %f\nwarp factor: %f\nomegaH: %f\nk: %e", epsilon * 10., TAN, fcp * wh, k);
 #endif
     } else {
         TAN = tan(w);
-        k = transformBilinear(degree, w, sos, warpButter);
+        k = transformBilinear(isBandpass, degree, w, sos, warpButter);
     }
 
 #ifdef VERBOSE
@@ -373,13 +388,13 @@ void *processMatrix(void *ctx) {
     args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
     args->epsilon = args->epsilon ? args->epsilon : .3f;
+    HP_THETA /= args->sampleRate;
 
     size_t m = args->outFilterDegree >> 1;
     m = (args->outFilterDegree & 1) ? m + 1 : m;
     float k = 1.f;
     float sosIn[m][6];
-    float sosOut[m][6];
-    float sosHp[m][6];
+    float sosOut[m<<1][6];
     uint8_t outFilterType = args->mode & 1;
 
     if (!args->lowpassIn) {
@@ -389,11 +404,13 @@ void *processMatrix(void *ctx) {
         processFilterOption(outFilterType,
                 args->outFilterDegree, m, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
-        processFilterOption((args->mode >> 1) & 1,
+        processFilterOption(((args->mode | 4) >> 1) & 3,
                 args->outFilterDegree, m, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
+// TODO
+//        processFilterOption(((args->mode | 4) >> 1) & 3,
+//                args->outFilterDegree, m << 1, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
-    processFilterOption(0, args->outFilterDegree, m, sosHp, 1.f, args->sampleRate, 0);
     while (!args->exitFlag) {
 
         filterRet = calloc(filterOutputLength, sizeof(float));

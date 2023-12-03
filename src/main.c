@@ -81,6 +81,7 @@ int main(int argc, char **argv) {
             .sampleRate = 0.f,
             .lowpassIn = 0.f,
             .lowpassOut = 0.f,
+            .highpassIn = 1.f,
             .inFilterDegree = 0,
             .outFilterDegree = 0,
             .epsilon = 0.f,
@@ -99,7 +100,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:H:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -145,6 +146,10 @@ int main(int argc, char **argv) {
                         break;
                     }
                     args.bufSize = (value < 0) ? DEFAULT_BUF_SIZE >> -value : DEFAULT_BUF_SIZE << value;
+                    break;
+                case 'H':
+                    args.highpassIn = strtof(optarg, NULL);
+                    args.highpassIn = args.highpassIn >= 1.f ? args.highpassIn : 1.f;
                     break;
                 default:
                     break;
