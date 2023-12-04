@@ -94,7 +94,7 @@ static inline float generateHannCoefficient(const size_t k, const size_t n) {
         windowOut = calloc(n, sizeof(float));
         double x;
         for (i = 0; i < N; ++i) {
-            x = sin(M_PI * (double) (i + 1) / (double) (n + 1));
+            x = sin(M_PI * (double) i / (double) n);
             x *= x;
             windowOut[n - i - 1] = windowOut[i] = (float) x;
         }
