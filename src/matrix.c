@@ -183,18 +183,12 @@ static inline float transformBilinear(const size_t n,
         z[i + 1] = 0;
     }
 
-    k = n >> 1;
-    k = (n & 1) ? k + 1 : k;
-    for (i = 0; i < k; ++i) {
-        for (j = 0; j < 6; ++j) {
-            sos[i][j] = 0;
-        }
-    }
-
     zp2Sos(n, z, p, acc[0], sos);
 
 #ifdef VERBOSE
-    fprintf(stderr, "\n");
+    k = n >> 1;
+    k = (n & 1) ? k + 1 : k;
+    fprintf(stderr, "\nk: %f\n", acc[0]);
     for (i = 0; i < k; ++i) {
         for (j = 0; j < 6; ++j) {
             fprintf(stderr, "%f ", sos[i][j]);
@@ -216,22 +210,13 @@ static inline void shiftOrigin(
 
     size_t i;
     int8_t *buf = in;
-//    float mva[2] = {};
     for (i = 0; i < len >> 1; i += 2) {
         out[i] = (int8_t) (buf[i] - 127);
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
 
         out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
         out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
-
-//        mva[0] += (out[i] - out[len - i - 2]) / (float) len;
-//        mva[1] += (out[i + 1] - out[len - i - 1]) / (float) len;
     }
-
-//    for (i = 0; i < len; i += 2) {
-//        out[i] -= mva[0];
-//        out[i + 1] -= mva[1];
-//    }
 }
 
 inline void balanceIq(float *__restrict__ buf, const size_t len) {
