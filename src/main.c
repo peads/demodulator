@@ -120,13 +120,13 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'L':
-                    args.lowpassIn = strtof(optarg, NULL);
+                    args.lowpassIn = strtod(optarg, NULL);
                     break;
                 case 'l':
-                    args.lowpassOut = strtof(optarg, NULL);
+                    args.lowpassOut = strtod(optarg, NULL);
                     break;
                 case 'S':
-                    args.sampleRate = strtof(optarg, NULL);
+                    args.sampleRate = strtod(optarg, NULL);
                     break;
                 case 'D':
                     // TODO re-separate these for different input and output degrees
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
                     args.outFilterDegree = strtol(optarg, NULL, 10);
                     break;
                 case 'e':
-                    args.epsilon = strtof(optarg, NULL) / 10.f;
+                    args.epsilon = strtod(optarg, NULL) / 10.;
                     break;
                 case 'm':
                     args.mode = strtol(optarg, NULL, 10);

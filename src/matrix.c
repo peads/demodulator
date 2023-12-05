@@ -21,63 +21,44 @@
 #include <stdlib.h>
 #include "matrix.h"
 
-typedef float (*warpGenerator_t)(size_t, size_t, float, float *);
+typedef double (*warpGenerator_t)(size_t, size_t, double, double *);
 typedef float (*windowGenerator_t)(size_t, size_t);
-static float TAN = NAN; //TODO figure out partially applied fns in C to avoid this
+static double TAN = NAN; //TODO figure out partially applied fns in C to avoid this
 
-static inline void fmDemod(const float *__restrict__ in,
-                           const size_t len,
-                           float *__restrict__ out) {
-
-    size_t i;
-    float zr, zj;
-
-    for (i = 0; i < len; i += 4) {
-
-        // ac-b(-d)=ac+bd
-        // a(-d)+bc=-ad+bc
-        zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
-        zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
-
-        zr = 64.f * zj * 1.f / (23.f * zr + 41.f * hypotf(zr, zj));
-        out[i >> 2] = isnan(zr) ? 0.f : zr;
-    }
-}
-
-static inline float warpButter(const size_t k,
-                               const size_t n,
-                               const float theta,
-                               float *z) {
+static inline double warpButter(const size_t k,
+                                const size_t n,
+                                const double theta,
+                                double *z) {
 
     size_t j = (k - 1) << 2;
-    const float w = M_PI_2 * (1.f / (float) n * (-1.f + (float) (k << 1)) + 1.f);
-    const float a = cosf(w);
-    const float d = 1.f / (a - 1.f / sinf(2.f * theta));
-    const float zr = (a - TAN) * d;
-    const float zj = sinf(w) * d;
+    const double w = M_PI_2 * (1. / (double) n * (-1. + (double) (k << 1)) + 1.);
+    const double a = cos(w);
+    const double d = 1. / (a - 1. / sin(2. * theta));
+    const double zr = (a - TAN) * d;
+    const double zj = sin(w) * d;
 
-    z[j + 2] = z[j] = 1.f - zr;
+    z[j + 2] = z[j] = 1. - zr;
     z[j + 1] = zj;
     z[j + 3] = -zj;
 
     return zr;
 }
 
-static float warpCheby1(const size_t k, const size_t n, const float ep, float *z) {
+static double warpCheby1(const size_t k, const size_t n, const double ep, double *z) {
 
     size_t j = (k - 1) << 2;
-    const float oneOverN = 1.f / (float) n;
-    const float v = logf((1.f + powf(10.f, 0.5f * ep)) / sqrtf(powf(10.f, ep) - 1.f)) * oneOverN;
-    const float t = M_PI_2 * (oneOverN * (-1.f + (float) (k << 1)));
+    const double oneOverN = 1. / (double) n;
+    const double v = log((1. + pow(10., 0.5 * ep)) / sqrt(pow(10., ep) - 1.)) * oneOverN;
+    const double t = M_PI_2 * (oneOverN * (-1. + (double) (k << 1)));
 
-    const float a = cosf(t) * coshf(v) * TAN;
-    const float b = sinf(t) * sinhf(v) * TAN;
-    const float c = a * a + b * b;
-    const float d = 1.f / (1.f + c + 2.f * b);
-    float zj = 2.f * a * d;
-    float zr = 2.f * (b + c) * d;
+    const double a = cos(t) * cosh(v) * TAN;
+    const double b = sin(t) * sinh(v) * TAN;
+    const double c = a * a + b * b;
+    const double d = 1. / (1. + c + 2. * b);
+    double zj = 2. * a * d;
+    double zr = 2. * (b + c) * d;
 
-    z[j + 2] = z[j] = 1.f - zr;
+    z[j + 2] = z[j] = 1. - zr;
     z[j + 1] = zj;
     z[j + 3] = -zj;
 
@@ -85,7 +66,7 @@ static float warpCheby1(const size_t k, const size_t n, const float ep, float *z
 }
 
 static inline float generateHannCoefficient(const size_t k, const size_t n) {
-//static float *windowIn = NULL;
+//static double *windowIn = NULL;
     static float *windowOut = NULL;
     if (!windowOut) {
         size_t i, N = n >> 1;
@@ -94,8 +75,7 @@ static inline float generateHannCoefficient(const size_t k, const size_t n) {
         double x;
         for (i = 0; i < N; ++i) {
             x = sin(M_PI * (double) i / (double) n);
-            x *= x;
-            windowOut[n - i - 1] = windowOut[i] = (float) x;
+            windowOut[n - i - 1] = windowOut[i] = (float) (x * x);
         }
     }
     return windowOut[k];
@@ -103,13 +83,13 @@ static inline float generateHannCoefficient(const size_t k, const size_t n) {
 
 static inline void generateCoeffs(const size_t k,
                                   const size_t n,
-                                  const float theta,
+                                  const double theta,
                                   const warpGenerator_t warp,
-                                  float *acc,
-                                  float *z) {
+                                  double *acc,
+                                  double *z) {
 
-    float a, zj;
-    float zr = warp(k, n, theta, z);
+    double a, zj;
+    double zr = warp(k, n, theta, z);
     zj = z[((k - 1) << 2) + 1]; // 2k - 1
 
     if (k <= n >> 1) {
@@ -122,12 +102,12 @@ static inline void generateCoeffs(const size_t k,
         acc[0] = a;
     }
 #ifdef VERBOSE
-    fprintf(stderr, "(%f +/- %f I), ", 1.f - zr, zj);
+    fprintf(stderr, "(%f +/- %f I), ", 1. - zr, zj);
 #endif
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
-void zp2Sos(const size_t n, const float *z, const float *p, const float k, float sos[][6]) {
+static inline void zp2Sos(const size_t n, const double *z, const double *p, const double k, double sos[][6]) {
 
     size_t i, j;
     size_t npc = n >> 1;
@@ -138,52 +118,53 @@ void zp2Sos(const size_t n, const float *z, const float *p, const float k, float
     }
 
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
-        sos[j][3] = sos[j][0] = 1.f;
-        sos[j][1] = -2.f * z[i];
+        sos[j][3] = sos[j][0] = 1.;
+        sos[j][1] = -2. * z[i];
         sos[j][2] = z[i] * z[i] + z[i + 1] * z[i + 1];
-        sos[j][4] = -2.f * p[i];
+        sos[j][4] = -2. * p[i];
         sos[j][5] = p[i] * p[i] + p[i + 1] * p[i + 1];
     }
 
     for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
-        sos[j][3] = 1.f;
-        sos[j][2] = sos[j][5] = 0.f;
+        sos[j][3] = 1.;
+        sos[j][2] = sos[j][5] = 0.;
         sos[j][0] = sos[j][1] = k;
         sos[j][4] = -p[i];
     }
 }
 
-static inline float transformBilinear(const size_t n,
-                                      const float theta,
-                                      float sos[][6],
-                                      const warpGenerator_t warp) {
+static inline double transformBilinear(const size_t n,
+                                       const double theta,
+                                       double sos[][6],
+                                       const warpGenerator_t warp) {
 
-    size_t i, j, k;
-    float acc[2] = {1.f, 0};
-    float *p = calloc(((n + 1) << 1), sizeof(float));
-    float *z = calloc(((n + 1) << 1), sizeof(float));
-    float *t = calloc((n << 1), sizeof(float));
+    size_t i, k;
+    double acc[2] = {1., 0};
+    double *p = calloc(((n + 1) << 1), sizeof(double));
+    double *z = calloc(((n + 1) << 1), sizeof(double));
+    double *t = calloc((n << 1), sizeof(double));
     size_t N = n >> 1;
     N = (n & 1) ? N + 1 : N;
 #ifdef VERBOSE
     fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
 #endif
     // Generate roots of bilinear transform
-    for (j = 0, k = 1; k <= N; j += 2, ++k) {
+    for (k = 1; k <= N; ++k) {
         generateCoeffs(k, n, theta, warp, acc, p);
     }
 
     // Store the gain
-    acc[0] /= powf(2.f, (float) n);
+    acc[0] /= pow(2., (double) n);
 
     for (i = 0; i < n << 1; i += 2) {
-        z[i] = -1.f;
+        z[i] = -1.;
         z[i + 1] = 0;
     }
 
     zp2Sos(n, z, p, acc[0], sos);
 
 #ifdef VERBOSE
+    size_t j;
     k = n >> 1;
     k = (n & 1) ? k + 1 : k;
     fprintf(stderr, "\nk: %f\n", acc[0]);
@@ -199,22 +180,6 @@ static inline float transformBilinear(const size_t n,
     free(t);
     free(z);
     return acc[0];
-}
-
-static inline void shiftOrigin(
-        void *__restrict__ in,
-        const size_t len,
-        float *__restrict__ out) {
-
-    size_t i;
-    int8_t *buf = in;
-    for (i = 0; i < len >> 1; i += 2) {
-        out[i] = (int8_t) (buf[i] - 127);
-        out[i + 1] = (int8_t) (buf[i + 1] - 127);
-
-        out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
-        out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
-    }
 }
 
 static inline void filterOut(float *__restrict__ x,
@@ -274,29 +239,71 @@ static inline void filterIn(float *__restrict__ x,
     }
 }
 
-static inline float processFilterOption(uint8_t mode,
-                                        size_t degree,
-                                        float sos[][6],
-                                        float fc,
-                                        float fs,
-                                        float epsilon) {
+static inline void processFilterOption(uint8_t mode,
+                                         size_t degree,
+                                         float sosf[][6],
+                                         double fc,
+                                         double fs,
+                                         double epsilon) {
 
-    const float w = M_PI * fc / fs;
-    float k;
+    size_t N = degree >> 1;
+    N = (degree & 1) ? N + 1 : N;
+    const double w = M_PI * fc / fs;
+    size_t i, j;
+    double sos[N][6];
 
     if (mode) {
-        TAN = tanf(coshf(1.f / (float) degree * acoshf(1.f / sqrtf(
-                powf(10, epsilon) - 1.f))) * w);
+        TAN = tan(cosh(1. / (double) degree * acosh(1. / sqrt(
+                pow(10, epsilon) - 1.))) * w);
 #ifdef VERBOSE
-        fprintf(stderr, "\nepsilon: %f\nwarp factor: %f", epsilon * 10.f, TAN);
+        fprintf(stderr, "\nepsilon: %f\nwarp factor: %f", epsilon * 10., TAN);
 #endif
-        k = transformBilinear(degree, epsilon, sos, warpCheby1);
+        transformBilinear(degree, epsilon, sos, warpCheby1);
     } else {
-        TAN = tanf(w);
-        k = transformBilinear(degree, w, sos, warpButter);
+        TAN = tan(w);
+        transformBilinear(degree, w, sos, warpButter);
     }
 
-    return k;
+    for (i = 0; i < N; ++i) {
+        for (j = 0; j < 6; ++j) {
+            sosf[i][j] = (float) sos[i][j];
+        }
+    }
+}
+
+static inline void shiftOrigin(
+        void *__restrict__ in,
+        const size_t len,
+        float *__restrict__ out) {
+
+    size_t i;
+    int8_t *buf = in;
+    for (i = 0; i < len >> 1; i += 2) {
+        out[i] = (int8_t) (buf[i] - 127);
+        out[i + 1] = (int8_t) (buf[i + 1] - 127);
+
+        out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
+        out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
+    }
+}
+
+static inline void fmDemod(const float *__restrict__ in,
+                           const size_t len,
+                           float *__restrict__ out) {
+
+    size_t i;
+    float zr, zj;
+
+    for (i = 0; i < len; i += 4) {
+
+        // ac-b(-d)=ac+bd
+        // a(-d)+bc=-ad+bc
+        zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
+        zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
+
+        zr = 64.f * zj * 1.f / (23.f * zr + 41.f * hypotf(zr, zj));
+        out[i >> 2] = isnan(zr) ? 0.f : zr;
+    }
 }
 
 void *processMatrix(void *ctx) {
@@ -354,7 +361,7 @@ void *processMatrix(void *ctx) {
             fwrite(filterRet + args->bufSize, sizeof(float),
                     args->bufSize >> 2, args->outFile);
         }
-        memset(filterRet, 0, filterOutputLength*sizeof(float));
+        memset(filterRet, 0, filterOutputLength * sizeof(float));
     }
     free(buf);
     free(fBuf);
