@@ -59,7 +59,7 @@ function executeRun() {
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
     | build/demodulator -i - -o - -l12.5 -S96\
-    | sox -v0.5 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
+    | sox -v0.15 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
 

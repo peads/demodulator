@@ -224,7 +224,6 @@ static inline void filterOut(float *__restrict__ x,
                              const float sos[][6],
                              const windowGenerator_t wind) {
 
-//    float a, b;
     float *xp, *yp, c[2];
     size_t i, j, m;
 
@@ -232,43 +231,39 @@ static inline void filterOut(float *__restrict__ x,
         j = i + sosLen;
         xp = &x[j];
         yp = &y[j];
-//        b = a = 0;
         for (m = 0; m < sosLen; ++m) {
 
-            c[0] = wind(m, sosLen);
-            c[1] = wind(m + 1, sosLen);
+            c[0] = wind(m, sosLen + 1);
+            c[1] = wind(m + 1, sosLen + 1);
 
             yp[m] = 1.f + sos[m][0] * yp[m] + sos[m][1] * yp[m + 1];
             yp[m] -= sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
         }
-//        y[i] = (a - b);
     }
 }
 
 static inline void filterIn(float *__restrict__ x,
                             const size_t len,
-                            const size_t filterDegree,
+                            const size_t sosLen,
                             float *__restrict__ y,
                             const float sos[][6],
                             const windowGenerator_t wind) {
 
-//    float a[2], b[2];
     float *xp, *yp, c[2] = {};
     size_t i, l, j, m;
 
     for (i = 0; i < len; i += 2) {
 
-        j = i + (filterDegree << 1);
+        j = i + (sosLen << 1);
         yp = &y[j];
         xp = &x[j];
-//        b[0] = b[1] = a[0] = a[1] = 0;
 
-        for (m = 0; m < filterDegree; ++m) {
+        for (m = 0; m < sosLen; ++m) {
 
             l = m << 1;
 
-            c[0] = wind(m, filterDegree);
-            c[1] = wind(m + 1, filterDegree);
+            c[0] = wind(m, sosLen + 1);
+            c[1] = wind(m + 1, sosLen + 1);
 
             yp[l] = 1.f + sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
             yp[l] -= sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
@@ -276,9 +271,6 @@ static inline void filterIn(float *__restrict__ x,
             yp[l + 1] = 1.f + sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
             yp[l + 1] -= sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
         }
-
-//        y[i] = (a[0] - b[0]);
-//        y[i + 1] = (a[1] - b[1]);
     }
 }
 
