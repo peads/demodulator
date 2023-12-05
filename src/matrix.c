@@ -127,7 +127,7 @@ static inline void generateCoeffs(const size_t k,
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
-void zp2Sos(const size_t n, const float *z, const float *p, float sos[][6]) {
+void zp2Sos(const size_t n, const float *z, const float *p, const float k, float sos[][6]) {
 
     size_t i, j;
     size_t npc = n >> 1;
@@ -146,9 +146,9 @@ void zp2Sos(const size_t n, const float *z, const float *p, float sos[][6]) {
     }
 
     for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
-        sos[j][3] = sos[j][0] = 1.f;
-        sos[j][1] = -z[i];
-        sos[j][5] = sos[j][2] = 0.f;
+        sos[j][3] =  1.f;
+        sos[j][2] = sos[j][5] = 0.f;
+        sos[j][0] = sos[j][1] = k;
         sos[j][4] = -p[i];
     }
 }
@@ -191,7 +191,7 @@ static inline float transformBilinear(const size_t n,
         }
     }
 
-    zp2Sos(n, z, p, sos);
+    zp2Sos(n, z, p, acc[0], sos);
 
 #ifdef VERBOSE
     fprintf(stderr, "\n");
@@ -216,7 +216,7 @@ static inline void shiftOrigin(
 
     size_t i;
     int8_t *buf = in;
-    float mva[2] = {};
+//    float mva[2] = {};
     for (i = 0; i < len >> 1; i += 2) {
         out[i] = (int8_t) (buf[i] - 127);
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
@@ -224,14 +224,14 @@ static inline void shiftOrigin(
         out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
         out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
 
-        mva[0] += (out[i] - out[len - i - 2]) / (float) len;
-        mva[1] += (out[i + 1] - out[len - i - 1]) / (float) len;
+//        mva[0] += (out[i] - out[len - i - 2]) / (float) len;
+//        mva[1] += (out[i + 1] - out[len - i - 1]) / (float) len;
     }
 
-    for (i = 0; i < len; i += 2) {
-        out[i] -= mva[0];
-        out[i + 1] -= mva[1];
-    }
+//    for (i = 0; i < len; i += 2) {
+//        out[i] -= mva[0];
+//        out[i + 1] -= mva[1];
+//    }
 }
 
 inline void balanceIq(float *__restrict__ buf, const size_t len) {
@@ -268,10 +268,10 @@ static inline void filterOut(float *__restrict__ x,
             c[0] = wind(m, filterDegree);
             c[1] = wind(m + 1, filterDegree);
 
-            b += sos[m][0] + sos[m][1] * yp[m] + sos[m][2] * yp[m + 1];
+            b += 1.f + sos[m][0] * yp[m] + sos[m][1] * yp[m + 1];
             a += sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
         }
-        y[i] = -k * (a - b);
+        y[i] = (a - b);
     }
 }
 
@@ -290,7 +290,7 @@ static inline void filterIn(float *__restrict__ x,
     for (i = 0; i < len; i += 2) {
 
         j = i + (filterDegree << 1);
-        yp = &y[i];
+        yp = &y[j];
         xp = &x[j];
         b[0] = b[1] = a[0] = a[1] = 0;
 
@@ -302,14 +302,14 @@ static inline void filterIn(float *__restrict__ x,
             c[1] = wind(m + 1, filterDegree);
 
             a[0] += sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
-            b[0] += sos[m][0] + sos[m][1] * yp[l] + sos[m][2] * yp[l + 2];
+            b[0] += 1.f + sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
 
             a[1] += sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
-            b[1] += sos[m][0] + sos[m][1] * yp[l + 1] + sos[m][2] * yp[l + 3];
+            b[1] += 1.f + sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
         }
 
-        y[i] = -k * (a[0] - b[0]);
-        y[i + 1] = -k * (a[1] - b[1]);
+        y[i] = (a[0] - b[0]);
+        y[i + 1] = (a[1] - b[1]);
     }
 }
 
