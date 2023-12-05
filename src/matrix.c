@@ -93,7 +93,7 @@ static inline float generateHannCoefficient(const size_t k, const size_t n) {
         windowOut = calloc(n, sizeof(float));
         double x;
         for (i = 0; i < N; ++i) {
-            x = sin(M_PI * (double) (i + 1) / (double) (n + 1));
+            x = sin(M_PI * (double) i / (double) n);
             x *= x;
             windowOut[n - i - 1] = windowOut[i] = (float) x;
         }
@@ -146,7 +146,7 @@ void zp2Sos(const size_t n, const float *z, const float *p, const float k, float
     }
 
     for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
-        sos[j][3] =  1.f;
+        sos[j][3] = 1.f;
         sos[j][2] = sos[j][5] = 0.f;
         sos[j][0] = sos[j][1] = k;
         sos[j][4] = -p[i];
@@ -169,8 +169,6 @@ static inline float transformBilinear(const size_t n,
     fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
 #endif
     // Generate roots of bilinear transform
-    // Perform running sum of coefficients
-    // Expand roots into coefficients of monic polynomial
     for (j = 0, k = 1; k <= N; j += 2, ++k) {
         generateCoeffs(k, n, theta, warp, acc, p);
     }
