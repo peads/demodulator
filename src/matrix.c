@@ -254,7 +254,7 @@ static inline void filterIn(float *__restrict__ x,
 
     for (i = 0; i < len; i += 2) {
 
-        j = i + (sosLen << 1);
+        j = i + sosLen;
         yp = &y[j];
         xp = &x[j];
 
@@ -330,9 +330,10 @@ void *processMatrix(void *ctx) {
                 args->outFilterDegree, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
+    filterRet = calloc(filterOutputLength, sizeof(float));
+
     while (!args->exitFlag) {
 
-        filterRet = calloc(filterOutputLength, sizeof(float));
         sem_wait(args->full);
         pthread_mutex_lock(&args->mutex);
         memcpy(buf, args->buf, args->bufSize);
@@ -353,7 +354,7 @@ void *processMatrix(void *ctx) {
             fwrite(filterRet + args->bufSize, sizeof(float),
                     args->bufSize >> 2, args->outFile);
         }
-        free(filterRet);
+        memset(filterRet, 0, filterOutputLength*sizeof(float));
     }
     free(buf);
     free(fBuf);
