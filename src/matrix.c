@@ -219,24 +219,11 @@ static inline void shiftOrigin(
     }
 }
 
-inline void balanceIq(float *__restrict__ buf, const size_t len) {
-
-    static const float alpha = 0.99212598425f;
-    static const float beta = 0.00787401574f;
-
-    size_t i;
-    for (i = 0; i < len; i += 2) {
-        buf[i] *= alpha;
-        buf[i + 1] += beta * buf[i];
-    }
-}
-
 static inline void filterOut(float *__restrict__ x,
                              const size_t len,
                              const size_t filterDegree,
                              float *__restrict__ y,
                              const float sos[][6],
-                             const float k,
                              const windowGenerator_t wind) {
 
     float a, b;
@@ -265,7 +252,6 @@ static inline void filterIn(float *__restrict__ x,
                             const size_t filterDegree,
                             float *__restrict__ y,
                             const float sos[][6],
-                            const float k,
                             const windowGenerator_t wind) {
 
     float a[2], b[2];
@@ -338,11 +324,10 @@ void *processMatrix(void *ctx) {
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
     args->epsilon = args->epsilon ? args->epsilon : .3f;
 
-    size_t m = args->outFilterDegree >> 1;
-    m = (args->outFilterDegree & 1) ? m + 1 : m;
-    float k = 1.f;
-    float sosIn[m][6];
-    float sosOut[m][6];
+    size_t sosLen = args->outFilterDegree >> 1;
+    sosLen = (args->outFilterDegree & 1) ? sosLen + 1 : sosLen;
+    float sosIn[sosLen][6];
+    float sosOut[sosLen][6];
 
     if (!args->lowpassIn) {
         processFilterOption(args->mode & 1,
@@ -367,20 +352,14 @@ void *processMatrix(void *ctx) {
         shiftOrigin(buf, args->bufSize, fBuf);
         if (!args->lowpassIn) {
             fmDemod(fBuf, args->bufSize, demodRet);
-            filterOut(demodRet,
-                    args->bufSize >> 2,
-                    m,
-                    filterRet,
-                    sosOut,
-                    k,
-                    generateHannCoefficient);
+            filterOut(demodRet, args->bufSize >> 2,
+                    sosLen, filterRet, sosOut, generateHannCoefficient);
             fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
         } else {
-            filterIn(fBuf, args->bufSize, m, filterRet, sosIn, k, generateHannCoefficient);
-//            balanceIq(filterRet, args->bufSize);
+            filterIn(fBuf, args->bufSize, sosLen, filterRet, sosIn, generateHannCoefficient);
             fmDemod(filterRet, args->bufSize, demodRet);
-            filterOut(demodRet, args->bufSize >> 2, m,
-                    filterRet + args->bufSize, sosOut, k, generateHannCoefficient);
+            filterOut(demodRet, args->bufSize >> 2, sosLen,
+                    filterRet + args->bufSize, sosOut, generateHannCoefficient);
             fwrite(filterRet + args->bufSize, sizeof(float),
                     args->bufSize >> 2, args->outFile);
         }
