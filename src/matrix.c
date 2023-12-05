@@ -238,8 +238,8 @@ static inline void filterOut(float *__restrict__ x,
             c[0] = wind(m, filterDegree);
             c[1] = wind(m + 1, filterDegree);
 
-            b += 1.f + sos[m][0] * yp[m] + sos[m][1] * yp[m + 1];
-            a += sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
+            a += 1.f + sos[m][0] * yp[m] + sos[m][1] * yp[m + 1];
+            b += sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
         }
         y[i] = (a - b);
     }
@@ -270,11 +270,11 @@ static inline void filterIn(float *__restrict__ x,
             c[0] = wind(m, filterDegree);
             c[1] = wind(m + 1, filterDegree);
 
-            a[0] += sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
-            b[0] += 1.f + sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
+            b[0] += sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
+            a[0] += 1.f + sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
 
-            a[1] += sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
-            b[1] += 1.f + sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
+            b[1] += sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
+            a[1] += 1.f + sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
         }
 
         y[i] = (a[0] - b[0]);
