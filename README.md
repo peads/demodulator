@@ -5,9 +5,7 @@ Clone this repo, then use cmake to build. The code has been tested on various *n
 
 `mkdir build && cd build && cmake .. && make -j$(nproc)`
 #### CMake compile options 
-- ~~`-DIS_NVIDIA` compiles CUDA version, requires `nvcc` (https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html) , default: OFF~~
-- ~~`-DNO_INTRINSICS` compiles non-intrinsics-based version, even if extensions are available (x64 only), default: OFF~~
-- ~~`-DNO_AVX512` compiles intrinsics version, but forces avx2 version if avx512 extension are detected on the system, default: OFF~~
+- `-DIS_NVIDIA` compiles CUDA version, requires `nvcc` (https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html) , default: OFF
 ## Usage
 ### Required command-line parameters
 - `-i` input file; use '-' to specify stdin
