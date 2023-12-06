@@ -230,10 +230,10 @@ static inline void filterIn(float *__restrict__ x,
             c[0] = wind(m, sosLen + 1);
             c[1] = wind(m + 1, sosLen + 1);
 
-            yp[l] = 1.f + sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
+            yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2];
             yp[l] -= sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
 
-            yp[l + 1] = 1.f + sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
+            yp[l + 1] = sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
             yp[l + 1] -= sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
         }
     }
