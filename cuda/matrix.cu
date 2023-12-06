@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include "nvidia.cuh"
+#include "matrix.cuh"
 
 __global__
 static void shiftOrigin(const uint8_t *in, const size_t len, float *out) {

@@ -17,8 +17,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef DEMODULATOR_FMATH_H
-#define DEMODULATOR_FMATH_H
-float frcpf(float x);
-float frsqrtf(float x);
-#endif //DEMODULATOR_FMATH_H
+#ifndef DEMODULATOR_MATRIX_CUH
+#define DEMODULATOR_MATRIX_CUH
+#include <cstdio>
+#include <cstdint>
+#include <cstring>
+#include <unistd.h>
+#include <cstdlib>
+#include "../junk/definitions.h"
+#include "matrix.h"
+#define BLOCKDIM 1024
+static const int GRIDDIM = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
+#endif //DEMODULATOR_MATRIX_CUH
