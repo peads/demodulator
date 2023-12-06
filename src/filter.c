@@ -20,7 +20,7 @@
 
 #include "filter.h"
 
-LREAL warpButter(const LREAL alpha,
+inline LREAL warpButter(const LREAL alpha,
                  const LREAL beta,
                  const size_t k,
                  const size_t n,
@@ -40,7 +40,7 @@ LREAL warpButter(const LREAL alpha,
     return zr;
 }
 
-LREAL warpCheby1(const LREAL tng,
+inline LREAL warpCheby1(const LREAL tng,
                  const LREAL ep,
                  const size_t k,
                  const size_t n,
@@ -119,7 +119,7 @@ static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const 
     }
 }
 
-LREAL transformBilinear(const size_t n,
+inline LREAL transformBilinear(const size_t n,
                          const LREAL a,
                          const LREAL b,
                          LREAL sos[][6],

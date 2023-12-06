@@ -21,10 +21,6 @@
     #define LREAL long double
 #endif
 
-//typedef REAL (*windowGenerator_t)(size_t, size_t);
-//typedef double (*warpGenerator_t)(double, double, size_t, size_t, double *);
-//double transformBilinear(double, double, size_t, double[][6], warpGenerator_t);
-
 typedef REAL  (*windowGenerator_t)(size_t, size_t);
 typedef LREAL (*warpGenerator_t)(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 
