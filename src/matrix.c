@@ -193,7 +193,7 @@ static inline void filterOut(float *__restrict__ x,
     size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
-        j = i + sosLen;
+        j = i + (sosLen >> 1);//sosLen;
         xp = &x[j];
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {
