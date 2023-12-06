@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix.h"
-#include "filter.h"
 
 static inline float generateHannCoefficient(const size_t k, const size_t n) {
 //static double *windowIn = NULL;
@@ -76,26 +75,26 @@ static inline void fmDemod(const float *__restrict__ in,
 static inline void processFilterOption(uint8_t mode,
                                        size_t degree,
                                        float sosf[][6],
-                                       double fc,
-                                       double fs,
-                                       double epsilon) {
+                                       LREAL fc,
+                                       LREAL fs,
+                                       LREAL epsilon) {
 
     size_t N = degree >> 1;
     N = (degree & 1) ? N + 1 : N;
-    const double w = M_PI * fc / fs;
+    const LREAL w = M_PI * fc / fs;
     size_t i, j;
-    double sos[N][6];
-    double wh;
+    LREAL sos[N][6];
+    LREAL wh;
 
     if (mode) {
-        wh = cosh(1. / (double) degree * acosh(1. / sqrt(pow(10., epsilon) - 1.)));
+        wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
 #ifdef VERBOSE
-        fprintf(stderr, "\nepsilon: %f\nwc: %f", epsilon * 10., wh * fc);
+        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
 #endif
-        wh =  tan(wh * w);
+        wh = TAN(wh * w);
         transformBilinear(degree, wh, epsilon, sos, warpCheby1);
     } else {
-        transformBilinear(degree, 1./sin(2. * w), tan(w), sos, warpButter);
+        transformBilinear(degree, 1./SIN(2. * w), TAN(w), sos, warpButter);
     }
 
     for (i = 0; i < N; ++i) {
@@ -126,13 +125,13 @@ void *processMatrix(void *ctx) {
     float sosOut[sosLen][6];
 
     if (!args->lowpassIn) {
-        processFilterOption(args->mode & 1,
+        processFilterOption(args->filterMode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
     } else {
-        processFilterOption(args->mode & 1,
+        processFilterOption(args->filterMode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
-        processFilterOption((args->mode >> 1) & 1,
+        processFilterOption((args->filterMode >> 1) & 1,
                 args->outFilterDegree, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 

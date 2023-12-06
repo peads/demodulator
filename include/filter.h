@@ -9,7 +9,6 @@
 #include <float.h>
 
 #define REAL float
-#define LREAL double
 
 #ifdef PRECISION
     #undef REAL
@@ -17,8 +16,37 @@
 #endif
 
 #if PRECISION && DBL_MANT_DIG < LDBL_MANT_DIG
-    #undef LREAL
     #define LREAL long double
+    #define LOG logl
+    #define POW powl
+    #define SQRT sqrtl
+    #define COS cosl
+    #define SIN sinl
+    #define TAN tanl
+    #define COSH coshl
+    #define SINH sinhl
+    #define ACOSH acoshl
+    #define PRINT_POLES "(%Lf +/- %Lf I) "
+    #define PRINT_K "\nk: %Le\n"
+    #define PRINT_SOS "%Lf "
+    #define PRINT_EP_WC "\nepsilon: %Lf\nwc: %Lf"
+    #define TO_REAL strtold
+#else
+    #define LREAL double
+    #define LOG log
+    #define POW pow
+    #define SQRT sqrt
+    #define COS cos
+    #define SIN sin
+    #define TAN tan
+    #define COSH cosh
+    #define SINH sinh
+    #define ACOSH acosh
+    #define PRINT_POLES "(%f +/- %f I) "
+    #define PRINT_K "\nk: %e\n"
+    #define PRINT_SOS "%f "
+    #define PRINT_EP_WC "\nepsilon: %f\nwc: %f"
+    #define TO_REAL strtod
 #endif
 
 typedef REAL  (*windowGenerator_t)(size_t, size_t);

@@ -81,14 +81,14 @@ int main(int argc, char **argv) {
 
     consumerArgs args = {
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .sampleRate = 0.f,
-            .lowpassIn = 0.f,
-            .lowpassOut = 0.f,
+            .sampleRate = 0.,
+            .lowpassIn = 0.,
+            .lowpassOut = 0.,
             .inFilterDegree = 0,
             .outFilterDegree = 0,
-            .epsilon = 0.f,
+            .epsilon = 0.,
             .exitFlag = 0,
-            .mode = 2,
+            .filterMode = 2,
             .bufSize = DEFAULT_BUF_SIZE,
             .demodMode = 1 // FM
     };
@@ -121,13 +121,13 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'L':
-                    args.lowpassIn = strtod(optarg, NULL);
+                    args.lowpassIn = TO_REAL(optarg, NULL);
                     break;
                 case 'l':
-                    args.lowpassOut = strtod(optarg, NULL);
+                    args.lowpassOut = TO_REAL(optarg, NULL);
                     break;
                 case 'S':
-                    args.sampleRate = strtod(optarg, NULL);
+                    args.sampleRate = TO_REAL(optarg, NULL);
                     break;
                 case 'D':
                     // TODO re-separate these for different input and output degrees
@@ -137,15 +137,16 @@ int main(int argc, char **argv) {
                     args.outFilterDegree = strtol(optarg, NULL, 10);
                     break;
                 case 'e':
-                    args.epsilon = strtod(optarg, NULL) / 10.;
+                    args.epsilon = TO_REAL(optarg, NULL) / 10.;
                     break;
                 case 'm':
-                    args.mode = strtol(optarg, NULL, 10);
+                    args.filterMode = strtol(optarg, NULL, 10);
                     break;
                 case 'b':
                     args.bufSize = strtol(optarg, NULL, 10);
-                    args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args
-                            .bufSize;
+                    args.bufSize = args.bufSize < 1 || args.bufSize > 5
+                            ? DEFAULT_BUF_SIZE
+                            : DEFAULT_BUF_SIZE << args.bufSize;
                     break;
                 case 'c':
                     args.demodMode = strtouq(optarg, NULL, 10);

@@ -28,10 +28,10 @@ inline LREAL warpButter(const LREAL alpha,
 
     size_t j = (k - 1) << 2;
     const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
-    const LREAL a = cos(w);
-    const LREAL d = 1. / (a - alpha);// 1. / sin(2. * theta));
+    const LREAL a = COS(w);
+    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
     const LREAL zr = (a - beta/*tan(theta)*/) * d;
-    const LREAL zj = sin(w) * d;
+    const LREAL zj = SIN(w) * d;
 
     z[j + 2] = z[j] = 1. - zr;
     z[j + 1] = zj;
@@ -48,11 +48,11 @@ inline LREAL warpCheby1(const LREAL tng,
 
     size_t j = (k - 1) << 2;
     const LREAL oneOverN = 1. / (LREAL) n;
-    const LREAL v = log((1. + pow(10., 0.5 * ep)) / sqrt(pow(10., ep) - 1.)) * oneOverN;
+    const LREAL v = LOG((1. + POW(10., 0.5 * ep)) / SQRT(POW(10., ep) - 1.)) * oneOverN;
     const LREAL t = M_PI_2 * (oneOverN * (-1. + (LREAL) (k << 1)));
 
-    const LREAL a = cos(t) * cosh(v) * tng; // tan(w * wh)
-    const LREAL b = sin(t) * sinh(v) * tng;
+    const LREAL a = COS(t) * COSH(v) * tng; // tan(w * wh)
+    const LREAL b = SIN(t) * SINH(v) * tng;
     const LREAL c = a * a + b * b;
     const LREAL d = 1. / (1. + c + 2. * b);
     LREAL zj = 2. * a * d;
@@ -87,7 +87,7 @@ static inline void generateCoeffs(const size_t k,
         acc[0] = a;
     }
 #ifdef VERBOSE
-    fprintf(stderr, "(%f +/- %f I), ", 1. - zr, zj);
+    fprintf(stderr, PRINT_POLES, 1. - zr, zj);
 #endif
 }
 
@@ -142,7 +142,7 @@ inline LREAL transformBilinear(const size_t n,
 
     // TODO correct K for even degrees
     // Store the gain
-    acc[0] /= pow(2., (LREAL) n);
+    acc[0] /= POW(2., (LREAL) n);
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;
@@ -155,10 +155,10 @@ inline LREAL transformBilinear(const size_t n,
     size_t j;
     k = n >> 1;
     k = (n & 1) ? k + 1 : k;
-    fprintf(stderr, "\nk: %e\n", acc[0]);
+    fprintf(stderr, PRINT_K, acc[0]);
     for (i = 0; i < k; ++i) {
         for (j = 0; j < 6; ++j) {
-            fprintf(stderr, "%f ", sos[i][j]);
+            fprintf(stderr, PRINT_SOS, sos[i][j]);
         }
         fprintf(stderr, "\n");
     }
@@ -177,7 +177,7 @@ inline void applyFilter(REAL *__restrict__ x,
                  const REAL sos[][6],
                  const windowGenerator_t wind) {
 
-    float *xp, *yp, c[2];
+    REAL *xp, *yp, c[2];
     size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
@@ -202,7 +202,7 @@ inline void applyComplexFilter(REAL *__restrict__ x,
                         const REAL sos[][6],
                         const windowGenerator_t wind) {
 
-    float *xp, *yp, c[2] = {};
+    REAL *xp, *yp, c[2] = {};
     size_t i, l, j, m;
 
     for (i = 0; i < len; i += 2) {

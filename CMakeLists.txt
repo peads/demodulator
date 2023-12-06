@@ -7,15 +7,19 @@ option(IS_NATIVE OFF)
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_VERBOSE OFF)
+option(SET_PRECISION OFF)
 
 if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 endif()
 
 if(IS_VERBOSE)
-    add_compile_definitions(VERBOSE=1)
+    add_compile_definitions(VERBOSE)
 endif()
 
+if (SET_PRECISION)
+    add_compile_definitions(PRECISION)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
