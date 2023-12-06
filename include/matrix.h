@@ -51,6 +51,7 @@ typedef struct {
     double epsilon;
     uint8_t mode;
     size_t bufSize;
+    uint8_t demodMode;
 } consumerArgs;
 
 #ifdef HAS_AVX512

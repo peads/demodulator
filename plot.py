@@ -102,9 +102,14 @@ def animate(y, dt, fftlen):
 argc = len(sys.argv)
 sampRate = int(sys.argv[1]) if argc > 1 else 125000
 print(f'Sampling rate: {sampRate}')
-bufsize = int(sys.argv[2]) if argc > 2 else 32768
+bufsize = 32768
+shift = int(sys.argv[2]) if argc > 2 else 0
+if shift > 0:
+    bufsize <<= shift
+else:
+    bufsize >>= -shift
 print(f'Size of buffer: {bufsize}')
-fftlen = pow(2, int(np.ceil(np.log2(sampRate))))
+fftlen = pow(2, int(np.ceil(np.log2(max(bufsize, sampRate)))))
 print(f'FFT len: {fftlen}')
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:

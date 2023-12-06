@@ -89,7 +89,8 @@ int main(int argc, char **argv) {
             .epsilon = 0.f,
             .exitFlag = 0,
             .mode = 2,
-            .bufSize = DEFAULT_BUF_SIZE
+            .bufSize = DEFAULT_BUF_SIZE,
+            .demodMode = 1 // FM
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -145,6 +146,9 @@ int main(int argc, char **argv) {
                     args.bufSize = strtol(optarg, NULL, 10);
                     args.bufSize = args.bufSize < 1 || args.bufSize > 5 ? DEFAULT_BUF_SIZE : DEFAULT_BUF_SIZE << args
                             .bufSize;
+                    break;
+                case 'c':
+                    args.demodMode = strtouq(optarg, NULL, 10);
                     break;
                 default:
                     break;

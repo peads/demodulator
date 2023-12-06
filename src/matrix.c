@@ -348,18 +348,23 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         shiftOrigin(buf, args->bufSize, fBuf);
-        if (!args->lowpassIn) {
+        if (args->demodMode && !args->lowpassIn) {
             fmDemod(fBuf, args->bufSize, demodRet);
             filterOut(demodRet, args->bufSize >> 2,
                     sosLen, filterRet, sosOut, generateHannCoefficient);
             fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
         } else {
-            filterIn(fBuf, args->bufSize, sosLen, filterRet, sosIn, generateHannCoefficient);
-            fmDemod(filterRet, args->bufSize, demodRet);
-            filterOut(demodRet, args->bufSize >> 2, sosLen,
-                    filterRet + args->bufSize, sosOut, generateHannCoefficient);
-            fwrite(filterRet + args->bufSize, sizeof(float),
-                    args->bufSize >> 2, args->outFile);
+            if (!args->demodMode) {
+                filterIn(fBuf, args->bufSize, sosLen, filterRet, sosIn, generateHannCoefficient);
+                fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
+            } else {
+                filterIn(fBuf, args->bufSize, sosLen, filterRet, sosIn, generateHannCoefficient);
+                fmDemod(filterRet, args->bufSize, demodRet);
+                filterOut(demodRet, args->bufSize >> 2, sosLen,
+                        filterRet + args->bufSize, sosOut, generateHannCoefficient);
+                fwrite(filterRet + args->bufSize, sizeof(float),
+                        args->bufSize >> 2, args->outFile);
+            }
         }
         memset(filterRet, 0, filterOutputLength * sizeof(float));
     }
