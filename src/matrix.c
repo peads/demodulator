@@ -111,11 +111,11 @@ static inline void zp2Sos(const size_t n, const double *z, const double *p, cons
 
     size_t i, j;
     size_t npc = n >> 1;
-//    size_t npr = 0;
+    size_t npr = 0;
 
-//    if (n & 1) {
-//        npr = 1;
-//    }
+    if (n & 1) {
+        npr = 1;
+    }
     // TODO correct K for even degrees
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
@@ -126,11 +126,12 @@ static inline void zp2Sos(const size_t n, const double *z, const double *p, cons
     }
 
 //    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
+    if (npc < npc + npr) {
         sos[npc][3] = 1.;
         sos[npc][2] = sos[npc][5] = 0.;
         sos[npc][0] = sos[npc][1] = k;
         sos[npc][4] = -p[(n << 1) - 2];
-//    }
+    }
 }
 
 static inline double transformBilinear(const size_t n,
