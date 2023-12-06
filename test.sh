@@ -58,8 +58,8 @@ function executeRun() {
 
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -l12.5 -S96 ${1}\
-    | sox -v0.15 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -q0 -i - -o - -l12500 -S96000 ${1}\
+    | sox -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
 
@@ -67,7 +67,7 @@ function executeRun2() {
 
   sox -v50 -q -D -twav ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null    \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -l3.5 -S96 ${1}\
+    | build/demodulator -q1 -i - -o - -l3500 -S96000 ${1}\
     | sox -v0.5 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r22050 - \
     | multimon-ng -q -c -aFLEX_NEXT -
 }
@@ -86,39 +86,39 @@ findCompiler nvcc hasNvcc
 set -e
 i=0
 for compiler in ${compilers[@]}; do
-  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON -DNO_INTRINSICS=ON" | grep "The C compiler identification"
+  ./cmake_build.sh "-DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON" | grep "The C compiler identification"
   executeRun
 
-  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd no lowpass in"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd no lowpass in"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd no lowpass in"
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd no lowpass in"
   rm -rf file uint8.dat
 
   executeRun2
-  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   executeTimedRun
   executeTimedRun
   executeTimedRun
-  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng no lowpass in"
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-m3 -L12.5"
+  executeRun "-m3 -L12500"
 
-  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
-  executeTimedRun "-m3 -L12.5"
-  executeTimedRun "-m3 -L12.5"
-  executeTimedRun "-m3 -L12.5"
-  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} -DNO_INTRINSICS=ON dsd with lowpass in"
+  echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
+  executeTimedRun "-m3 -L12500"
+  executeTimedRun "-m3 -L12500"
+  executeTimedRun "-m3 -L12500"
+  echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2  "-e3 -m3 -L9.5"
-  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
-  executeTimedRun "-e3 -m3 -L9.5"
-  executeTimedRun "-e3 -m3 -L9.5"
-  executeTimedRun "-e3 -m3 -L9.5"
-  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} -DNO_INTRINSICS=ON multimon-ng with lowpass in"
+  executeRun2  "-e3 -m3 -L12500"
+  echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
+  executeTimedRun "-e3 -m3 -L12500"
+  executeTimedRun "-e3 -m3 -L12500"
+  executeTimedRun "-e3 -m3 -L12500"
+  echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done
 echo "Job's done."

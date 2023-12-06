@@ -24,11 +24,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
-#include "prototypes.h"
-#include "definitions.h"
-#ifdef HAS_AVX
-#include <immintrin.h>
-#endif
+#include <stdint.h>
+#include "filter.h"
 #if __GNUC__ < 10
 #include <math.h>
 #include <stdint.h>
@@ -37,85 +34,32 @@
 #include <stdlib.h>
 #endif
 
+#ifndef DEFAULT_BUF_SIZE
+#define DEFAULT_BUF_SIZE 131072L
+#endif
+
+typedef void (*iqCorrection_t)(void *__restrict__, size_t, float *__restrict__);
 typedef struct {
     sem_t *full, *empty;
+    pthread_mutex_t mutex;
+    FILE *outFile;
     void *buf;
     int exitFlag;
-    FILE *outFile;
-    pthread_mutex_t mutex;
-    double sampleRate;
-    double lowpassIn;
-    double lowpassOut;
+    uint8_t filterMode;
+    uint8_t demodMode;
+    uint8_t iqMode;
+    LREAL sampleRate;
+    LREAL lowpassIn;
+    LREAL lowpassOut;
+    LREAL epsilon;
     size_t inFilterDegree;
     size_t outFilterDegree;
-    double epsilon;
-    uint8_t mode;
     size_t bufSize;
-    uint8_t demodMode;
 } consumerArgs;
 
-#ifdef HAS_AVX512
-static const __m512 ALL_64S = {
-        64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f,
-        64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f, 64.f};
-static const __m512 ALL_23S = {
-        23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f,
-        23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f, 23.f};
-static const __m512 ALL_41S = {
-        41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f,
-        41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f, 41.f};
-static const __m512 MUL_CONJ = {
-        1, 1, -1.f, 1, 1, 1, -1.f, 1,
-        1, 1, -1.f, 1, 1, 1, -1.f, 1};
-static const __m512i ORIGIN_SHIFT_UINT8 = {
-        //_mm512_set1_epi8(-127);
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f};
-static const __m512 ONES = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-static const __m512 alpha = {
-        0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,
-        0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
-static const __m512 beta = {
-        0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,
-        0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f};
-#elif defined(HAS_AVX)
-static const __m256 ALL_64S = {
-        64.f, 64.f, 64.f, 64.f,
-        64.f, 64.f, 64.f, 64.f};
-static const __m256 ALL_23S = {
-        23.f, 23.f, 23.f, 23.f,
-        23.f, 23.f, 23.f, 23.f};
-static const __m256 ALL_41S = {
-        41.f, 41.f, 41.f, 41.f,
-        41.f, 41.f, 41.f, 41.f};
-static const __m256i INDEX_FM_DEMOD_ORDERING = {
-        // _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 3, 6);
-        0x300000001,
-        0x700000005,
-        0x200000000,
-        0x600000003};
-static const __m256i INDEX_CONJ_ORDERING = {
-        // _mm256_setr_epi32(0,2,4,6,1,3,5,7);
-        0x200000000,
-        0x600000004,
-        0x300000001,
-        0x700000005};
-static const __m256 MUL_CONJ = {1, 1, -1.f, 1, 1, 1, -1.f, 1};
-// Degree 8 coefficients, negated to efficiently subtract
-static const __m256 ONES = {1,1,1,1,1,1,1,1};
-static const __m256i ORIGIN_SHIFT_UINT8 = {
-        //_mm256_set1_epi8(-127);
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f,
-        -0x7e7e7e7e7e7e7e7f};
-static const __m256 alpha = {0.99212598425f,1,0.99212598425f,1,0.99212598425f,1,0.99212598425f,1};
-static const __m256 beta = {0,0.00787401574f,0,0.00787401574f,0,0.00787401574f,0,0.00787401574f};
+#ifndef IS_NVIDIA
+void *processMatrix(void *ctx);
+void allocateBuffer(void **buf, size_t len);
 #endif
+
 #endif //DEMODULATOR_MATRIX_H

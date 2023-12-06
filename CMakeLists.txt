@@ -7,20 +7,24 @@ option(IS_NATIVE OFF)
 option(IS_NVIDIA OFF)
 option(DEFAULT_BUF_SIZE OFF)
 option(IS_VERBOSE OFF)
+option(SET_PRECISION OFF)
 
 if(DEFAULT_BUF_SIZE)
     add_compile_definitions(DEFAULT_BUF_SIZE=${DEFAULT_BUF_SIZE})
 endif()
 
 if(IS_VERBOSE)
-    add_compile_definitions(VERBOSE=1)
+    add_compile_definitions(VERBOSE)
 endif()
 
+if (SET_PRECISION)
+    add_compile_definitions(PRECISION)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 include(TargetArch)
 target_architecture(TARGET_ARCH)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wno-incompatible-pointer-types -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -ftree-vectorize")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -fno-math-errno -fno-trapping-math -ftree-vectorize")
 
 if(UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
@@ -59,7 +63,7 @@ else()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-disable=10441")
     endif()
     set(SRCS ${SRCS}
-#            "${CMAKE_CURRENT_SOURCE_DIR}/src/filter.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/filter.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/matrix.c")
     add_executable(${PROJECT_NAME}  ${SRCS})
 
