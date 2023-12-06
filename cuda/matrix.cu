@@ -20,33 +20,37 @@
 #include "nvidia.cuh"
 
 __global__
-void fmDemod(const uint8_t *buf, const uint32_t len, float *result) {
+static void shiftOrigin(const uint8_t *in, const size_t len, float *out) {
 
-    uint32_t i;
-    uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint32_t step = blockDim.x * gridDim.x;
-    float a, b, c, d, ac, bd, zr, zj;
+    size_t i;
+    size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t step = blockDim.x * gridDim.x;
+
+    for (i = index; i < len >> 1; i += step) {
+        out[i] = (int8_t) (in[i] - 127);
+        out[i + 1] = (int8_t) (in[i + 1] - 127);
+
+        out[len - i - 2] = (int8_t) (in[len - i - 2] - 127);
+        out[len - i - 1] = (int8_t) (in[len - i - 1] - 127);
+    }
+}
+
+__global__
+static void fmDemod(const float *in, const size_t len, float *out) {
+
+    size_t i;
+    size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t step = blockDim.x * gridDim.x;
+    float zr, zj;
 
     for (i = index; i < len; i += step) {
 
-        a = 0.25f * (float) (buf[i] + buf[i + 2] + buf[i + 4] + buf[i + 6] - 508);          // ar
-        b = 0.25f * (float) (buf[i + 1] + buf[i + 3] + buf[i + 5] + buf[i + 7] - 508);      // aj
-        c = 0.25f * (float) (buf[i + 8] + buf[i + 10] + buf[i + 12] + buf[i + 14] - 508);   // br
-        d = 0.25f * (float) (508 - buf[i + 9] - buf[i + 11] - buf[i + 13] - buf[i + 15]);   // -bj
+        // ac-b(-d)=ac+bd
+        // a(-d)+bc=-ad+bc
+        zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
+        zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
 
-        ac = a * c;
-        bd = b * d;
-        zr = ac - bd;
-        zj = (a + b) * (c + d) - (ac + bd);
-
-        // ||z|| = Sqrt[zr*zr+zj*zj], fatan2f(y,x) = 64*y/(41 + 23*x),
-        // arg(z) = fatan2(zj/||z||, zr/||z||)
-        // = 64*(zj/Sqrt[zr*zr+zj*zj]) / (41 + 23*(zr/Sqrt[zr*zr+zj*zj]))
-        // = 64*zj / (||z|| * (41 + 23*(zr/||z||)))
-        // = 64*zj / (41*||z|| + 23*zr)
-//        zr = 64.f * zj * __frcp_rn(23.f * zr + 41.f * hypotf(zr, zj));
-//        result[i >> 3] = isnan(zr) ? 0.f : zr;
-        result[i >> 3] = atan2(zj, zr);
+        out[i >> 2] = atan2(zj, zr);
     }
 }
 
@@ -54,12 +58,14 @@ extern "C" void *processMatrix(void *ctx) {
 
     auto *args = static_cast<consumerArgs *>(ctx);
     float *dResult;
+    float *dfBuf;
     uint8_t *dBuf;
     float *hResult;
 
     cudaMalloc(&dBuf, DEFAULT_BUF_SIZE);
-    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 3) * sizeof(float));
-    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 3) * sizeof(float));
+    cudaMalloc(&dfBuf, DEFAULT_BUF_SIZE * sizeof(float));
+    cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
+    cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
 
     while (!args->exitFlag) {
 
@@ -70,20 +76,19 @@ extern "C" void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         cudaDeviceSynchronize();
-        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, dResult);
-
+        shiftOrigin<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, dfBuf);
+        fmDemod<<<GRIDDIM, BLOCKDIM>>>(dfBuf, DEFAULT_BUF_SIZE, dResult);
         cudaDeviceSynchronize();
-        cudaMemcpy(hResult,
-                dResult,
-                (DEFAULT_BUF_SIZE >> 3) * sizeof(float),
+        cudaMemcpy(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
                 cudaMemcpyDeviceToHost);
-
         cudaDeviceSynchronize();
-        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 3, args->outFile);
+
+        fwrite(hResult, sizeof(float), DEFAULT_BUF_SIZE >> 2, args->outFile);
     }
 
     cudaFreeHost(args->buf);
     cudaFreeHost(hResult);
+    cudaFree(dfBuf);
     cudaFree(dBuf);
     cudaFree(dResult);
 

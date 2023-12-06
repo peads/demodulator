@@ -24,7 +24,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <cstdlib>
-#include "definitions.h"
+#include "../junk/definitions.h"
 #include "matrix.h"
 #define BLOCKDIM 1024
 static const int GRIDDIM = (DEFAULT_BUF_SIZE + BLOCKDIM - 1) / BLOCKDIM;
