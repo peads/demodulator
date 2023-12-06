@@ -24,18 +24,18 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
-#include "prototypes.h"
-#include "definitions.h"
+#include "../junk/prototypes.h"
 #include "filter.h"
-#ifdef HAS_AVX
-#include <immintrin.h>
-#endif
 #if __GNUC__ < 10
 #include <math.h>
 #include <stdint.h>
 #endif
 #ifdef __INTEL_COMPILER
 #include <stdlib.h>
+#endif
+
+#ifndef DEFAULT_BUF_SIZE
+#define DEFAULT_BUF_SIZE 131072L
 #endif
 
 typedef struct {
@@ -54,5 +54,10 @@ typedef struct {
     size_t outFilterDegree;
     size_t bufSize;
 } consumerArgs;
+
+#ifndef IS_NVIDIA
+void *processMatrix(void *ctx);
+void allocateBuffer(void **buf, size_t len);
+#endif
 
 #endif //DEMODULATOR_MATRIX_H

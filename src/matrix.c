@@ -17,24 +17,54 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <stdio.h>
-#include <stdlib.h>
 #include "matrix.h"
 
-static inline float generateHannCoefficient(const size_t k, const size_t n) {
+static inline REAL generateHannCoefficient(const size_t k, const size_t n) {
 //static double *windowIn = NULL;
-    static float *windowOut = NULL;
+    static REAL *windowOut = NULL;
     if (!windowOut) {
         size_t i, N = n >> 1;
         N = (n & 1) ? N + 1 : N;
-        windowOut = calloc(n, sizeof(float));
-        double x;
+        windowOut = calloc(n, sizeof(REAL));
+        LREAL x;
         for (i = 0; i < N; ++i) {
-            x = sin(M_PI * (double) i / (double) n);
-            windowOut[n - i - 1] = windowOut[i] = (float) (x * x);
+            x = SIN(M_PI * (LREAL) i / (LREAL) n);
+            windowOut[n - i - 1] = windowOut[i] = (REAL) (x * x);
         }
     }
     return windowOut[k];
+}
+
+static inline void processFilterOption(uint8_t mode,
+                                       size_t degree,
+                                       float sosf[][6],
+                                       LREAL fc,
+                                       LREAL fs,
+                                       LREAL epsilon) {
+
+    size_t N = degree >> 1;
+    N = (degree & 1) ? N + 1 : N;
+    const LREAL w = M_PI * fc / fs;
+    size_t i, j;
+    LREAL sos[N][6];
+    LREAL wh;
+
+    if (mode) {
+        wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
+#ifdef VERBOSE
+        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
+#endif
+        wh = TAN(wh * w);
+        transformBilinear(degree, wh, epsilon, sos, warpCheby1);
+    } else {
+        transformBilinear(degree, 1./SIN(2. * w), TAN(w), sos, warpButter);
+    }
+
+    for (i = 0; i < N; ++i) {
+        for (j = 0; j < 6; ++j) {
+            sosf[i][j] = (float) sos[i][j];
+        }
+    }
 }
 
 static inline void shiftOrigin(
@@ -69,38 +99,6 @@ static inline void fmDemod(const float *__restrict__ in,
 
         zr = 64.f * zj * 1.f / (23.f * zr + 41.f * hypotf(zr, zj));
         out[i >> 2] = isnan(zr) ? 0.f : zr;
-    }
-}
-
-static inline void processFilterOption(uint8_t mode,
-                                       size_t degree,
-                                       float sosf[][6],
-                                       LREAL fc,
-                                       LREAL fs,
-                                       LREAL epsilon) {
-
-    size_t N = degree >> 1;
-    N = (degree & 1) ? N + 1 : N;
-    const LREAL w = M_PI * fc / fs;
-    size_t i, j;
-    LREAL sos[N][6];
-    LREAL wh;
-
-    if (mode) {
-        wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-#ifdef VERBOSE
-        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
-#endif
-        wh = TAN(wh * w);
-        transformBilinear(degree, wh, epsilon, sos, warpCheby1);
-    } else {
-        transformBilinear(degree, 1./SIN(2. * w), TAN(w), sos, warpButter);
-    }
-
-    for (i = 0; i < N; ++i) {
-        for (j = 0; j < 6; ++j) {
-            sosf[i][j] = (float) sos[i][j];
-        }
     }
 }
 

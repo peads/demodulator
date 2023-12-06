@@ -21,6 +21,26 @@
 #include <stdlib.h>
 #include "matrix.h"
 
+#ifdef __APPLE__
+#define SEM_INIT(SEM, NAME, VALUE) \
+    args.exitFlag |= printIfError( \
+        (SEM = sem_open (NAME, O_CREAT | O_EXCL, 0644, VALUE)));
+#else
+#define SEM_INIT(SEM, NAME, VALUE) \
+    SEM = malloc(sizeof(sem_t)); \
+    args.exitFlag |= printIfError( \
+        sem_init(SEM, 0, VALUE) ? NULL : SEM);
+#endif
+#ifdef __APPLE__
+#define SEM_DESTROY(SEM, NAME) \
+    sem_close(SEM); \
+    sem_unlink(NAME);
+#else
+#define SEM_DESTROY(SEM, NAME) \
+    sem_destroy(SEM); \
+    free(SEM);
+#endif
+
 #ifdef IS_NVIDIA
 extern void *processMatrix(void *ctx);
 extern void allocateBuffer(void **buf,  size_t len);
