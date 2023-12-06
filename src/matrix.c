@@ -85,12 +85,12 @@ static inline void shiftOrigin(
 }
 
 static float esr;
-static float off[2] = {};
 static inline void correctIq(
         void *__restrict__ in,
         const size_t len,
         float *__restrict__ out) {
 
+    static float off[2] = {};
     size_t i;
     uint8_t *buf = in;
 

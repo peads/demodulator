@@ -20,18 +20,24 @@
 #include "matrix.cuh"
 
 __global__
-static void shiftOrigin(const uint8_t *in, const size_t len, float *out) {
+static void correctIq(
+        const float esr,
+        const uint8_t *__restrict__ in,
+        const size_t len,
+        float *__restrict__ out) {
 
     size_t i;
-    size_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t step = blockDim.x * gridDim.x;
+    static float off[2] = {};
 
-    for (i = index; i < len >> 1; i += step) {
-        out[i] = (int8_t) (in[i] - 127);
-        out[i + 1] = (int8_t) (in[i + 1] - 127);
+    for (i = 0; i < len >> 1; i += 2) {
+        out[i] = ((float) in[i]) - off[0];
+        out[len - i - 2] = ((float) in[len - i - 2]) - off[0];
 
-        out[len - i - 2] = (int8_t) (in[len - i - 2] - 127);
-        out[len - i - 1] = (int8_t) (in[len - i - 1] - 127);
+        out[i+1] = ((float) in[i + 1]) - off[1];
+        out[len - i - 1] = ((float) in[len - i - 1]) - off[1];
+
+        off[0] += (out[i] + out[len - i - 2]) * esr;
+        off[1] += (out[i+1] + out[len - i - 1]) * esr;
     }
 }
 
@@ -67,6 +73,8 @@ extern "C" void *processMatrix(void *ctx) {
     cudaMalloc(&dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
     cudaMallocHost(&hResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float));
 
+    auto esr = (float) (50. / args->sampleRate);
+
     while (!args->exitFlag) {
 
         sem_wait(args->full);
@@ -76,7 +84,7 @@ extern "C" void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         cudaDeviceSynchronize();
-        shiftOrigin<<<GRIDDIM, BLOCKDIM>>>(dBuf, DEFAULT_BUF_SIZE, dfBuf);
+        correctIq<<<GRIDDIM, BLOCKDIM>>>(esr, dBuf, DEFAULT_BUF_SIZE, dfBuf);
         fmDemod<<<GRIDDIM, BLOCKDIM>>>(dfBuf, DEFAULT_BUF_SIZE, dResult);
         cudaDeviceSynchronize();
         cudaMemcpy(hResult, dResult, (DEFAULT_BUF_SIZE >> 2) * sizeof(float),
