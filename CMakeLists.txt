@@ -59,7 +59,7 @@ else()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-disable=10441")
     endif()
     set(SRCS ${SRCS}
-#            "${CMAKE_CURRENT_SOURCE_DIR}/src/filter.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/filter.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/matrix.c")
     add_executable(${PROJECT_NAME}  ${SRCS})
 
