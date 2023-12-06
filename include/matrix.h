@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
-#include "../junk/prototypes.h"
+#include <stdint.h>
 #include "filter.h"
 #if __GNUC__ < 10
 #include <math.h>
@@ -38,6 +38,7 @@
 #define DEFAULT_BUF_SIZE 131072L
 #endif
 
+typedef void (*iqCorrection_t)(void *__restrict__, size_t, float *__restrict__);
 typedef struct {
     sem_t *full, *empty;
     pthread_mutex_t mutex;
@@ -46,6 +47,7 @@ typedef struct {
     int exitFlag;
     uint8_t filterMode;
     uint8_t demodMode;
+    uint8_t iqMode;
     LREAL sampleRate;
     LREAL lowpassIn;
     LREAL lowpassOut;

@@ -108,9 +108,10 @@ int main(int argc, char **argv) {
             .outFilterDegree = 0,
             .epsilon = 0.,
             .exitFlag = 0,
-            .filterMode = 2,
+            .filterMode = 3,
             .bufSize = DEFAULT_BUF_SIZE,
-            .demodMode = 1 // FM
+            .demodMode = 1, // FM
+            .iqMode = 0
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
@@ -122,7 +123,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -170,6 +171,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'c':
                     args.demodMode = strtouq(optarg, NULL, 10);
+                    break;
+                case 'q':
+                    args.iqMode = strtouq(optarg, NULL, 10);
                     break;
                 default:
                     break;

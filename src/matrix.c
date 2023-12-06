@@ -73,13 +73,36 @@ static inline void shiftOrigin(
         float *__restrict__ out) {
 
     size_t i;
-    int8_t *buf = in;
+    uint8_t *buf = in;
+
     for (i = 0; i < len >> 1; i += 2) {
         out[i] = (int8_t) (buf[i] - 127);
         out[i + 1] = (int8_t) (buf[i + 1] - 127);
 
         out[len - i - 2] = (int8_t) (buf[len - i - 2] - 127);
         out[len - i - 1] = (int8_t) (buf[len - i - 1] - 127);
+    }
+}
+
+static float esr;
+static float off[2] = {};
+static inline void correctIq(
+        void *__restrict__ in,
+        const size_t len,
+        float *__restrict__ out) {
+
+    size_t i;
+    uint8_t *buf = in;
+
+    for (i = 0; i < len >> 1; i += 2) {
+        out[i] = ((float) buf[i]) - off[0];
+        out[len - i - 2] = ((float) buf[len - i - 2]) - off[0];
+
+        out[i+1] = ((float) buf[i+1]) - off[1];
+        out[len - i - 1] = ((float) buf[len - i - 1]) - off[1];
+
+        off[0] += (out[i] + out[len - i - 2]) * esr;
+        off[1] += (out[i+1] + out[len - i - 1]) * esr;
     }
 }
 
@@ -116,6 +139,8 @@ void *processMatrix(void *ctx) {
     args->outFilterDegree = args->outFilterDegree ? args->outFilterDegree : 7;
     args->inFilterDegree = args->inFilterDegree ? args->inFilterDegree : 7;
     args->epsilon = args->epsilon ? args->epsilon : .3f;
+    const iqCorrection_t fixIq = args->iqMode ? correctIq : shiftOrigin;
+    esr = (float) (50. / args->sampleRate);
 
     size_t sosLen = args->outFilterDegree >> 1;
     sosLen = (args->outFilterDegree & 1) ? sosLen + 1 : sosLen;
@@ -143,16 +168,16 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
 
-        shiftOrigin(buf, args->bufSize, fBuf);
-        if (args->demodMode && !args->lowpassIn) {
-            fmDemod(fBuf, args->bufSize, demodRet);
-            applyFilter(demodRet, filterRet, args->bufSize >> 2,
-                    sosLen, sosOut, generateHannCoefficient);
-            fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
+        fixIq(buf, args->bufSize, fBuf);
+        if (!args->demodMode) {
+            applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
+            fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
         } else {
-            if (!args->demodMode) {
-                applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
-                fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
+            if (!args->lowpassIn) {
+                fmDemod(fBuf, args->bufSize, demodRet);
+                applyFilter(demodRet, filterRet, args->bufSize >> 2,
+                        sosLen, sosOut, generateHannCoefficient);
+                fwrite(filterRet, sizeof(float), args->bufSize >> 2, args->outFile);
             } else {
                 applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
                 fmDemod(filterRet, args->bufSize, demodRet);
