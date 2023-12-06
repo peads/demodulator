@@ -111,12 +111,12 @@ static inline void zp2Sos(const size_t n, const double *z, const double *p, cons
 
     size_t i, j;
     size_t npc = n >> 1;
-    size_t npr = 0;
+//    size_t npr = 0;
 
-    if (n & 1) {
-        npr = 1;
-    }
-
+//    if (n & 1) {
+//        npr = 1;
+//    }
+    // TODO correct K for even degrees
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
         sos[j][1] = -2. * z[i];
@@ -125,12 +125,12 @@ static inline void zp2Sos(const size_t n, const double *z, const double *p, cons
         sos[j][5] = p[i] * p[i] + p[i + 1] * p[i + 1];
     }
 
-    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
-        sos[j][3] = 1.;
-        sos[j][2] = sos[j][5] = 0.;
-        sos[j][0] = sos[j][1] = k;
-        sos[j][4] = -p[i];
-    }
+//    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
+        sos[npc][3] = 1.;
+        sos[npc][2] = sos[npc][5] = 0.;
+        sos[npc][0] = sos[npc][1] = k;
+        sos[npc][4] = -p[(n << 1) - 2];
+//    }
 }
 
 static inline double transformBilinear(const size_t n,
@@ -167,7 +167,7 @@ static inline double transformBilinear(const size_t n,
     size_t j;
     k = n >> 1;
     k = (n & 1) ? k + 1 : k;
-    fprintf(stderr, "\nk: %f\n", acc[0]);
+    fprintf(stderr, "\nk: %e\n", acc[0]);
     for (i = 0; i < k; ++i) {
         for (j = 0; j < 6; ++j) {
             fprintf(stderr, "%f ", sos[i][j]);
