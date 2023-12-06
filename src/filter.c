@@ -170,7 +170,7 @@ LREAL transformBilinear(const size_t n,
     return acc[0];
 }
 
-void applyFilter(REAL *__restrict__ x,
+inline void applyFilter(REAL *__restrict__ x,
                  REAL *__restrict__ y,
                  const size_t len,
                  const size_t sosLen,
@@ -195,7 +195,7 @@ void applyFilter(REAL *__restrict__ x,
     }
 }
 
-void applyComplexFilter(REAL *__restrict__ x,
+inline void applyComplexFilter(REAL *__restrict__ x,
                         REAL *__restrict__ y,
                         const size_t len,
                         const size_t sosLen,
