@@ -115,6 +115,10 @@ static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const 
         sos[npc][2] = sos[npc][5] = 0.;
         sos[npc][0] = sos[npc][1] = k;
         sos[npc][4] = -p[(n << 1) - 2];
+    } else {
+        sos[0][0] *= k;
+        sos[0][1] *= k;
+        sos[0][2] *= k;
     }
 }
 
@@ -139,9 +143,14 @@ inline LREAL transformBilinear(const size_t n,
         generateCoeffs(k, n, a, b, warp, acc, p);
     }
 
-    // TODO correct K for even degrees
-    // Store the gain
-    acc[0] /= POW(2., (LREAL) n);
+    // TODO correct K for even degrees cheby
+    if (!(n&1) && warpCheby1 == warp) {
+        // Store the gain
+        acc[0] /= 3.f * POW(2., (LREAL) n - 1);
+    } else {
+        // Store the gain
+        acc[0] /= POW(2., (LREAL) n);
+    }
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;
