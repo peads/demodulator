@@ -143,14 +143,10 @@ inline LREAL transformBilinear(const size_t n,
         generateCoeffs(k, n, a, b, warp, acc, p);
     }
 
-    // TODO correct K for even degrees cheby
-    if (!(n&1) && warpCheby1 == warp) {
-        // Store the gain
-        acc[0] /= 3.f * POW(2., (LREAL) n - 1);
-    } else {
-        // Store the gain
-        acc[0] /= POW(2., (LREAL) n);
-    }
+    // TODO fix this poor  approximation
+    acc[0] /= (!(n & 1) && warp == warpCheby1)
+              ? 3. * POW(2., (LREAL) n - 1)
+              : POW(2., (LREAL) n);
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;
