@@ -100,24 +100,23 @@ static inline int startProcessingMatrix(
 int main(int argc, char **argv) {
 
     consumerArgs args = {
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .sampleRate = 0.,
-            .lowpassIn = 0.,
-            .lowpassOut = 0.,
-            .inFilterDegree = 0,
-            .outFilterDegree = 0,
-            .epsilon = 0.,
-            .exitFlag = 0,
-            .filterMode = 3,
             .bufSize = DEFAULT_BUF_SIZE,
-            .demodMode = 1, // FM
-            .iqMode = 0
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .sampleRate = 10.,
+            .lowpassIn = 0.,
+            .lowpassOut = 1.,
+            .inFilterDegree = 0,
+            .outFilterDegree = 5,
+            .epsilon = .3,
+            .exitFlag = 0,
+            .mode = 0 // dm << 5 | iqm << 3 | filtm
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
 
     int ret = 0;
     int opt;
+    long bufShift;
     FILE *inFile = NULL;
 
     if (argc < 3) {
@@ -161,19 +160,23 @@ int main(int argc, char **argv) {
                     args.epsilon = TO_REAL(optarg, NULL) / 10.;
                     break;
                 case 'm':
-                    args.filterMode = strtol(optarg, NULL, 10);
+                    args.mode |= strtol(optarg, NULL, 10);
                     break;
                 case 'b':
-                    args.bufSize = strtol(optarg, NULL, 10);
-                    args.bufSize = args.bufSize < 1 || args.bufSize > 5
-                            ? DEFAULT_BUF_SIZE
-                            : DEFAULT_BUF_SIZE << args.bufSize;
+                    bufShift = strtol(optarg, NULL, 10);
+                    if (args.bufSize && labs(bufShift) < 4) {
+                        if (args.bufSize < 1) {
+                            args.bufSize = DEFAULT_BUF_SIZE >> -bufShift;
+                        } else {
+                            args.bufSize = DEFAULT_BUF_SIZE << bufShift;
+                        }
+                    }
                     break;
                 case 'c':
-                    args.demodMode = strtouq(optarg, NULL, 10);
+                    args.mode |= strtouq(optarg, NULL, 10) << 4;
                     break;
                 case 'q':
-                    args.iqMode = strtouq(optarg, NULL, 10);
+                    args.mode |= strtouq(optarg, NULL, 10) << 2;
                     break;
                 default:
                     break;

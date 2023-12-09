@@ -31,7 +31,7 @@
     #define REAL double
 #endif
 
-#if PRECISION && DBL_MANT_DIG < LDBL_MANT_DIG
+#if DBL_MANT_DIG < LDBL_MANT_DIG
     #define LREAL long double
     #define LOG logl
     #define POW powl

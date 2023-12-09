@@ -45,9 +45,10 @@ typedef struct {
     FILE *outFile;
     void *buf;
     int exitFlag;
-    uint8_t filterMode;
-    uint8_t demodMode;
-    uint8_t iqMode;
+    uint8_t mode;
+//    uint8_t filterMode;
+//    uint8_t demodMode;
+//    uint8_t iqMode;
     LREAL sampleRate;
     LREAL lowpassIn;
     LREAL lowpassOut;
