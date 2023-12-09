@@ -113,10 +113,11 @@ static inline void correctIq(
         float *__restrict__ out) {
 
     static float off[2] = {};
+    const size_t N = len >> 1;
     size_t i;
     uint8_t *buf = in;
 
-    for (i = 0; i < len >> 1; i += 2) {
+    for (i = 0; i < N; i += 2) {
         out[i] = ((float) buf[i]) - off[0];
         out[len - i - 2] = ((float) buf[len - i - 2]) - off[0];
 
@@ -159,16 +160,13 @@ void *processMatrix(void *ctx) {
     size_t filterOutputLength = args->bufSize;
 
     const size_t outputLen = args->bufSize >> 2;
-    const uint8_t iqMode = (args->mode >> 3) & 1;
-    const uint8_t demodMode = (args->mode >> 5) & 3;
-    const iqCorrection_t processInput = (args->mode >> 4) & 1
+    const uint8_t iqMode = (args->mode >> 2) & 1;
+    const uint8_t demodMode = (args->mode >> 4) & 3;
+    const iqCorrection_t processInput = (args->mode >> 3) & 1
             ? convertU8ToReal
             : (iqMode
                 ? shiftOrigin
                 : correctIq);
-//            .filterMode = 0,
-//            .demodMode = 0, // FM
-//            .iqMode = 0
     const size_t sosLen = (args->outFilterDegree & 1)
             ? (args->outFilterDegree >> 1) + 1
             : (args->outFilterDegree >> 1);

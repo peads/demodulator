@@ -151,16 +151,16 @@ int main(int argc, char **argv) {
                     break;
                 case 'D':
                     // TODO re-separate these for different input and output degrees
-//                    args.inFilterDegree = strtol(optarg, NULL, 10);
+//                    args.inFilterDegree = strtoul(optarg, NULL, 10);
 //                    break;
                 case 'd':
-                    args.outFilterDegree = strtol(optarg, NULL, 10);
+                    args.outFilterDegree = strtoul(optarg, NULL, 10);
                     break;
                 case 'e':
                     args.epsilon = TO_REAL(optarg, NULL) / 10.;
                     break;
                 case 'm':
-                    args.mode |= strtol(optarg, NULL, 10);
+                    args.mode |= strtoul(optarg, NULL, 10);
                     break;
                 case 'b':
                     bufShift = strtol(optarg, NULL, 10);
@@ -173,10 +173,10 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case 'c':
-                    args.mode |= strtouq(optarg, NULL, 10) << 4;
+                    args.mode |= strtoul(optarg, NULL, 10) << 4;
                     break;
                 case 'q':
-                    args.mode |= strtouq(optarg, NULL, 10) << 2;
+                    args.mode |= strtoul(optarg, NULL, 10) << 2;
                     break;
                 default:
                     break;

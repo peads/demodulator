@@ -183,6 +183,7 @@ inline void applyFilter(REAL *__restrict__ x,
 
     REAL *xp, *yp, c[2];
     size_t i, j, m;
+    const size_t slp1 = sosLen + 1;
 
     for (i = 0; i < len; ++i) {
         j = i + (sosLen >> 1);//sosLen;
@@ -190,8 +191,8 @@ inline void applyFilter(REAL *__restrict__ x,
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {
 
-            c[0] = wind(m, sosLen + 1);
-            c[1] = wind(m + 1, sosLen + 1);
+            c[0] = wind(m, slp1);
+            c[1] = wind(m + 1, slp1);
 
             yp[m] = sos[m][0] * yp[m] + sos[m][1] * yp[m + 1] + 1;
             yp[m] -= sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
@@ -208,6 +209,7 @@ inline void applyComplexFilter(REAL *__restrict__ x,
 
     REAL *xp, *yp, c[2] = {};
     size_t i, l, j, m;
+    const size_t slp1 = sosLen + 1;
 
     for (i = 0; i < len; i += 2) {
 
@@ -219,8 +221,8 @@ inline void applyComplexFilter(REAL *__restrict__ x,
 
             l = m << 1;
 
-            c[0] = wind(m, sosLen + 1);
-            c[1] = wind(m + 1, sosLen + 1);
+            c[0] = wind(m, slp1);
+            c[1] = wind(m + 1, slp1);
 
             yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2] + 1;
             yp[l] -= sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
