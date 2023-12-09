@@ -74,7 +74,7 @@ static inline void generateCoeffs(const size_t k,
 
     LREAL a, zj;
     LREAL zr = warp(alpha, beta, k, n, z);
-    zj = z[((k - 1) << 2) + 1]; // 2k - 1
+    zj = z[-1 + (k << 1)];
 
     if (k <= n >> 1) {
         a = zr * zr + zj * zj;
