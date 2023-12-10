@@ -25,7 +25,7 @@ static inline void generateHannCoefficient(const size_t n, REAL *__restrict__ wi
     LREAL x;
     N = (n&1)?N+1:N;
     for (i = 0; i < N; ++i) {
-        x = SIN(M_PI * (LREAL) i / (LREAL) n);
+        x = SIN(M_PI * (LREAL) i / (LREAL) (N << 1));
         wind[n - i - 1] =
         wind[i] = (REAL) (x * x);
 #ifdef VERBOSE

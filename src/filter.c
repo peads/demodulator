@@ -176,7 +176,7 @@ inline void applyFilter(REAL *__restrict__ x,
     size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
-        j = i + (sosLen >> 1);
+        j = i + sosLen;//(sosLen >> 1);
         xp = &x[j];
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {
