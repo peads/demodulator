@@ -20,10 +20,10 @@
 #include "filter.h"
 
 inline LREAL warpButter(const LREAL alpha,
-                 const LREAL beta,
-                 const size_t k,
-                 const size_t n,
-                 LREAL *__restrict__ z) {
+                        const LREAL beta,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
@@ -40,10 +40,10 @@ inline LREAL warpButter(const LREAL alpha,
 }
 
 inline LREAL warpCheby1(const LREAL tng,
-                 const LREAL ep,
-                 const size_t k,
-                 const size_t n,
-                 LREAL *__restrict__ z) {
+                        const LREAL ep,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL oneOverN = 1. / (LREAL) n;
@@ -65,11 +65,15 @@ inline LREAL warpCheby1(const LREAL tng,
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
-static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const LREAL k, LREAL sos[][6]) {
+static inline void zp2Sos(const size_t n,
+                          const LREAL *z,
+                          const LREAL *p,
+                          const LREAL k,
+                          LREAL sos[][6]) {
 
     size_t i, j;
     const size_t npc = n >> 1;
-    const size_t npr = (n & 1) ?  1 : 0;
+    const size_t npr = (n & 1) ? 1 : 0;
 
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
@@ -93,10 +97,10 @@ static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const 
 }
 
 inline LREAL transformBilinear(const size_t n,
-                         const LREAL alpha,
-                         const LREAL beta,
-                         LREAL sos[][6],
-                         const warpGenerator_t warp) {
+                               const LREAL alpha,
+                               const LREAL beta,
+                               LREAL sos[][6],
+                               const warpGenerator_t warp) {
 
     size_t i, k;
     LREAL a, zr, zj;
@@ -129,10 +133,10 @@ inline LREAL transformBilinear(const size_t n,
 #endif
     }
 
-    // TODO fix this poor  approximation
+    // TODO fix this less poor (and thus, less urgent) approximation
     acc[0] /= ((n & 1) || warp != warpCheby1)
-            ? POW(2., (LREAL) n)
-            : 3. * POW(2., (LREAL) (n - 1));
+              ? POW(2., (LREAL) n)
+              : POW(2., (LREAL) n + 0.5);
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;
@@ -161,11 +165,11 @@ inline LREAL transformBilinear(const size_t n,
 }
 
 inline void applyFilter(REAL *__restrict__ x,
-                 REAL *__restrict__ y,
-                 const size_t len,
-                 const size_t sosLen,
-                 const REAL sos[][6],
-                 const windowGenerator_t wind) {
+                        REAL *__restrict__ y,
+                        const size_t len,
+                        const size_t sosLen,
+                        const REAL sos[][6],
+                        const windowGenerator_t wind) {
 
     REAL *xp, *yp, c[2];
     size_t i, j, m;
@@ -187,11 +191,11 @@ inline void applyFilter(REAL *__restrict__ x,
 }
 
 inline void applyComplexFilter(REAL *__restrict__ x,
-                        REAL *__restrict__ y,
-                        const size_t len,
-                        const size_t sosLen,
-                        const REAL sos[][6],
-                        const windowGenerator_t wind) {
+                               REAL *__restrict__ y,
+                               const size_t len,
+                               const size_t sosLen,
+                               const REAL sos[][6],
+                               const windowGenerator_t wind) {
 
     REAL *xp, *yp, c[2] = {};
     size_t i, l, j, m;
