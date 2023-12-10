@@ -77,10 +77,10 @@ LREAL transformBilinear(size_t, LREAL, LREAL, LREAL[][6], warpGenerator_t);
 
 /* Filter application interfaces */
 void applyFilter(
-        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], windowGenerator_t);
+        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], const REAL *__restrict__);
 
 void applyComplexFilter(
-        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], windowGenerator_t);
+        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], const REAL *__restrict__);
 
 #define DEMODULATOR_FILTER_H
 

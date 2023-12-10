@@ -19,20 +19,20 @@
  */
 #include "matrix.h"
 
-static inline REAL generateHannCoefficient(const size_t k, const size_t n) {
-//static double *windowIn = NULL;
-    static REAL *windowOut = NULL;
-    if (!windowOut) {
-        size_t i, N = n >> 1;
-        N = (n & 1) ? N + 1 : N;
-        windowOut = calloc(n, sizeof(REAL));
-        LREAL x;
-        for (i = 0; i < N; ++i) {
-            x = SIN(M_PI * (LREAL) i / (LREAL) n);
-            windowOut[n - i - 1] = windowOut[i] = (REAL) (x * x);
-        }
+static inline void generateHannCoefficient(const size_t n, REAL *__restrict__ wind) {
+
+    size_t i, N = n >> 1;
+    LREAL x;
+    N = (n&1)?N+1:N;
+    for (i = 0; i < N; ++i) {
+        x = SIN(M_PI * (LREAL) i / (LREAL) n);
+        wind[n - i - 1] =
+        wind[i] = (REAL) (x * x);
+#ifdef VERBOSE
+        fprintf(stderr, "%f ", wind[i]);
+#endif
     }
-    return windowOut[k];
+    fprintf(stderr, "\n");
 }
 
 static inline void processFilterOption(uint8_t mode,
@@ -172,12 +172,17 @@ void *processMatrix(void *ctx) {
 
     float sosIn[sosLen][6];
     float sosOut[sosLen][6];
+    float *windIn = NULL;
+    float *windOut = calloc(args->outFilterDegree, sizeof(float));
 
+    generateHannCoefficient(args->outFilterDegree, windOut);
     if (!args->lowpassIn) {
         processFilterOption(args->mode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
     } else {
         args->inFilterDegree = args->outFilterDegree; // TODO decouple out and in filter lens
+        windIn = calloc(args->inFilterDegree, sizeof(float));
+        generateHannCoefficient(args->inFilterDegree, windIn);
         processFilterOption(args->mode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
@@ -198,25 +203,27 @@ void *processMatrix(void *ctx) {
 
         if (!demodMode) {
             convertU8ToReal(buf, args->bufSize, fBuf);
-            applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
+            applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, windIn);
             fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
         } else {
             processInput(buf, args->bufSize, fBuf);
             if (!args->inFilterDegree) {
                 fmDemod(fBuf, args->bufSize, demodRet);
                 applyFilter(demodRet, filterRet, outputLen,
-                        sosLen, sosOut, generateHannCoefficient);
+                        sosLen, sosOut, windOut);
                 fwrite(filterRet, sizeof(float), outputLen, args->outFile);
             } else {
-                applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
+                applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, windIn);
                 fmDemod(filterRet, args->bufSize, demodRet);
-                applyFilter(demodRet, filterRet + args->bufSize, outputLen, sosLen, sosOut, generateHannCoefficient);
+                applyFilter(demodRet, filterRet + args->bufSize, outputLen, sosLen, sosOut, windOut);
                 fwrite(filterRet + args->bufSize, sizeof(float),
                         outputLen, args->outFile);
             }
         }
         memset(filterRet, 0, filterOutputLength * sizeof(float));
     }
+    free(windIn);
+    free(windOut);
     free(buf);
     free(fBuf);
     free(demodRet);
