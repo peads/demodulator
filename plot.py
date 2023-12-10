@@ -29,8 +29,8 @@ from scipy import fft
 plt.style.use('dark_background')
 fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
-ax_t.set_ylim(0, 200)
-ax_a.set_ylim(-2, 2)
+ax_t.set_ylim(0, 100)
+ax_a.set_ylim(-1.5, 1.5)
 
 
 class Chunker(Iterable):
@@ -89,7 +89,7 @@ def animate(y, dt, fftlen):
     amps = np.abs(fft.fft(y, n=fftlen, norm='backward'))
     freqs = np.fft.fftfreq(len(amps))
     ax_t.plot(freqs, amps)
-    ax_w.specgram(y, Fs=1/dt, sides='twosided')
+    ax_w.specgram(y, Fs=1/len(y))#, sides='twosided')
     ax_a.plot(np.arange(0.0, 1.0, 1/len(y)), y)
 
     if w_xlim != (0, 1) and w_ylim != (0, 1):
@@ -109,7 +109,7 @@ if shift > 0:
 else:
     bufsize >>= -shift
 print(f'Size of buffer: {bufsize}')
-fftlen = 1024 #pow(2, int(np.ceil(np.log2(max(bufsize, sampRate)))))
+fftlen = bufsize >> 1 #pow(2, int(np.ceil(np.log2(max(bufsize, sampRate)))))
 print(f'FFT len: {fftlen}')
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
