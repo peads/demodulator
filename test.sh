@@ -107,9 +107,9 @@ for compiler in ${compilers[@]}; do
   executeRun "-L96000 -d7"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
-  executeTimedRun "-L96000"
-  executeTimedRun "-L96000"
-  executeTimedRun "-L96000"
+  executeTimedRun "-L96000 -d7"
+  executeTimedRun "-L96000 -d7"
+  executeTimedRun "-L96000 -d7"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 
