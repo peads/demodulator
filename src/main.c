@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
             .outFilterDegree = 5,
             .epsilon = .3,
             .exitFlag = 0,
-            .mode = 0 // dm << 5 | iqm << 3 | filtm
+            .mode = 0x10
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)

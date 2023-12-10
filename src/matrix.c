@@ -196,7 +196,7 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
 
-        if (demodMode) {
+        if (!demodMode) {
             convertU8ToReal(buf, args->bufSize, fBuf);
             applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
             fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
