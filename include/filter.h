@@ -67,7 +67,6 @@
     #define TO_REAL strtod
 #endif
 
-typedef REAL  (*windowGenerator_t)(size_t, size_t);
 typedef LREAL (*warpGenerator_t)(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 
 /* Filter digitization interfaces */

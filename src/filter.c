@@ -202,7 +202,7 @@ inline void applyComplexFilter(REAL *__restrict__ x,
 
     for (i = 0; i < len; i += 2) {
 
-        j = i + sosLen;//(sosLen << 1);
+        j = i + (sosLen << 1);
         yp = &y[j];
         xp = &x[j];
 
