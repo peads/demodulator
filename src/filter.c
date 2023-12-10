@@ -134,9 +134,10 @@ inline LREAL transformBilinear(const size_t n,
     }
 
     // TODO fix this less poor (and thus, less urgent) approximation
-    acc[0] /= ((n & 1) || warp != warpCheby1)
-              ? POW(2., (LREAL) n)
-              : POW(2., (LREAL) n + 0.5);
+    acc[0] /= (LREAL) (1 << n);
+    if (!(n & 1) && warp == warpCheby1) {
+       acc[0] *= M_SQRT1_2;
+    }
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;

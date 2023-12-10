@@ -220,6 +220,7 @@ void *processMatrix(void *ctx) {
     free(buf);
     free(fBuf);
     free(demodRet);
+    free(filterRet);
 
     return NULL;
 }
