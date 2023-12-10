@@ -164,8 +164,8 @@ int main(int argc, char **argv) {
                     break;
                 case 'b':
                     bufShift = strtol(optarg, NULL, 10);
-                    if (args.bufSize && labs(bufShift) < 4) {
-                        if (args.bufSize < 1) {
+                    if (args.bufSize && labs(bufShift) < 17) {
+                        if (bufShift < 1) {
                             args.bufSize = DEFAULT_BUF_SIZE >> -bufShift;
                         } else {
                             args.bufSize = DEFAULT_BUF_SIZE << bufShift;

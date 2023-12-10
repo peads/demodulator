@@ -58,7 +58,7 @@ static inline void processFilterOption(uint8_t mode,
     } else {
         wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
 #ifdef VERBOSE
-        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc/fs);
+        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
 #endif
         wh = TAN(wh * w);
         transformBilinear(degree, wh, epsilon, sos, warpCheby1);
@@ -162,14 +162,13 @@ void *processMatrix(void *ctx) {
     const size_t outputLen = args->bufSize >> 2;
     const uint8_t iqMode = (args->mode >> 2) & 1;
     const uint8_t demodMode = (args->mode >> 4) & 3;
-    const iqCorrection_t processInput = (args->mode >> 3) & 1
-            ? convertU8ToReal
-            : (iqMode
-                ? shiftOrigin
-                : correctIq);
-    const size_t sosLen = (args->outFilterDegree & 1)
-            ? (args->outFilterDegree >> 1) + 1
-            : (args->outFilterDegree >> 1);
+    const iqCorrection_t processInput =
+            (args->mode >> 3) & 1 ? convertU8ToReal
+                : (iqMode ? shiftOrigin
+                    : correctIq);
+    const size_t sosLen =
+            (args->outFilterDegree & 1) ? (args->outFilterDegree >> 1) + 1
+                : (args->outFilterDegree >> 1);
 
     float sosIn[sosLen][6];
     float sosOut[sosLen][6];
@@ -197,11 +196,12 @@ void *processMatrix(void *ctx) {
         pthread_mutex_unlock(&args->mutex);
         sem_post(args->empty);
 
-        processInput(buf, args->bufSize, fBuf);
         if (demodMode) {
+            convertU8ToReal(buf, args->bufSize, fBuf);
             applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, generateHannCoefficient);
             fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
         } else {
+            processInput(buf, args->bufSize, fBuf);
             if (!args->inFilterDegree) {
                 fmDemod(fBuf, args->bufSize, demodRet);
                 applyFilter(demodRet, filterRet, outputLen,

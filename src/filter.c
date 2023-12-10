@@ -29,10 +29,10 @@ inline LREAL warpButter(const LREAL alpha,
     const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
     const LREAL a = COS(w);
     const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
-    const LREAL zr = (a - beta/*tan(theta)*/) * d;
+    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
     const LREAL zj = SIN(w) * d;
 
-    z[j + 2] = z[j] = 1. - zr;
+    z[j + 2] = z[j] = -zr + 1.;
     z[j + 1] = zj;
     z[j + 3] = -zj;
 
@@ -47,7 +47,7 @@ inline LREAL warpCheby1(const LREAL tng,
 
     size_t j = (k - 1) << 2;
     const LREAL oneOverN = 1. / (LREAL) n;
-    const LREAL v = LOG((1. + POW(10., 0.5 * ep)) / SQRT(POW(10., ep) - 1.)) * oneOverN;
+    const LREAL v = LOG((1. + POW(10., 0.5 * ep)) / SQRT(-1. + POW(10., ep))) * oneOverN;
     const LREAL t = M_PI_2 * (oneOverN * (-1. + (LREAL) (k << 1)));
 
     const LREAL a = COS(t) * COSH(v) * tng; // tan(w * wh)
@@ -57,49 +57,19 @@ inline LREAL warpCheby1(const LREAL tng,
     LREAL zj = 2. * a * d;
     LREAL zr = 2. * (b + c) * d;
 
-    z[j + 2] = z[j] = 1. - zr;
+    z[j + 2] = z[j] = -zr + 1.;
     z[j + 1] = zj;
     z[j + 3] = -zj;
 
     return zr;
 }
 
-static inline void generateCoeffs(const size_t k,
-                                  const size_t n,
-                                  const LREAL alpha,
-                                  const LREAL beta,
-                                  const warpGenerator_t warp,
-                                  LREAL *__restrict__ acc,
-                                  LREAL *__restrict__ z) {
-
-    LREAL a, zj;
-    LREAL zr = warp(alpha, beta, k, n, z);
-    zj = z[-1 + (k << 1)];
-
-    if (k <= n >> 1) {
-        a = zr * zr + zj * zj;
-        acc[0] *= a;
-        acc[1] *= a;
-    } else {
-        a = zr * acc[0] - zj * acc[1];
-        acc[1] = zr * acc[1] + zj * acc[0];
-        acc[0] = a;
-    }
-#ifdef VERBOSE
-    fprintf(stderr, PRINT_POLES, 1. - zr, zj);
-#endif
-}
-
 /// Note this simplification will not work for non-bilinear transform transfer functions
 static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const LREAL k, LREAL sos[][6]) {
 
     size_t i, j;
-    size_t npc = n >> 1;
-    size_t npr = 0;
-
-    if (n & 1) {
-        npr = 1;
-    }
+    const size_t npc = n >> 1;
+    const size_t npr = (n & 1) ?  1 : 0;
 
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
@@ -123,12 +93,13 @@ static inline void zp2Sos(const size_t n, const LREAL *z, const LREAL *p, const 
 }
 
 inline LREAL transformBilinear(const size_t n,
-                         const LREAL a,
-                         const LREAL b,
+                         const LREAL alpha,
+                         const LREAL beta,
                          LREAL sos[][6],
                          const warpGenerator_t warp) {
 
     size_t i, k;
+    LREAL a, zr, zj;
     LREAL acc[2] = {1., 0};
     LREAL *p = calloc(((n + 1) << 1), sizeof(LREAL));
     LREAL *z = calloc(((n + 1) << 1), sizeof(LREAL));
@@ -139,14 +110,39 @@ inline LREAL transformBilinear(const size_t n,
     fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
 #endif
     // Generate roots of bilinear transform
-    for (k = 1; k <= N; ++k) {
-        generateCoeffs(k, n, a, b, warp, acc, p);
+    for (i = 0, k = 1; k <= N; ++k, i += 4) {
+
+        zr = warp(alpha, beta, k, n, p);
+        zj = p[i + 1];
+
+        if (k <= n >> 1) {
+            a = zr * zr + zj * zj;
+            acc[0] *= a;
+            acc[1] *= a;
+        } else {
+            a = zr * acc[0] - zj * acc[1];
+            acc[1] = zr * acc[1] + zj * acc[0];
+            acc[0] = a;
+        }
+#ifdef VERBOSE
+        fprintf(stderr, PRINT_POLES, 1. - zr, zj);
+#endif
     }
 
     // TODO fix this poor  approximation
-    acc[0] /= (!(n & 1) && warp == warpCheby1)
-              ? 3. * POW(2., (LREAL) n - 1)
-              : POW(2., (LREAL) n);
+    if (warp != warpCheby1) {
+        acc[0] /= POW(2., (LREAL) n);
+        acc[1] /= POW(2., (LREAL) n);
+    } else {
+        if ((n & 1)) {
+            acc[0] /= POW(2., (LREAL) n);
+            acc[1] /= POW(2., (LREAL) n);
+        } else {
+            acc[0] /= 3. * POW(2., (LREAL) (n - 1));
+            acc[1] /= 3. * POW(2., (LREAL) (n - 1));
+        }
+    }
+//        acc[0] /= ((n & 1) || warp != warpCheby1) ? POW(2., (LREAL) n) : 3. * POW(2., (LREAL) (n - 1));
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = -1.;
@@ -186,7 +182,7 @@ inline void applyFilter(REAL *__restrict__ x,
     const size_t slp1 = sosLen + 1;
 
     for (i = 0; i < len; ++i) {
-        j = i + (sosLen >> 1);//sosLen;
+        j = i + (sosLen >> 1);
         xp = &x[j];
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {

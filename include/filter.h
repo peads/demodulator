@@ -42,6 +42,7 @@
     #define COSH coshl
     #define SINH sinhl
     #define ACOSH acoshl
+    #define HYPOT hypotl
     #define PRINT_POLES "(%Lf +/- %Lf I) "
     #define PRINT_K "\nk: %Le\n"
     #define PRINT_SOS "%Lf "
@@ -58,6 +59,7 @@
     #define COSH cosh
     #define SINH sinh
     #define ACOSH acosh
+    #define HYPOT hypot
     #define PRINT_POLES "(%f +/- %f I) "
     #define PRINT_K "\nk: %e\n"
     #define PRINT_SOS "%f "
