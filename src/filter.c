@@ -19,6 +19,34 @@
  */
 #include "filter.h"
 
+//TODO
+//static inline LREAL warpButterGeneric(const LREAL alpha,
+//                                      const LREAL beta,
+//                                      const size_t j,
+//                                      const size_t k,
+//                                      const size_t n,
+//                                      LREAL *__restrict__ z)
+
+inline LREAL warpButterHp(const LREAL alpha,
+                        const LREAL beta,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
+
+    size_t j = (k - 1) << 2;
+    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
+    const LREAL a = COS(w);
+    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
+    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
+    const LREAL zj = SIN(w) * d;
+
+    z[j + 2] = z[j] = -zr + 1.;//-zr - 1.;
+    z[j + 1] = zj;
+    z[j + 3] = -zj;
+
+    return 2.-zr;
+}
+
 inline LREAL warpButter(const LREAL alpha,
                         const LREAL beta,
                         const size_t k,
@@ -85,13 +113,14 @@ static inline void zp2Sos(const size_t n,
 
 //    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
     if (npc < npc + npr) {
-        sos[npc][3] = 1.;
+        sos[npc][0] = k;
+        sos[npc][1] = -k * z[(n << 1) - 2];
         sos[npc][2] = sos[npc][5] = 0.;
-        sos[npc][0] = sos[npc][1] = k;
+        sos[npc][3] = 1.;
         sos[npc][4] = -p[(n << 1) - 2];
     } else {
         sos[0][0] *= k;
-        sos[0][1] *= k;
+        sos[0][1] *= -k * z[(n << 1) - 2];
         sos[0][2] *= k;
     }
 }
@@ -99,8 +128,9 @@ static inline void zp2Sos(const size_t n,
 inline LREAL transformBilinear(const size_t n,
                                const LREAL alpha,
                                const LREAL beta,
-                               LREAL sos[][6],
-                               const warpGenerator_t warp) {
+                               const uint8_t isHighpass,
+                               const warpGenerator_t warp,
+                               LREAL sos[][6]) {
 
     size_t i, k;
     LREAL a, zr, zj;
@@ -110,8 +140,9 @@ inline LREAL transformBilinear(const size_t n,
     LREAL *t = calloc((n << 1), sizeof(LREAL));
     size_t N = n >> 1;
     N = (n & 1) ? N + 1 : N;
+    const char zero = isHighpass ? 1 : -1;
 #ifdef VERBOSE
-    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z+1)^n\np: ",  n, zero);
 #endif
     // Generate roots of bilinear transform
     for (i = 0, k = 1; k <= N; ++k, i += 4) {
@@ -140,7 +171,7 @@ inline LREAL transformBilinear(const size_t n,
     }
 
     for (i = 0; i < n << 1; i += 2) {
-        z[i] = -1.;
+        z[i] = zero;
         z[i + 1] = 0;
     }
 

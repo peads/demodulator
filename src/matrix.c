@@ -19,6 +19,9 @@
  */
 #include "matrix.h"
 
+static LREAL samplingRate;
+static float esr;
+
 static inline void generateCosSum(const size_t n,
                                   const size_t m,
                                   const LREAL *__restrict__ a,
@@ -37,11 +40,11 @@ static inline void generateCosSum(const size_t n,
         }
         wind[n - i - 1] =
             wind[i] = (REAL) x;
-#ifdef VERBOSE
+#if 0
         fprintf(stderr, "%f ", wind[i]);
 #endif
     }
-#ifdef VERBOSE
+#if 0
     fprintf(stderr, "\n");
 #endif
 }
@@ -55,11 +58,11 @@ static inline void generateHann(const size_t n, REAL *__restrict__ wind) {
         x = SIN(M_PI * (LREAL) i / (LREAL) (N << 1));
         wind[n - i - 1] =
         wind[i] = (REAL) (x * x);
-#ifdef VERBOSE
+#if 0
         fprintf(stderr, "%f ", wind[i]);
 #endif
     }
-#ifdef VERBOSE
+#if 0
     fprintf(stderr, "\n");
 #endif
 }
@@ -94,15 +97,22 @@ static inline void processFilterOption(uint8_t mode,
     fprintf(stderr, "\ndegree: %zu", degree);
 #endif
 
-    if (!mode) {
-        transformBilinear(degree, 1. / SIN(2. * w), TAN(w), sos, warpButter);
-    } else {
-        wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
+    switch (mode) {
+        case 1:
+            wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
 #ifdef VERBOSE
-        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
+            fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
 #endif
-        wh = TAN(wh * w);
-        transformBilinear(degree, wh, epsilon, sos, warpCheby1);
+            wh = TAN(wh * w);
+            transformBilinear(degree, wh, epsilon, 0, warpCheby1, sos);
+            break;
+        case 2:
+            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
+            break;
+        case 0: // fall-through intended
+        default:
+            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
+            break;
     }
 
     for (i = 0; i < N; ++i) {
@@ -148,8 +158,6 @@ static inline void convertU8ToReal(
     }
 }
 
-static float esr;
-
 static inline void correctIq(
         void *__restrict__ in,
         const size_t len,
@@ -170,6 +178,25 @@ static inline void correctIq(
         off[0] += (out[i] + out[len - i - 2]) * esr;
         off[1] += (out[i + 1] + out[len - i - 1]) * esr;
     }
+}
+
+static inline void highpassDc(
+        void *__restrict__ in,
+        const size_t len,
+        float *__restrict__ out) {
+
+    static REAL *wind = NULL;
+    static float sos[2][6];
+    static float *buf = NULL;
+    if (!wind) {
+        wind = calloc(3, sizeof(float));
+        generateHann(3, wind);
+        processFilterOption(2, 3, sos, 1., samplingRate, 0.);
+        buf = calloc(len, sizeof(float));
+    }
+
+    convertU8ToReal(in, len, buf);
+    applyComplexFilter(buf, out, len, 2, sos, wind);
 }
 
 static inline void fmDemod(const float *__restrict__ in,
@@ -197,27 +224,46 @@ void *processMatrix(void *ctx) {
     void *buf = calloc(args->bufSize, 1);
 
     float *filterRet;
-    float *fBuf = calloc(args->bufSize, sizeof(float));
+//    float *fBuf = calloc(args->bufSize, sizeof(float));
     float *demodRet = calloc(args->bufSize, sizeof(float));
 
-    size_t filterOutputLength = args->bufSize;
+    const size_t twiceBufSize = args->bufSize << 1;
+    size_t filterOutputLength = twiceBufSize;
+    size_t filterBytes;
 
     const size_t outputLen = args->bufSize >> 2;
-    const uint8_t iqMode = (args->mode >> 2) & 1;
     const uint8_t demodMode = (args->mode >> 4) & 3;
-    const iqCorrection_t processInput =
-            (args->mode >> 3) & 1 ? convertU8ToReal
-                                  : (iqMode ? shiftOrigin
-                                            : correctIq);
     const size_t sosLen =
             (args->outFilterDegree & 1) ? (args->outFilterDegree >> 1) + 1
                                         : (args->outFilterDegree >> 1);
 
+    iqCorrection_t processInput = NULL;
     float sosIn[sosLen][6];
     float sosOut[sosLen][6];
     float *windIn = NULL;
     float *windOut = calloc(args->outFilterDegree, sizeof(float));
     windowGenerator_t genWindow;
+
+    samplingRate = args->sampleRate;
+
+    switch ((args->mode >> 2) & 3) {
+        case 0:
+            processInput = correctIq;
+            break;
+        case 1:
+            processInput = shiftOrigin;
+            break;
+        case 2:
+//            filterOutputLength <<= 1;
+            processInput = highpassDc;
+            break;
+        case 3:
+            esr = (float) (50. / args->sampleRate);
+            processInput = convertU8ToReal;
+            break;
+        default:
+            break;
+    }
 
     switch ((args->mode >> 6) & 3) {
         case 0:
@@ -226,7 +272,7 @@ void *processMatrix(void *ctx) {
         case 2:
             genWindow = generateBH;
             break;
-        case 1:
+        case 1: // fall-through intended
         case 3:
         default:
             genWindow = generateHann;
@@ -234,21 +280,19 @@ void *processMatrix(void *ctx) {
     }
 
     genWindow(args->outFilterDegree, windOut);
-    if (!args->lowpassIn) {
-        processFilterOption(args->mode & 1,
-                args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
-    } else {
+
+    processFilterOption(args->mode & 1,
+            args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
+    if (args->lowpassIn) {
         args->inFilterDegree = args->outFilterDegree; // TODO decouple out and in filter lens
         windIn = calloc(args->inFilterDegree, sizeof(float));
         genWindow(args->inFilterDegree, windIn);
-        processFilterOption(args->mode & 1,
-                args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
         processFilterOption((args->mode >> 1) & 1,
                 args->inFilterDegree, sosIn, args->lowpassIn, args->sampleRate, args->epsilon);
     }
 
-    esr = (float) (50. / args->sampleRate);
+    filterBytes = filterOutputLength * sizeof(float);
     filterRet = calloc(filterOutputLength, sizeof(float));
 
     while (!args->exitFlag) {
@@ -260,35 +304,30 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         if (!demodMode) {
-            convertU8ToReal(buf, args->bufSize, fBuf);
-            applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, windIn);
-            fwrite(filterRet, sizeof(float), args->bufSize, args->outFile);
+            convertU8ToReal(buf, args->bufSize, filterRet);
+            applyComplexFilter(filterRet, filterRet + args->bufSize, args->bufSize, sosLen, sosIn, windIn);
+            fwrite(filterRet + args->bufSize, sizeof(float), args->bufSize, args->outFile);
         } else {
-            processInput(buf, args->bufSize, fBuf);
+            processInput(buf, args->bufSize, filterRet);
             if (!args->inFilterDegree) {
-                fmDemod(fBuf, args->bufSize, demodRet);
-                applyFilter(demodRet, filterRet, outputLen,
-                        sosLen, sosOut, windOut);
-                fwrite(filterRet, sizeof(float), outputLen, args->outFile);
-            } else {
-                applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, windIn);
                 fmDemod(filterRet, args->bufSize, demodRet);
-                applyFilter(demodRet,
-                        filterRet + args->bufSize,
-                        outputLen,
-                        sosLen,
-                        sosOut,
-                        windOut);
-                fwrite(filterRet + args->bufSize, sizeof(float),
+                applyFilter(demodRet, filterRet + args->bufSize, outputLen,
+                        sosLen, sosOut, windOut);
+                fwrite(filterRet + args->bufSize, sizeof(float), outputLen, args->outFile);
+            } else {
+                applyComplexFilter(filterRet, filterRet + args->bufSize, args->bufSize, sosLen, sosIn, windIn);
+                fmDemod(filterRet + args->bufSize, args->bufSize, demodRet);
+                applyFilter(demodRet, filterRet + twiceBufSize, outputLen, sosLen,
+                        sosOut, windOut);
+                fwrite(filterRet + twiceBufSize, sizeof(float),
                         outputLen, args->outFile);
             }
         }
-        memset(filterRet, 0, filterOutputLength * sizeof(float));
+        memset(filterRet, 0, filterBytes);
     }
     free(windIn);
     free(windOut);
     free(buf);
-    free(fBuf);
     free(demodRet);
     free(filterRet);
 

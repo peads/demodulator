@@ -40,6 +40,7 @@
 
 typedef void (*windowGenerator_t)(const size_t, REAL *__restrict__);
 typedef void (*iqCorrection_t)(void *__restrict__, size_t, float *__restrict__);
+
 typedef struct {
     sem_t *full, *empty;
     pthread_mutex_t mutex;
@@ -47,9 +48,6 @@ typedef struct {
     void *buf;
     int exitFlag;
     uint8_t mode;
-//    uint8_t filterMode;
-//    uint8_t demodMode;
-//    uint8_t iqMode;
     LREAL sampleRate;
     LREAL lowpassIn;
     LREAL lowpassOut;

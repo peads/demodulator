@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:w:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -177,6 +177,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'q':
                     args.mode |= strtoul(optarg, NULL, 10) << 2;
+                    break;
+                case 'w':
+                    args.mode |= strtoul(optarg, NULL, 10) << 6;
                     break;
                 default:
                     break;
