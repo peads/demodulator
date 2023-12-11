@@ -254,7 +254,6 @@ void *processMatrix(void *ctx) {
             processInput = shiftOrigin;
             break;
         case 2:
-//            filterOutputLength <<= 1;
             processInput = highpassDc;
             break;
         case 3:
@@ -283,6 +282,7 @@ void *processMatrix(void *ctx) {
 
     processFilterOption(args->mode & 1,
             args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
+
     if (args->lowpassIn) {
         args->inFilterDegree = args->outFilterDegree; // TODO decouple out and in filter lens
         windIn = calloc(args->inFilterDegree, sizeof(float));

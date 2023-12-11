@@ -69,10 +69,10 @@ function executeRun() {
 }
 
 function executeRun2() {
-  sox -v150 -q -D -twav  ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  sox -v100 -q -D -twav  ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -l3600 -S96000 ${1} \
-    | sox -v0.25 -q -D -traw -b32 -ef -r96k - -traw -es -r22050 -b16 - 2>/dev/null \
+    | build/demodulator -q1 -i - -o - -l3600 -S96000 ${1} \
+    | sox -v0.5 -q -D -traw -b32 -ef -r96k - -traw -es -r22050 -b16 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -i -
 }
 
@@ -80,13 +80,7 @@ findCompiler gcc hasGcc
 findCompiler clang hasClang
 findCompiler icc hasIcc
 findCompiler nvcc hasNvcc
-#if [ $hasNvcc == 0 ]; then
-#  var=$(bc -l <<<"$(findSmVersion) < 8")
-#  if [ $var == 0 ]; then
-#    gain=$(bc -l <<<"-1*${gain}")
-#  fi
-#  echo $gain
-#fi
+
 set -e
 i=0
 for compiler in ${compilers[@]}; do
@@ -117,7 +111,7 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2 "-m2 -L12500"
+  executeRun2 "-L12500"
 
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
   executeTimedRun "-L12500"
