@@ -55,7 +55,7 @@ static inline void generateRect(const size_t n, REAL *__restrict__ wind) {
     N = (n & 1) ? N + 1 : N;
     for (i = 0; i < N; ++i) {
         wind[n - i - 1] =
-        wind[i] = 1.f;
+        wind[i] = (REAL) 1.;
 #if 0
         fprintf(stderr, "%f ", wind[i]);
 #endif
@@ -201,42 +201,42 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static const size_t degree = 15; //TODO make this variable based on command-line param
+    static const size_t degree = 5; //TODO make this variable based on command-line param
     static const size_t sosLen =
             (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
     static REAL *wind = NULL;
-    static REAL sos[8][6];
+    static REAL sos[3][6];
     static REAL *buf = NULL;
 
     if (!wind) {
-        size_t i,j;
-        REAL *sp;
         wind = calloc(degree, sizeof(REAL));
-        generateHann(degree, wind);
-//        processFilterOption(2, degree, sos, 1., samplingRate, 0.);
+        generateRect(degree, wind);
+        processFilterOption(2, degree, sos, 1., samplingRate, 0.);
 
-        for (i = 0; i < sosLen; ++i) {
-            sp = sos[i];
-            for (j = 0; j < 6; j += 2) {
-                sp[j] = sp[5-j] = (REAL) 1.;
-            }
-            sp[1] *= (REAL) -2.;
-            sp[4] = sp[1];
-        }
-        if (degree & 1) {
-            sp = sos[sosLen - 1];
-            sp[1] = sp[4] = (REAL) -1.;
-            sp[2] = sp[5] = 0;
-        }
-
-        fprintf(stderr, "\n");
-        for (i = 0; i < sosLen; ++i) {
-            sp = sos[i];
-            for (j = 0; j < 6; ++j) {
-                fprintf(stderr, "%f ", sp[j]);
-            }
-            fprintf(stderr, "\n");
-        }
+//        size_t i,j;
+//        REAL *sp;
+//        for (i = 0; i < sosLen; ++i) {
+//            sp = sos[i];
+//            for (j = 0; j < 6; j += 2) {
+//                sp[j] = sp[5-j] = (REAL) 1.;
+//            }
+//            sp[1] *= (REAL) -2.;
+//            sp[4] = sp[1];
+//        }
+//        if (degree & 1) {
+//            sp = sos[sosLen - 1];
+//            sp[1] = sp[4] = (REAL) -1.;
+//            sp[2] = sp[5] = 0;
+//        }
+//
+//        fprintf(stderr, "\n");
+//        for (i = 0; i < sosLen; ++i) {
+//            sp = sos[i];
+//            for (j = 0; j < 6; ++j) {
+//                fprintf(stderr, "%f ", sp[j]);
+//            }
+//            fprintf(stderr, "\n");
+//        }
 
         buf = calloc(len, sizeof(REAL));
     }
@@ -261,7 +261,7 @@ static inline void fmDemod(const REAL *__restrict__ in,
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
 
         zr = (REAL) (64. * zj * 1. / (23. * zr + 41. * HYPOTF(zr, zj)));
-        out[i >> 2] = isnan(zr) ? 0.f : zr;
+        out[i >> 2] = isnan(zr) ? (REAL) 0. : zr;
     }
 }
 
@@ -271,7 +271,6 @@ void *processMatrix(void *ctx) {
     void *buf = calloc(args->bufSize, 1);
 
     REAL *filterRet;
-//    REAL *fBuf = calloc(args->bufSize, sizeof(REAL));
     REAL *demodRet = calloc(args->bufSize, sizeof(REAL));
 
     const size_t twiceBufSize = args->bufSize << 1;
