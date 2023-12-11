@@ -30,7 +30,7 @@ plt.style.use('dark_background')
 fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
 ax_t.set_ylim(0, 1000)
-ax_a.set_ylim(-1.25, 1.25)
+ax_a.set_ylim(-1, 1)
 
 
 class Chunker(Iterable):

@@ -19,11 +19,38 @@
  */
 #include "matrix.h"
 
-static inline void generateHannCoefficient(const size_t n, REAL *__restrict__ wind) {
+static inline void generateCosSum(const size_t n,
+                                  const size_t m,
+                                  const LREAL *__restrict__ a,
+                                  REAL *__restrict__ wind) {
+    size_t k;
+    LREAL t, x;
+    size_t i, N = n >> 1;
+
+    N = (n & 1) ? N + 1 : N;
+
+    for (i = 0; i < N; ++i) {
+        t = 2. * M_PI * (LREAL) i / (N << 1);
+        x = 0;
+        for (k = 0; k < m; ++k) {
+            x += POW(-1, k) * a[k] * COS(k * t);
+        }
+        wind[n - i - 1] =
+            wind[i] = (REAL) x;
+#ifdef VERBOSE
+        fprintf(stderr, "%f ", wind[i]);
+#endif
+    }
+#ifdef VERBOSE
+    fprintf(stderr, "\n");
+#endif
+}
+
+static inline void generateHann(const size_t n, REAL *__restrict__ wind) {
 
     size_t i, N = n >> 1;
     LREAL x;
-    N = (n&1)?N+1:N;
+    N = (n & 1) ? N + 1 : N;
     for (i = 0; i < N; ++i) {
         x = SIN(M_PI * (LREAL) i / (LREAL) (N << 1));
         wind[n - i - 1] =
@@ -32,7 +59,21 @@ static inline void generateHannCoefficient(const size_t n, REAL *__restrict__ wi
         fprintf(stderr, "%f ", wind[i]);
 #endif
     }
+#ifdef VERBOSE
     fprintf(stderr, "\n");
+#endif
+}
+
+static inline void generateBH(const size_t n, REAL *__restrict__ wind) {
+
+    static const LREAL a[4] = {0.35875, 0.48829, 0.14128, 0.01168};
+    generateCosSum(n, 4, a, wind);
+}
+
+static inline void generateBN(const size_t n, REAL *__restrict__ wind) {
+
+    static const LREAL a[4] = {0.3635819, 0.4891775, 0.1365995, 0.0106411};
+    generateCosSum(n, 4, a, wind);
 }
 
 static inline void processFilterOption(uint8_t mode,
@@ -89,10 +130,11 @@ static inline void shiftOrigin(
     }
 }
 
-static inline void convertU8ToReal (
+static inline void convertU8ToReal(
         void *__restrict__ in,
         const size_t len,
         float *__restrict__ out) {
+
     const size_t N = len >> 1;
     size_t i;
     uint8_t *buf = in;
@@ -107,6 +149,7 @@ static inline void convertU8ToReal (
 }
 
 static float esr;
+
 static inline void correctIq(
         void *__restrict__ in,
         const size_t len,
@@ -121,11 +164,11 @@ static inline void correctIq(
         out[i] = ((float) buf[i]) - off[0];
         out[len - i - 2] = ((float) buf[len - i - 2]) - off[0];
 
-        out[i+1] = ((float) buf[i+1]) - off[1];
+        out[i + 1] = ((float) buf[i + 1]) - off[1];
         out[len - i - 1] = ((float) buf[len - i - 1]) - off[1];
 
         off[0] += (out[i] + out[len - i - 2]) * esr;
-        off[1] += (out[i+1] + out[len - i - 1]) * esr;
+        off[1] += (out[i + 1] + out[len - i - 1]) * esr;
     }
 }
 
@@ -164,25 +207,40 @@ void *processMatrix(void *ctx) {
     const uint8_t demodMode = (args->mode >> 4) & 3;
     const iqCorrection_t processInput =
             (args->mode >> 3) & 1 ? convertU8ToReal
-                : (iqMode ? shiftOrigin
-                    : correctIq);
+                                  : (iqMode ? shiftOrigin
+                                            : correctIq);
     const size_t sosLen =
             (args->outFilterDegree & 1) ? (args->outFilterDegree >> 1) + 1
-                : (args->outFilterDegree >> 1);
+                                        : (args->outFilterDegree >> 1);
 
     float sosIn[sosLen][6];
     float sosOut[sosLen][6];
     float *windIn = NULL;
     float *windOut = calloc(args->outFilterDegree, sizeof(float));
+    windowGenerator_t genWindow;
 
-    generateHannCoefficient(args->outFilterDegree, windOut);
+    switch ((args->mode >> 6) & 3) {
+        case 0:
+            genWindow = generateBN;
+            break;
+        case 2:
+            genWindow = generateBH;
+            break;
+        case 1:
+        case 3:
+        default:
+            genWindow = generateHann;
+            break;
+    }
+
+    genWindow(args->outFilterDegree, windOut);
     if (!args->lowpassIn) {
         processFilterOption(args->mode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
     } else {
         args->inFilterDegree = args->outFilterDegree; // TODO decouple out and in filter lens
         windIn = calloc(args->inFilterDegree, sizeof(float));
-        generateHannCoefficient(args->inFilterDegree, windIn);
+        genWindow(args->inFilterDegree, windIn);
         processFilterOption(args->mode & 1,
                 args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
         filterOutputLength <<= 1;
@@ -215,7 +273,12 @@ void *processMatrix(void *ctx) {
             } else {
                 applyComplexFilter(fBuf, filterRet, args->bufSize, sosLen, sosIn, windIn);
                 fmDemod(filterRet, args->bufSize, demodRet);
-                applyFilter(demodRet, filterRet + args->bufSize, outputLen, sosLen, sosOut, windOut);
+                applyFilter(demodRet,
+                        filterRet + args->bufSize,
+                        outputLen,
+                        sosLen,
+                        sosOut,
+                        windOut);
                 fwrite(filterRet + args->bufSize, sizeof(float),
                         outputLen, args->outFile);
             }
