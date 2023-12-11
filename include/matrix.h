@@ -39,7 +39,7 @@
 #endif
 
 typedef void (*windowGenerator_t)(const size_t, REAL *__restrict__);
-typedef void (*iqCorrection_t)(void *__restrict__, size_t, float *__restrict__);
+typedef void (*iqCorrection_t)(void *__restrict__, size_t, REAL *__restrict__);
 
 typedef struct {
     sem_t *full, *empty;

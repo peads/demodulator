@@ -26,10 +26,12 @@
 #include <float.h>
 
 #define REAL float
-
+#define HYPOTF hypotf
 #ifdef PRECISION
     #undef REAL
+    #undef HYPOTF
     #define REAL double
+    #define HYPOTF hypot
 #endif
 
 #if DBL_MANT_DIG < LDBL_MANT_DIG
@@ -74,9 +76,7 @@ typedef LREAL (*warpGenerator_t)(LREAL, LREAL, size_t, size_t, LREAL *__restrict
 LREAL warpButter(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL warpButterHp(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL warpCheby1(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
-LREAL transformBilinear(size_t, LREAL, LREAL,
-                        const uint8_t,
-                        const warpGenerator_t,
+LREAL transformBilinear(size_t, LREAL, LREAL, uint8_t, warpGenerator_t,
                         LREAL[][6]);
 
 /* Filter application interfaces */
