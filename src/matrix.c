@@ -116,10 +116,10 @@ static inline void processFilterOption(uint8_t mode,
     switch (mode) {
         case 1:
             wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-            transformBilinear(degree, TAN(w * wh), epsilon, 0, warpCheby1, sos);
+            transformBilinear(degree, TAN(2. * M_PI * w * wh), epsilon, 0, warpCheby1, sos);
             break;
         case 2:
-            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
+            transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 1, warpButterHp, sos);
             break;
         case 3:
             //TODO
@@ -127,7 +127,7 @@ static inline void processFilterOption(uint8_t mode,
 //            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
 //            break;
         default:
-            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
+            transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 0, warpButter, sos);
             break;
     }
 #ifdef VERBOSE
@@ -219,7 +219,7 @@ static inline void highpassDc(
             {1, -2, 1, 1, -2, 1},
             {1, -2, 1, 1, -2, 1}
     };
-//            {1, -1, 0, 1, -0.99948, 0},
+//            {0.99969, -0.99969, 0, 1, -0.99948, 0},
 //            {1, -2, 1, 1, -1.9999, 0.99993},
 //            {1, -2, 1, 1, -2, 0.99998},
 //            {1, -2, 1, 1, -2, 1}};
@@ -322,7 +322,9 @@ void *processMatrix(void *ctx) {
             args->outFilterDegree, sosOut, args->lowpassOut, args->sampleRate, args->epsilon);
 
     if (args->lowpassIn) {
-        args->inFilterDegree = args->outFilterDegree; // TODO decouple out and in filter lens
+        if (!args->inFilterDegree) {
+            args->inFilterDegree = args->outFilterDegree;
+        }
         windIn = calloc(args->inFilterDegree, sizeof(REAL));
         genWindow(args->inFilterDegree, windIn);
         filterOutputLength <<= 1;

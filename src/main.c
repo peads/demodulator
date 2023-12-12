@@ -150,9 +150,8 @@ int main(int argc, char **argv) {
                     args.sampleRate = TO_REAL(optarg, NULL);
                     break;
                 case 'D':
-                    // TODO re-separate these for different input and output degrees
-//                    args.inFilterDegree = strtoul(optarg, NULL, 10);
-//                    break;
+                    args.inFilterDegree = strtoul(optarg, NULL, 10);
+                    break;
                 case 'd':
                     args.outFilterDegree = strtoul(optarg, NULL, 10);
                     break;
