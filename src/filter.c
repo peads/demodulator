@@ -19,8 +19,6 @@
  */
 #include "filter.h"
 
-#include "filter.h"
-
 static inline LREAL warpButterGeneric(const LREAL alpha,
                                       const LREAL beta,
                                       const size_t k,
@@ -162,7 +160,8 @@ inline LREAL transformBilinear(const size_t n,
     N = (n & 1) ? N + 1 : N;
     const char zero = isHighpass ? 1 : -1;
 #ifdef VERBOSE
-    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z+1)^n\np: ", n, zero);
+    const char *one = isHighpass ? " - 1" : " + 1";
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z%s)^n\np: ", n, zero, one);
 #endif
     // Generate roots of bilinear transform
     for (i = 0, k = 1; k <= N; ++k, i += 4) {
