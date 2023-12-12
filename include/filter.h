@@ -21,14 +21,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <float.h>
 
 #define REAL float
-
+#define HYPOTF hypotf
 #ifdef PRECISION
     #undef REAL
+    #undef HYPOTF
     #define REAL double
+    #define HYPOTF hypot
 #endif
 
 #if DBL_MANT_DIG < LDBL_MANT_DIG
@@ -67,20 +70,23 @@
     #define TO_REAL strtod
 #endif
 
-typedef REAL  (*windowGenerator_t)(size_t, size_t);
 typedef LREAL (*warpGenerator_t)(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 
 /* Filter digitization interfaces */
 LREAL warpButter(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
+LREAL warpButterHp(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL warpCheby1(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
-LREAL transformBilinear(size_t, LREAL, LREAL, LREAL[][6], warpGenerator_t);
+//TODO
+//LREAL warpCheby1Hp(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
+LREAL transformBilinear(size_t, LREAL, LREAL, uint8_t, warpGenerator_t,
+                        LREAL[][6]);
 
 /* Filter application interfaces */
 void applyFilter(
-        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], windowGenerator_t);
+        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], const REAL *__restrict__);
 
 void applyComplexFilter(
-        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], windowGenerator_t);
+        REAL *__restrict__, REAL *__restrict__, size_t, size_t, const REAL[][6], const REAL *__restrict__);
 
 #define DEMODULATOR_FILTER_H
 

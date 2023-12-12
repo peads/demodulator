@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:w:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -150,9 +150,8 @@ int main(int argc, char **argv) {
                     args.sampleRate = TO_REAL(optarg, NULL);
                     break;
                 case 'D':
-                    // TODO re-separate these for different input and output degrees
-//                    args.inFilterDegree = strtoul(optarg, NULL, 10);
-//                    break;
+                    args.inFilterDegree = strtoul(optarg, NULL, 10);
+                    break;
                 case 'd':
                     args.outFilterDegree = strtoul(optarg, NULL, 10);
                     break;
@@ -177,6 +176,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'q':
                     args.mode |= strtoul(optarg, NULL, 10) << 2;
+                    break;
+                case 'w':
+                    args.mode |= strtoul(optarg, NULL, 10) << 6;
                     break;
                 default:
                     break;

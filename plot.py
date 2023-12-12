@@ -29,14 +29,16 @@ from scipy import fft
 plt.style.use('dark_background')
 fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
-ax_t.set_ylim(0, 100)
-ax_a.set_ylim(-1.5, 1.5)
+ax_t.set_ylim(-5, 300)
+ax_a.set_ylim(-1, 1)
+figManager = plt.get_current_fig_manager()
+figManager.window.showMaximized()
 
 
 class Chunker(Iterable):
-    def __init__(self, file, bufsize=250000):
+    def __init__(self, file, N=250000):
         self.file = file
-        self.bufsize = bufsize
+        self.bufsize = N
         self.chunksize = self.bufsize >> 1
         self.fs = self.bufsize * 'f'
         self.chunk = None
@@ -56,15 +58,15 @@ class Chunker(Iterable):
         raise StopIteration()
 
 
-def generateData(file, bufsize):
+def generateData(file, N):
     try:
-        chunker = Chunker(file, bufsize)
+        chunker = Chunker(file, N)
         return iter(chunker)
     except TypeError:
         pass
 
 
-def animate(y, dt, fftlen):
+def animate(y, N):
     t_xlim = ax_t.get_xlim()
     t_ylim = ax_t.get_ylim()
 
@@ -84,13 +86,11 @@ def animate(y, dt, fftlen):
     ax_a.set_xlim(a_xlim)
     ax_a.set_ylim(a_ylim)
 
-    # amps = np.abs(np.fft.fft(y))
-    # freqs = np.fft.fftfreq(len(fft_data))
-    amps = np.abs(fft.fft(y, n=fftlen, norm='backward'))
+    amps = np.abs(fft.fft(y, n=N, norm='backward'))
     freqs = np.fft.fftfreq(len(amps))
     ax_t.plot(freqs, amps)
-    ax_w.specgram(y, Fs=1/len(y))#, sides='twosided')
-    ax_a.plot(np.arange(0.0, 1.0, 1/len(y)), y)
+    ax_w.specgram(y, Fs=1 / len(y))  # , sides='twosided')
+    ax_a.plot(np.arange(0.0, 1.0, 1 / len(y)), y)
 
     if w_xlim != (0, 1) and w_ylim != (0, 1):
         ax_w.set_xlim(w_xlim)
@@ -109,12 +109,12 @@ if shift > 0:
 else:
     bufsize >>= -shift
 print(f'Size of buffer: {bufsize}')
-fftlen = bufsize >> 1 #pow(2, int(np.ceil(np.log2(max(bufsize, sampRate)))))
+fftlen = bufsize >> 1
 print(f'FFT len: {fftlen}')
 
 with open(sys.stdin.fileno(), "rb", closefd=False) as f:
     dt = 1 / sampRate
-    ani = animation.FuncAnimation(fig, animate, fargs=(dt, fftlen),
+    ani = animation.FuncAnimation(fig, animate, fargs=(fftlen,),
                                   frames=partial(generateData, f, bufsize),
                                   save_count=8, interval=40)
     plt.show()

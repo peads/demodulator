@@ -19,11 +19,11 @@
  */
 #include "filter.h"
 
-inline LREAL warpButter(const LREAL alpha,
-                        const LREAL beta,
-                        const size_t k,
-                        const size_t n,
-                        LREAL *__restrict__ z) {
+static inline LREAL warpButterGeneric(const LREAL alpha,
+                                      const LREAL beta,
+                                      const size_t k,
+                                      const size_t n,
+                                      LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
@@ -39,11 +39,41 @@ inline LREAL warpButter(const LREAL alpha,
     return zr;
 }
 
-inline LREAL warpCheby1(const LREAL tng,
-                        const LREAL ep,
+inline LREAL warpButterHp(const LREAL alpha,
+                          const LREAL beta,
+                          const size_t k,
+                          const size_t n,
+                          LREAL *__restrict__ z) {
+
+//    const LREAL zr = warpButterGeneric(alpha, beta, k, n, z);
+    return 2. - warpButterGeneric(alpha, beta, k, n, z);
+}
+
+inline LREAL warpButter(const LREAL alpha,
+                        const LREAL beta,
                         const size_t k,
                         const size_t n,
                         LREAL *__restrict__ z) {
+
+//    size_t j = (k - 1) << 2;
+//    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
+//    const LREAL a = COS(w);
+//    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
+//    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
+//    const LREAL zj = SIN(w) * d;
+//
+//    z[j + 2] = z[j] = -zr + 1.;
+//    z[j + 1] = zj;
+//    z[j + 3] = -zj;
+
+    return warpButterGeneric(alpha, beta, k, n, z);
+}
+
+static inline LREAL warpCheby1Generic(const LREAL tng,
+                                      const LREAL ep,
+                                      const size_t k,
+                                      const size_t n,
+                                      LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL oneOverN = 1. / (LREAL) n;
@@ -63,6 +93,22 @@ inline LREAL warpCheby1(const LREAL tng,
 
     return zr;
 }
+
+inline LREAL warpCheby1(const LREAL tng,
+                        const LREAL ep,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
+
+    return warpCheby1Generic(tng, ep, k, n, z);
+}
+
+//TODO
+//inline LREAL warpCheby1Hp(const LREAL tng,
+//                        const LREAL ep,
+//                        const size_t k,
+//                        const size_t n,
+//                        LREAL *__restrict__ z)
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
 static inline void zp2Sos(const size_t n,
@@ -85,13 +131,14 @@ static inline void zp2Sos(const size_t n,
 
 //    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
     if (npc < npc + npr) {
-        sos[npc][3] = 1.;
+        sos[npc][0] = k;
+        sos[npc][1] = -k * z[(n << 1) - 2];
         sos[npc][2] = sos[npc][5] = 0.;
-        sos[npc][0] = sos[npc][1] = k;
+        sos[npc][3] = 1.;
         sos[npc][4] = -p[(n << 1) - 2];
     } else {
         sos[0][0] *= k;
-        sos[0][1] *= k;
+        sos[0][1] *= -k * z[(n << 1) - 2];
         sos[0][2] *= k;
     }
 }
@@ -99,8 +146,9 @@ static inline void zp2Sos(const size_t n,
 inline LREAL transformBilinear(const size_t n,
                                const LREAL alpha,
                                const LREAL beta,
-                               LREAL sos[][6],
-                               const warpGenerator_t warp) {
+                               const uint8_t isHighpass,
+                               const warpGenerator_t warp,
+                               LREAL sos[][6]) {
 
     size_t i, k;
     LREAL a, zr, zj;
@@ -110,8 +158,10 @@ inline LREAL transformBilinear(const size_t n,
     LREAL *t = calloc((n << 1), sizeof(LREAL));
     size_t N = n >> 1;
     N = (n & 1) ? N + 1 : N;
+    const char zero = isHighpass ? 1 : -1;
 #ifdef VERBOSE
-    fprintf(stderr, "\nz: There are n = %zu zeros at z = -1 for (z+1)^n\np: ", n);
+    const char *one = isHighpass ? " - 1" : " + 1";
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z%s)^n\np: ", n, zero, one);
 #endif
     // Generate roots of bilinear transform
     for (i = 0, k = 1; k <= N; ++k, i += 4) {
@@ -136,11 +186,11 @@ inline LREAL transformBilinear(const size_t n,
     // TODO fix this less poor (and thus, less urgent) approximation
     acc[0] /= (LREAL) (1 << n);
     if (!(n & 1) && warp == warpCheby1) {
-       acc[0] *= M_SQRT1_2;
+        acc[0] *= M_SQRT1_2;
     }
 
     for (i = 0; i < n << 1; i += 2) {
-        z[i] = -1.;
+        z[i] = zero;
         z[i + 1] = 0;
     }
 
@@ -170,20 +220,19 @@ inline void applyFilter(REAL *__restrict__ x,
                         const size_t len,
                         const size_t sosLen,
                         const REAL sos[][6],
-                        const windowGenerator_t wind) {
+                        const REAL *__restrict__ wind) {
 
     REAL *xp, *yp, c[2];
     size_t i, j, m;
-    const size_t slp1 = sosLen + 1;
 
     for (i = 0; i < len; ++i) {
-        j = i + (sosLen >> 1);
+        j = i + sosLen;//(sosLen >> 1);
         xp = &x[j];
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {
 
-            c[0] = wind(m, slp1);
-            c[1] = wind(m + 1, slp1);
+            c[0] = wind[m];
+            c[1] = wind[m];
 
             yp[m] = sos[m][0] * yp[m] + sos[m][1] * yp[m + 1] + 1;
             yp[m] -= sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
@@ -196,15 +245,14 @@ inline void applyComplexFilter(REAL *__restrict__ x,
                                const size_t len,
                                const size_t sosLen,
                                const REAL sos[][6],
-                               const windowGenerator_t wind) {
+                               const REAL *__restrict__ wind) {
 
     REAL *xp, *yp, c[2] = {};
     size_t i, l, j, m;
-    const size_t slp1 = sosLen + 1;
 
     for (i = 0; i < len; i += 2) {
 
-        j = i + sosLen;//(sosLen << 1);
+        j = i + (sosLen << 1);
         yp = &y[j];
         xp = &x[j];
 
@@ -212,8 +260,8 @@ inline void applyComplexFilter(REAL *__restrict__ x,
 
             l = m << 1;
 
-            c[0] = wind(m, slp1);
-            c[1] = wind(m + 1, slp1);
+            c[0] = wind[m];
+            c[1] = wind[m];
 
             yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2] + 1;
             yp[l] -= sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
