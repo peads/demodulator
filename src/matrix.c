@@ -98,10 +98,9 @@ static inline void processFilterOption(uint8_t mode,
             transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 1, warpButterHp, sos);
             break;
         case 3:
-            //TODO
-//            wh = COSH((LREAL) degree / ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-//            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
-//            break;
+            wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
+            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
+            break;
         default:
             transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 0, warpButter, sos);
             break;
@@ -183,7 +182,7 @@ static inline void highpassDc(
 
     static const size_t degree = 3;
     static const size_t sosLen = 2;
-    // TODO parameterize degree
+    // TODO parameterize degree?
 //            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
     static REAL *wind = NULL;
     static REAL sos[2][6];
