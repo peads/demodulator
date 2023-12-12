@@ -103,12 +103,14 @@ inline LREAL warpCheby1(const LREAL tng,
     return warpCheby1Generic(tng, ep, k, n, z);
 }
 
-//TODO
-//inline LREAL warpCheby1Hp(const LREAL tng,
-//                        const LREAL ep,
-//                        const size_t k,
-//                        const size_t n,
-//                        LREAL *__restrict__ z)
+//TODO this isn't correct and needs to be fixed
+inline LREAL warpCheby1Hp(const LREAL tng,
+                        const LREAL ep,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
+    return 2. - warpCheby1Generic(tng, ep, k, n, z);
+}
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
 static inline void zp2Sos(const size_t n,
