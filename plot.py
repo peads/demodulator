@@ -31,6 +31,8 @@ fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
 ax_t.set_ylim(-5, 300)
 ax_a.set_ylim(-1, 1)
+figManager = plt.get_current_fig_manager()
+figManager.window.showMaximized()
 
 
 class Chunker(Iterable):
