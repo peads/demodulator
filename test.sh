@@ -57,7 +57,7 @@ function executeTimedRun() {
 function executeRun() {
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -q0 -i - -o - -l3600  -S96000 ${1} \
+    | build/demodulator -i - -o - -l3600  -S96000 ${1} \
     | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }

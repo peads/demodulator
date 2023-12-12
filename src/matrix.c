@@ -205,32 +205,31 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static const size_t degree = 15;
-    static const size_t sosLen = 8;
-//            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
+    static const size_t degree = 3;
+    static const size_t sosLen =
+            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
     static REAL *wind = NULL;
-    static REAL sos[8][6] = {
-            {0.99933, -0.99933, 0, 1, -0.99889, 0},
-            {1, -2, 1, 1, -1.9998, 0.99984},
-            {1, -2, 1, 1, -2, 0.99996},
-            {1, -2, 1, 1, -2, 0.99998},
-            {1, -2, 1, 1, -2, 0.99999},
-            {1, -2, 1, 1, -2, 0.99999},
-            {1, -2, 1, 1, -2, 1},
-            {1, -2, 1, 1, -2, 1}
-    };
-//            {0.99969, -0.99969, 0, 1, -0.99948, 0},
-//            {1, -2, 1, 1, -1.9999, 0.99993},
+    static REAL sos[2][6];
+//    = {
+//            {0.99933, -0.99933, 0, 1, -0.99889, 0},
+//            {1, -2, 1, 1, -1.9998, 0.99984},
+//            {1, -2, 1, 1, -2, 0.99996},
 //            {1, -2, 1, 1, -2, 0.99998},
-//            {1, -2, 1, 1, -2, 1}};
+//            {1, -2, 1, 1, -2, 0.99999},
+//            {1, -2, 1, 1, -2, 0.99999},
+//            {1, -2, 1, 1, -2, 1},
+//            {1, -2, 1, 1, -2, 1}
+//    };
+////            {0.99969, -0.99969, 0, 1, -0.99948, 0},
+////            {1, -2, 1, 1, -1.9999, 0.99993},
+////            {1, -2, 1, 1, -2, 0.99998},
+////            {1, -2, 1, 1, -2, 1}};
     static REAL *buf = NULL;
 
     if (!wind) {
         wind = calloc(degree, sizeof(REAL));
         generateRect(degree, wind);
-        if (!len) {
-            processFilterOption(2, degree, sos, 1., samplingRate, 0.);
-        }
+        processFilterOption(2, degree, sos, 1., samplingRate, 0.);
         buf = calloc(len, sizeof(REAL));
     }
 
