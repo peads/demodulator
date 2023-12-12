@@ -106,10 +106,10 @@ int main(int argc, char **argv) {
             .lowpassIn = 0.,
             .lowpassOut = 1.,
             .inFilterDegree = 0,
-            .outFilterDegree = 5,
+            .outFilterDegree = 3,
             .epsilon = .3,
             .exitFlag = 0,
-            .mode = 0x10
+            .mode = 0x10 // ww|dd|qq|ff
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)

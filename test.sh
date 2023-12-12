@@ -57,7 +57,7 @@ function executeTimedRun() {
 function executeRun() {
   sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -l3600  -S96000 ${1} \
+    | build/demodulator -i - -o - -w2 -d5 -m3 -l12500 -S96000 ${1} \
     | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
@@ -65,7 +65,7 @@ function executeRun() {
 function executeRun2() {
   sox -v100 -q -D -twav  ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -l3600 -S96000 ${1} \
+    | build/demodulator -w1 -d7 -i - -o - -l9600 -S96000 ${1} \
     | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -r22050 -b16 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -i -
 }
@@ -96,22 +96,22 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500"
+  executeRun "-D7 -L12500"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
 #  executeTimedRun "-L12500 -w2 -m2"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
+  executeTimedRun "-D7 -L12500"
+  executeTimedRun "-D7 -L12500"
+  executeTimedRun "-D7 -L12500"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2 "-L12500"
+  executeRun2 "-m3 -L96000"
 
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
+  executeTimedRun "-m3 -L96000"
+  executeTimedRun "-m3 -L96000"
+  executeTimedRun "-m3 -L96000"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
   rm -rf file uint8.dat
 done

@@ -80,36 +80,33 @@ static inline void processFilterOption(uint8_t mode,
 
     size_t N = degree >> 1;
     N = (degree & 1) ? N + 1 : N;
-    const LREAL w = M_PI * fc / fs;
+    const LREAL w = 2. * M_PI * M_PI * fc / fs;
     size_t i, j;
     LREAL sos[N][6];
-    LREAL wh;
+    const LREAL wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
 
 #ifdef VERBOSE
     fprintf(stderr, "\ndegree: %zu", degree);
-#endif
-
-    switch (mode) {
-        case 1:
-            wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-            transformBilinear(degree, TAN(2. * M_PI * w * wh), epsilon, 0, warpCheby1, sos);
-            break;
-        case 2:
-            transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 1, warpButterHp, sos);
-            break;
-        case 3:
-            wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
-            break;
-        default:
-            transformBilinear(degree, 1. / SIN(4. * M_PI *  w), TAN(2. * M_PI * w), 0, warpButter, sos);
-            break;
-    }
-#ifdef VERBOSE
     if (3 == mode || 1 == mode) {
         fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
     }
 #endif
+
+    switch (mode) {
+        case 1:
+            transformBilinear(degree, TAN(w * wh), epsilon, 0, warpCheby1, sos);
+            break;
+        case 2:
+            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
+            break;
+        case 3:
+            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
+            break;
+        default:
+            transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
+            break;
+    }
+
     for (i = 0; i < N; ++i) {
         for (j = 0; j < 6; ++j) {
             sosf[i][j] = (REAL) sos[i][j];
