@@ -116,21 +116,25 @@ static inline void processFilterOption(uint8_t mode,
     switch (mode) {
         case 1:
             wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
-#ifdef VERBOSE
-            fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
-#endif
-            wh = TAN(wh * w);
-            transformBilinear(degree, wh, epsilon, 0, warpCheby1, sos);
+            transformBilinear(degree, TAN(w * wh), epsilon, 0, warpCheby1, sos);
             break;
         case 2:
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
             break;
-        case 0: // fall-through intended
+        case 3:
+            //TODO
+//            wh = COSH((LREAL) degree / ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
+//            transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
+//            break;
         default:
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
             break;
     }
-
+#ifdef VERBOSE
+    if (3 == mode || 1 == mode) {
+        fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
+    }
+#endif
     for (i = 0; i < N; ++i) {
         for (j = 0; j < 6; ++j) {
             sosf[i][j] = (REAL) sos[i][j];
@@ -201,43 +205,32 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static const size_t degree = 5; //TODO make this variable based on command-line param
-    static const size_t sosLen =
-            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
+    static const size_t degree = 15;
+    static const size_t sosLen = 8;
+//            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
     static REAL *wind = NULL;
-    static REAL sos[3][6];
+    static REAL sos[8][6] = {
+            {0.99933, -0.99933, 0, 1, -0.99889, 0},
+            {1, -2, 1, 1, -1.9998, 0.99984},
+            {1, -2, 1, 1, -2, 0.99996},
+            {1, -2, 1, 1, -2, 0.99998},
+            {1, -2, 1, 1, -2, 0.99999},
+            {1, -2, 1, 1, -2, 0.99999},
+            {1, -2, 1, 1, -2, 1},
+            {1, -2, 1, 1, -2, 1}
+    };
+//            {1, -1, 0, 1, -0.99948, 0},
+//            {1, -2, 1, 1, -1.9999, 0.99993},
+//            {1, -2, 1, 1, -2, 0.99998},
+//            {1, -2, 1, 1, -2, 1}};
     static REAL *buf = NULL;
 
     if (!wind) {
         wind = calloc(degree, sizeof(REAL));
         generateRect(degree, wind);
-        processFilterOption(2, degree, sos, 1., samplingRate, 0.);
-
-//        size_t i,j;
-//        REAL *sp;
-//        for (i = 0; i < sosLen; ++i) {
-//            sp = sos[i];
-//            for (j = 0; j < 6; j += 2) {
-//                sp[j] = sp[5-j] = (REAL) 1.;
-//            }
-//            sp[1] *= (REAL) -2.;
-//            sp[4] = sp[1];
-//        }
-//        if (degree & 1) {
-//            sp = sos[sosLen - 1];
-//            sp[1] = sp[4] = (REAL) -1.;
-//            sp[2] = sp[5] = 0;
-//        }
-//
-//        fprintf(stderr, "\n");
-//        for (i = 0; i < sosLen; ++i) {
-//            sp = sos[i];
-//            for (j = 0; j < 6; ++j) {
-//                fprintf(stderr, "%f ", sp[j]);
-//            }
-//            fprintf(stderr, "\n");
-//        }
-
+        if (!len) {
+            processFilterOption(2, degree, sos, 1., samplingRate, 0.);
+        }
         buf = calloc(len, sizeof(REAL));
     }
 

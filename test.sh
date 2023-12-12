@@ -55,17 +55,11 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  sox -v3.5 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  sox -v3 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -l12500 -S96000 ${1} \
-    | sox -v2.5 -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -q0 -i - -o - -l3600  -S96000 ${1} \
+    | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
-
-#  sox -v3.5 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
-#    | tee -i uint8.dat \
-#    | build/demodulator -q1 -m2 -i - -o - -l12500 -S96000 ${1}\
-#    | sox -v2.5 -q -D -traw -b32 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
-
 }
 
 function executeRun2() {
@@ -85,33 +79,33 @@ set -e
 i=0
 for compiler in ${compilers[@]}; do
   ./cmake_build.sh "${PREC} -DCMAKE_C_COMPILER=${compiler} -DIS_NATIVE=ON" | grep "The C compiler identification"
-  executeRun "-m2"
+  executeRun "-w3 -m0"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd no lowpass in"
-  executeTimedRun
-  executeTimedRun
-  executeTimedRun
+  executeTimedRun "-w3 -m0"
+  executeTimedRun "-w3 -m0"
+  executeTimedRun "-w3 -m0"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd no lowpass in"
   rm -rf file uint8.dat
 
   executeRun2 "-m3"
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
-  executeTimedRun
-  executeTimedRun
-  executeTimedRun
+  executeTimedRun "-m3"
+  executeTimedRun "-m3"
+  executeTimedRun "-m3"
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500 -m3"
+  executeRun "-L12500 -w2 -m2"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
+  executeTimedRun "-L12500 -w2 -m2"
+  executeTimedRun "-L12500 -w2 -m2"
+  executeTimedRun "-L12500 -w2 -m2"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 
-  executeRun2 "-m3 -L12500"
+  executeRun2 "-L12500"
 
   echo ":: STARTING TIMED RUNS 2 FOR: ${compiler} multimon-ng with lowpass in"
   executeTimedRun "-L12500"

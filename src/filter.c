@@ -19,39 +19,13 @@
  */
 #include "filter.h"
 
-//TODO
-//static inline LREAL warpButterGeneric(const LREAL alpha,
-//                                      const LREAL beta,
-//                                      const size_t j,
-//                                      const size_t k,
-//                                      const size_t n,
-//                                      LREAL *__restrict__ z)
+#include "filter.h"
 
-inline LREAL warpButterHp(const LREAL alpha,
-                        const LREAL beta,
-                        const size_t k,
-                        const size_t n,
-                        LREAL *__restrict__ z) {
-
-    size_t j = (k - 1) << 2;
-    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
-    const LREAL a = COS(w);
-    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
-    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
-    const LREAL zj = SIN(w) * d;
-
-    z[j + 2] = z[j] = -zr + 1.;//-zr - 1.;
-    z[j + 1] = zj;
-    z[j + 3] = -zj;
-
-    return 2.-zr;
-}
-
-inline LREAL warpButter(const LREAL alpha,
-                        const LREAL beta,
-                        const size_t k,
-                        const size_t n,
-                        LREAL *__restrict__ z) {
+static inline LREAL warpButterGeneric(const LREAL alpha,
+                                      const LREAL beta,
+                                      const size_t k,
+                                      const size_t n,
+                                      LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
@@ -67,11 +41,41 @@ inline LREAL warpButter(const LREAL alpha,
     return zr;
 }
 
-inline LREAL warpCheby1(const LREAL tng,
-                        const LREAL ep,
+inline LREAL warpButterHp(const LREAL alpha,
+                          const LREAL beta,
+                          const size_t k,
+                          const size_t n,
+                          LREAL *__restrict__ z) {
+
+//    const LREAL zr = warpButterGeneric(alpha, beta, k, n, z);
+    return 2. - warpButterGeneric(alpha, beta, k, n, z);
+}
+
+inline LREAL warpButter(const LREAL alpha,
+                        const LREAL beta,
                         const size_t k,
                         const size_t n,
                         LREAL *__restrict__ z) {
+
+//    size_t j = (k - 1) << 2;
+//    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
+//    const LREAL a = COS(w);
+//    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
+//    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
+//    const LREAL zj = SIN(w) * d;
+//
+//    z[j + 2] = z[j] = -zr + 1.;
+//    z[j + 1] = zj;
+//    z[j + 3] = -zj;
+
+    return warpButterGeneric(alpha, beta, k, n, z);
+}
+
+static inline LREAL warpCheby1Generic(const LREAL tng,
+                                      const LREAL ep,
+                                      const size_t k,
+                                      const size_t n,
+                                      LREAL *__restrict__ z) {
 
     size_t j = (k - 1) << 2;
     const LREAL oneOverN = 1. / (LREAL) n;
@@ -91,6 +95,22 @@ inline LREAL warpCheby1(const LREAL tng,
 
     return zr;
 }
+
+inline LREAL warpCheby1(const LREAL tng,
+                        const LREAL ep,
+                        const size_t k,
+                        const size_t n,
+                        LREAL *__restrict__ z) {
+
+    return warpCheby1Generic(tng, ep, k, n, z);
+}
+
+//TODO
+//inline LREAL warpCheby1Hp(const LREAL tng,
+//                        const LREAL ep,
+//                        const size_t k,
+//                        const size_t n,
+//                        LREAL *__restrict__ z)
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
 static inline void zp2Sos(const size_t n,
@@ -142,7 +162,7 @@ inline LREAL transformBilinear(const size_t n,
     N = (n & 1) ? N + 1 : N;
     const char zero = isHighpass ? 1 : -1;
 #ifdef VERBOSE
-    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z+1)^n\np: ",  n, zero);
+    fprintf(stderr, "\nz: There are n = %zu zeros at z = %d for (z+1)^n\np: ", n, zero);
 #endif
     // Generate roots of bilinear transform
     for (i = 0, k = 1; k <= N; ++k, i += 4) {
@@ -167,7 +187,7 @@ inline LREAL transformBilinear(const size_t n,
     // TODO fix this less poor (and thus, less urgent) approximation
     acc[0] /= (LREAL) (1 << n);
     if (!(n & 1) && warp == warpCheby1) {
-       acc[0] *= M_SQRT1_2;
+        acc[0] *= M_SQRT1_2;
     }
 
     for (i = 0; i < n << 1; i += 2) {

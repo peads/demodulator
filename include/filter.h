@@ -76,6 +76,8 @@ typedef LREAL (*warpGenerator_t)(LREAL, LREAL, size_t, size_t, LREAL *__restrict
 LREAL warpButter(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL warpButterHp(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL warpCheby1(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
+//TODO
+//LREAL warpCheby1Hp(LREAL, LREAL, size_t, size_t, LREAL *__restrict__);
 LREAL transformBilinear(size_t, LREAL, LREAL, uint8_t, warpGenerator_t,
                         LREAL[][6]);
 
