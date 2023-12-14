@@ -35,7 +35,7 @@
 #endif
 
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 131072L
+#define DEFAULT_BUF_SIZE 262144L
 #endif
 
 typedef void (*windowGenerator_t)(const size_t, REAL *__restrict__);

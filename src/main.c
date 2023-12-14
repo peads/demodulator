@@ -102,9 +102,9 @@ int main(int argc, char **argv) {
     consumerArgs args = {
             .bufSize = DEFAULT_BUF_SIZE,
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .sampleRate = 10.,
+            .sampleRate = 125000.,
             .lowpassIn = 0.,
-            .lowpassOut = 1.,
+            .lowpassOut = 12500.,
             .inFilterDegree = 0,
             .outFilterDegree = 3,
             .epsilon = .3,
@@ -186,9 +186,14 @@ int main(int argc, char **argv) {
         }
     }
 
+    const size_t exp = (size_t) ceill(log2l(args.sampleRate)) + 1;
+    if (1 << exp <= args.sampleRate) {
+        args.bufSize = 1 << (exp + 1);
+    }
     if (!ret) {
         startProcessingMatrix(inFile, &args);
     }
+    args.inFilterDegree = !args.lowpassIn && !args.inFilterDegree ? args.inFilterDegree : args.outFilterDegree;
 
     SEM_DESTROY(args.empty, "/empty")
     SEM_DESTROY(args.full, "/full")
