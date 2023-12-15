@@ -45,7 +45,6 @@ inline LREAL warpButterHp(const LREAL alpha,
                           const size_t n,
                           LREAL *__restrict__ z) {
 
-//    const LREAL zr = warpButterGeneric(alpha, beta, k, n, z);
     return 2. - warpButterGeneric(alpha, beta, k, n, z);
 }
 
@@ -221,10 +220,9 @@ inline void applyFilter(REAL *__restrict__ x,
                         REAL *__restrict__ y,
                         const size_t len,
                         const size_t sosLen,
-                        const REAL sos[][6],
-                        const REAL *__restrict__ wind) {
+                        const REAL sos[][6]) {
 
-    REAL *xp, *yp, c[2];
+    REAL *xp, *yp;
     size_t i, j, m;
 
     for (i = 0; i < len; ++i) {
@@ -233,11 +231,8 @@ inline void applyFilter(REAL *__restrict__ x,
         yp = &y[j];
         for (m = 0; m < sosLen; ++m) {
 
-            c[0] = wind[m];
-            c[1] = wind[m];
-
             yp[m] = sos[m][0] * yp[m] + sos[m][1] * yp[m + 1] + 1;
-            yp[m] -= sos[m][3] + sos[m][4] * c[0] * xp[m] + sos[m][5] * c[1] * xp[m + 1];
+            yp[m] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[m] + sos[m][5] /** wind[m]*/ * xp[m + 1];
         }
     }
 }
@@ -246,10 +241,9 @@ inline void applyComplexFilter(REAL *__restrict__ x,
                                REAL *__restrict__ y,
                                const size_t len,
                                const size_t sosLen,
-                               const REAL sos[][6],
-                               const REAL *__restrict__ wind) {
+                               const REAL sos[][6]) {
 
-    REAL *xp, *yp, c[2] = {};
+    REAL *xp, *yp;
     size_t i, l, j, m;
 
     for (i = 0; i < len; i += 2) {
@@ -262,14 +256,11 @@ inline void applyComplexFilter(REAL *__restrict__ x,
 
             l = m << 1;
 
-            c[0] = wind[m];
-            c[1] = wind[m];
-
             yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2] + 1;
-            yp[l] -= sos[m][3] + sos[m][4] * c[0] * xp[l] + sos[m][5] * c[1] * xp[l + 2];
+            yp[l] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l] + sos[m][5] /** wind[m]*/ * xp[l + 2];
 
             yp[l + 1] = sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
-            yp[l + 1] -= sos[m][3] + sos[m][4] * c[0] * xp[l + 1] + sos[m][5] * c[1] * xp[l + 3];
+            yp[l + 1] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l + 1] + sos[m][5] /** wind[m]*/ * xp[l + 3];
         }
     }
 }

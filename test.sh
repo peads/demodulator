@@ -55,8 +55,13 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  volumeOut=${2}
-  sox -v3 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  if [ ! -z "$2" ]; then
+    volumeIn=${2}
+  else
+    volumeIn="-v2"
+  fi
+  volumeOut=${3}
+  sox ${volumeIn} -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
     | build/demodulator -i - -o - -m3 -l12500 -S96000 ${1} \
     | sox ${volumeOut} -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
@@ -97,7 +102,7 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500" "-v0.5"
+  executeRun "-L12500" "-v1" "-v1.5"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   executeTimedRun "-L12500"

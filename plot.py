@@ -27,12 +27,12 @@ import numpy as np
 from scipy import fft
 
 plt.style.use('dark_background')
-fig, (ax_t, ax_w, ax_a) = plt.subplots(3, 1, constrained_layout=True)
+fig, (ax_t, ax_a) = plt.subplots(2, 1, constrained_layout=True)
 ax_t.set_xlim(-0.51, 0.51)
-ax_t.set_ylim(-5, 300)
-ax_a.set_ylim(-1, 1)
-figManager = plt.get_current_fig_manager()
-figManager.window.showMaximized()
+ax_t.set_ylim(-5, 1000)
+ax_a.set_ylim(-10, 10)
+# figManager = plt.get_current_fig_manager()
+# figManager.window.showMaximized()
 
 
 class Chunker(Iterable):
@@ -70,14 +70,14 @@ def animate(y, N):
     t_xlim = ax_t.get_xlim()
     t_ylim = ax_t.get_ylim()
 
-    w_xlim = ax_w.get_xlim()
-    w_ylim = ax_w.get_ylim()
+    # w_xlim = ax_w.get_xlim()
+    # w_ylim = ax_w.get_ylim()
 
     a_xlim = ax_a.get_xlim()
     a_ylim = ax_a.get_ylim()
 
     ax_t.clear()
-    ax_w.clear()
+    # ax_w.clear()
     ax_a.clear()
 
     ax_t.set_xlim(t_xlim)
@@ -89,12 +89,12 @@ def animate(y, N):
     amps = np.abs(fft.fft(y, n=N, norm='backward'))
     freqs = np.fft.fftfreq(len(amps))
     ax_t.plot(freqs, amps)
-    ax_w.specgram(y, Fs=1 / len(y))  # , sides='twosided')
+    # ax_w.specgram(y, Fs=1 / len(y))  # , sides='twosided')
     ax_a.plot(np.arange(0.0, 1.0, 1 / len(y)), y)
 
-    if w_xlim != (0, 1) and w_ylim != (0, 1):
-        ax_w.set_xlim(w_xlim)
-        ax_w.set_ylim(w_ylim)
+    # if w_xlim != (0, 1) and w_ylim != (0, 1):
+    #     ax_w.set_xlim(w_xlim)
+    #     ax_w.set_ylim(w_ylim)
 
     return fig
 
