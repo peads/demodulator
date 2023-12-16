@@ -141,11 +141,11 @@ static inline void highpassDc(
 
         sos = (REAL (*)[6])temp;
 
-        processFilterOption(2, highpassInDegree, sos, 1., samplingRate, 0.);
+        processFilterOption(2, highpassInDegree, sos, 1./*SQRT(POW(3., -1./(2. * (LREAL) highpassInDegree)))*/, samplingRate, 0.);
         buf = calloc(len, sizeof(REAL));
     }
 
-    convertU8ToReal(in, len, buf);
+    shiftOrigin(in, len, buf);
     applyComplexFilter(buf, out, len, *sosLen, sos);
 }
 
