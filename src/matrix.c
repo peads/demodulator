@@ -19,6 +19,7 @@
  */
 #include "matrix.h"
 
+static size_t highpassInDegree;
 static LREAL samplingRate;
 static REAL esr;
 
@@ -128,21 +129,24 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static const size_t degree = 3;
-    static const size_t sosLen = 2;
-    // TODO parameterize degree?
-//            (degree & 1) ? (degree >> 1) + 1 : degree >> 1;
-    static REAL sos[2][6];
+    static size_t *sosLen = NULL;
+    static REAL (*sos)[6];
     static REAL *buf = NULL;
 
     if (!buf) {
-        processFilterOption(2, degree, sos, 1., samplingRate, 0.);
+        sosLen = malloc(sizeof(size_t));
+        *sosLen = (highpassInDegree & 1) ? (highpassInDegree >> 1) + 1 : highpassInDegree >> 1;
+
+        REAL **temp = malloc(6 * sizeof(REAL*) + *sosLen * sizeof(REAL) * sizeof(REAL*));
+
+        sos = (REAL (*)[6])temp;
+
+        processFilterOption(2, highpassInDegree, sos, 1., samplingRate, 0.);
         buf = calloc(len, sizeof(REAL));
     }
 
-
     convertU8ToReal(in, len, buf);
-    applyComplexFilter(buf, out, len, sosLen, sos);
+    applyComplexFilter(buf, out, len, *sosLen, sos);
 }
 
 static inline void fmDemod(const REAL *__restrict__ in,
@@ -192,16 +196,17 @@ void *processMatrix(void *ctx) {
     REAL sosOut[sosLenOut][6];
 
     samplingRate = args->sampleRate;
+    highpassInDegree = args->highpassInDegree;
 
     switch ((args->mode >> 2) & 3) {
         case 1:
+            esr = (REAL) (50. / args->sampleRate);
             processInput = correctIq;
             break;
         case 2:
             processInput = highpassDc;
             break;
         case 3:
-            esr = (REAL) (50. / args->sampleRate);
             processInput = convertU8ToReal;
             break;
         default:

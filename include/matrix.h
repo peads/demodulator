@@ -54,6 +54,7 @@ typedef struct {
     size_t inFilterDegree;
     size_t outFilterDegree;
     size_t bufSize;
+    size_t highpassInDegree;
 } consumerArgs;
 
 #ifndef IS_NVIDIA

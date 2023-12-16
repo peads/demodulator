@@ -107,6 +107,7 @@ int main(int argc, char **argv) {
             .lowpassOut = 12500.,
             .inFilterDegree = 0,
             .outFilterDegree = 3,
+            .highpassInDegree = 3,
             .epsilon = .3,
             .exitFlag = 0,
             .mode = 0x10 // ww|dd|qq|ff
@@ -122,7 +123,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:n:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -176,6 +177,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'q':
                     args.mode |= strtoul(optarg, NULL, 10) << 2;
+                    break;
+                case 'n':
+                    args.highpassInDegree = strtoul(optarg, NULL, 10);
                     break;
 //                case 'w':
 //                    args.mode |= strtoul(optarg, NULL, 10) << 6;
