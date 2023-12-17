@@ -18,7 +18,11 @@
  # You should have received a copy of the GNU General Public License
  # along with this program. If not, see <http://www.gnu.org/licenses/>.
  #
-PREC="-DSET_PRECISION=ON"
+#PREC="-DSET_PRECISION=ON"
+BITS=32
+if [ ! -z "$PREC" ]; then
+  BITS=64
+fi
 wavFile=SDRSharp_20160101_231914Z_12kHz_IQ.wav
 wavFile2=FLEX_Pager_IQ_20150816_929613kHz_IQ.wav
 audioOutOpts=""
@@ -55,18 +59,24 @@ function executeTimedRun() {
 }
 
 function executeRun() {
-  sox -v2 -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  if [ ! -z "$2" ]; then
+    volumeIn=${2}
+  else
+    volumeIn="-v2"
+  fi
+  volumeOut=${3}
+  sox ${volumeIn} -q -D -twav ${wavFile} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat \
-    | build/demodulator -i - -o - -l3600  -S96000 ${1} \
-    | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
+    | build/demodulator -i - -o - -m3 -l12500 -S96000 ${1} \
+    | sox ${volumeOut} -q -D -traw -b${BITS} -ef -r96k - -traw -es -b16 -r48k - 2>/dev/null \
     | dsd -i - -o/dev/null -n
 }
 
 function executeRun2() {
-  sox -v100 -q -D -twav  ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
+  sox -v55 -q -D -twav  ${wavFile2} -traw -eunsigned-int -b8 -r192k - 2>/dev/null \
     | tee -i uint8.dat     \
-    | build/demodulator -i - -o - -l3600 -S96000 ${1} \
-    | sox -v0.5 -q -D -traw -b64 -ef -r96k - -traw -es -r22050 -b16 - 2>/dev/null \
+    | build/demodulator -m3 -i - -o - -l9600 -S96000 ${1} \
+    | sox -v0.5 -q -D -traw -b${BITS} -ef -r96k - -traw -es -r22050 -b16 - 2>/dev/null \
     | multimon-ng -q -c -aFLEX_NEXT -i -
 }
 
@@ -96,13 +106,12 @@ for compiler in ${compilers[@]}; do
   echo ":: COMPLETED TIMED RUNS 2 FOR: ${compiler} multimon-ng no lowpass in"
   rm -rf file uint8.dat
 
-  executeRun "-L12500"
+  executeRun "-d5 -L12500"
 
   echo ":: STARTING TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
-#  executeTimedRun "-L12500 -w2 -m2"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
-  executeTimedRun "-L12500"
+  executeTimedRun "-d5 -L12500"
+  executeTimedRun "-d5 -L12500"
+  executeTimedRun "-d5 -L12500"
   echo ":: COMPLETED TIMED RUNS 1 FOR: ${compiler} dsd with lowpass in"
   rm -rf file uint8.dat
 

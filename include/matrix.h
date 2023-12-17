@@ -35,10 +35,9 @@
 #endif
 
 #ifndef DEFAULT_BUF_SIZE
-#define DEFAULT_BUF_SIZE 131072L
+#define DEFAULT_BUF_SIZE 262144L
 #endif
 
-typedef void (*windowGenerator_t)(const size_t, REAL *__restrict__);
 typedef void (*iqCorrection_t)(void *__restrict__, size_t, REAL *__restrict__);
 
 typedef struct {
@@ -55,6 +54,7 @@ typedef struct {
     size_t inFilterDegree;
     size_t outFilterDegree;
     size_t bufSize;
+    size_t highpassInDegree;
 } consumerArgs;
 
 #ifndef IS_NVIDIA

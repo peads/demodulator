@@ -102,14 +102,15 @@ int main(int argc, char **argv) {
     consumerArgs args = {
             .bufSize = DEFAULT_BUF_SIZE,
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .sampleRate = 10.,
+            .sampleRate = 125000.,
             .lowpassIn = 0.,
-            .lowpassOut = 1.,
+            .lowpassOut = 12500.,
             .inFilterDegree = 0,
-            .outFilterDegree = 5,
+            .outFilterDegree = 3,
+            .highpassInDegree = 3,
             .epsilon = .3,
             .exitFlag = 0,
-            .mode = 0x10
+            .mode = 0x10 // ww|dd|qq|ff
     };
     SEM_INIT(args.empty, "/empty", 1)
     SEM_INIT(args.full, "/full", 0)
@@ -122,7 +123,7 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         return -1;
     } else {
-        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:w:")) != -1) {
+        while ((opt = getopt(argc, argv, "i:o:r:L:l:S:D:d:e:m:b:c:q:n:")) != -1) {
             switch (opt) {
                 case 'i':
                     if (!strstr(optarg, "-")) {
@@ -177,18 +178,26 @@ int main(int argc, char **argv) {
                 case 'q':
                     args.mode |= strtoul(optarg, NULL, 10) << 2;
                     break;
-                case 'w':
-                    args.mode |= strtoul(optarg, NULL, 10) << 6;
+                case 'n':
+                    args.highpassInDegree = strtoul(optarg, NULL, 10);
                     break;
+//                case 'w':
+//                    args.mode |= strtoul(optarg, NULL, 10) << 6;
+//                    break;
                 default:
                     break;
             }
         }
     }
 
+    const size_t exp = (size_t) ceill(log2l(args.sampleRate)) + 1;
+    if (1 << exp <= args.sampleRate) {
+        args.bufSize = 1 << (exp + 1);
+    }
     if (!ret) {
         startProcessingMatrix(inFile, &args);
     }
+    args.inFilterDegree = !args.lowpassIn && !args.inFilterDegree ? args.inFilterDegree : args.outFilterDegree;
 
     SEM_DESTROY(args.empty, "/empty")
     SEM_DESTROY(args.full, "/full")
