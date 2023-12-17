@@ -145,7 +145,7 @@ static inline void highpassDc(
         buf = calloc(len, sizeof(REAL));
     }
 
-    shiftOrigin(in, len, buf);
+    convertU8ToReal(in, len, buf);
     applyComplexFilter(buf, out, len, *sosLen, sos);
 }
 
@@ -163,8 +163,7 @@ static inline void fmDemod(const REAL *__restrict__ in,
         zr = in[i] * in[i + 2] + in[i + 1] * in[i + 3];
         zj = -in[i] * in[i + 3] + in[i + 1] * in[i + 2];
 
-//        zr = (REAL) (64. * zj * 1. / (23. * zr + 41. * HYPOTF(zr, zj)));
-        zr = (REAL) atan2(zj, zr);
+        zr = (REAL) ATAN2F(zj, zr);
         out[i >> 2] = isnan(zr) ? (REAL) 0. : zr;
     }
 }
@@ -181,15 +180,17 @@ void *processMatrix(void *ctx) {
     size_t filterOutputLength = twiceBufSize;
     size_t filterBytes;
 
-    args->inFilterDegree = args->lowpassIn && !args->inFilterDegree ? args->outFilterDegree : args->inFilterDegree ;
+    args->inFilterDegree = args->lowpassIn && !args->inFilterDegree
+            ? args->outFilterDegree
+            : args->inFilterDegree ;
     const size_t outputLen = args->bufSize >> 2;
     const uint8_t demodMode = (args->mode >> 4) & 3;
-    const size_t sosLenOut =
-            (args->outFilterDegree & 1) ? (args->outFilterDegree >> 1) + 1
-                                        : (args->outFilterDegree >> 1);
-    const size_t sosLenIn =
-            (args->inFilterDegree & 1) ? (args->inFilterDegree >> 1) + 1
-                                        : (args->inFilterDegree >> 1);
+    const size_t sosLenOut = (args->outFilterDegree & 1)
+            ? (args->outFilterDegree >> 1) + 1
+            : (args->outFilterDegree >> 1);
+    const size_t sosLenIn = (args->inFilterDegree & 1)
+            ? (args->inFilterDegree >> 1) + 1
+            : (args->inFilterDegree >> 1);
 
     iqCorrection_t processInput = NULL;
     REAL sosIn[sosLenIn][6];

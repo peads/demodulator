@@ -27,11 +27,14 @@
 
 #define REAL float
 #define HYPOTF hypotf
+#define ATAN2F atan2f
 #ifdef PRECISION
     #undef REAL
     #undef HYPOTF
+    #undef ATAN2F
     #define REAL double
     #define HYPOTF hypot
+    #define ATAN2F atan2
 #endif
 
 #if DBL_MANT_DIG < LDBL_MANT_DIG
