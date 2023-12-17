@@ -28,8 +28,8 @@ from scipy import fft
 bufsize = 32768
 plt.style.use('dark_background')
 fig, (ax_t, ax_a) = plt.subplots(2, 1, constrained_layout=True)
-ax_t.set_xlim(-0.51, 0.51)
-ax_t.set_ylim(-5, 5000)
+ax_t.set_xlim(-0.051, 0.051)
+ax_t.set_ylim(-5, 1000)
 ax_a.set_ylim(-10, 10)
 # figManager = plt.get_current_fig_manager()
 # figManager.window.showMaximized()
