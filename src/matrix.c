@@ -19,7 +19,6 @@
  */
 #include "matrix.h"
 
-static size_t highpassInDegree;
 static LREAL samplingRate;
 static REAL esr;
 
@@ -134,29 +133,16 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static size_t *sosLen = NULL;
-    static REAL (*sos)[6];
+    static REAL sos[2][6];
     static REAL *buf = NULL;
 
     if (!buf) {
-        sosLen = malloc(sizeof(size_t));
-        *sosLen = (highpassInDegree & 1) ? (highpassInDegree >> 1) + 1 : highpassInDegree >> 1;
-
-        REAL **temp = malloc(6 * sizeof(REAL *) + *sosLen * sizeof(REAL) * sizeof(REAL *));
-
-        sos = (REAL (*)[6]) temp;
-
-        processFilterOption(2,
-                highpassInDegree,
-                sos,
-                1./*SQRT(POW(3., -1./(2. * (LREAL) highpassInDegree)))*/,
-                samplingRate,
-                0.);
+        processFilterOption(2, 3, sos, 1., samplingRate, 0.);
         buf = calloc(len, sizeof(REAL));
     }
 
-    normalizeInput(in, len, buf);
-    applyComplexFilter(buf, out, len, *sosLen, sos);
+    shiftOrigin(in, len, buf);
+    applyComplexFilter(buf, out, len, 2, sos);
 }
 
 static inline void fmDemod(const REAL *__restrict__ in,
@@ -207,7 +193,6 @@ void *processMatrix(void *ctx) {
     REAL sosOut[sosLenOut][6];
 
     samplingRate = args->sampleRate;
-    highpassInDegree = args->highpassInDegree;
 
     switch ((args->mode >> 2) & 3) {
         case 1:
