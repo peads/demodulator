@@ -38,9 +38,8 @@ static inline void processFilterOption(uint8_t mode,
 
 #ifdef VERBOSE
     fprintf(stderr,
-            "\nRatio of cutoff frequency to sampling frequency: %Lf\ndegree: %zu",
-            w,
-            degree);
+            "\nCutoff frequency: %.1Lf\nSampling frequency: %.1Lf\nRatio of cutoff frequency to sampling frequency: %.1Lf\ndegree: %zu",
+            fc, fs, w, degree);
     if (3 == mode || 1 == mode) {
         fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
     }
@@ -48,15 +47,27 @@ static inline void processFilterOption(uint8_t mode,
 
     switch (mode) {
         case 1:
+#ifdef VERBOSE
+            fprintf(stderr, "\nLowpass Chebychev Type 1 selected");
+#endif
             transformBilinear(degree, TAN(w * wh), epsilon, 0, warpCheby1, sos);
             break;
         case 2:
+#ifdef VERBOSE
+            fprintf(stderr, "\nHighpass Butterworth selected");
+#endif
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
             break;
         case 3:
+#ifdef VERBOSE
+            fprintf(stderr, "\nHighpass Chebychev Type 1 selected");
+#endif
             transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
             break;
         default:
+#ifdef VERBOSE
+            fprintf(stderr, "\nLowpass Butterworth selected");
+#endif
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
             break;
     }

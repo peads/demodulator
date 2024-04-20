@@ -120,7 +120,9 @@ static inline void zp2Sos(const size_t n,
 
     size_t i, j;
     const size_t npc = n >> 1;
-    const size_t npr = (n & 1) ? 1 : 0;
+    const uint8_t isOdd = (n & 1);
+    const size_t N = isOdd ? npc : npc - 1;
+    const size_t npr = isOdd ? 1 : 0;
     const LREAL m = npr ? 1. : 2.;
 
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
@@ -131,23 +133,21 @@ static inline void zp2Sos(const size_t n,
         sos[j][5] = p[i] * p[i] + p[i + 1] * p[i + 1];
     }
 
-//    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
     if (npc < npc + npr) {
-//        sos[npc][0] = k;
-//        sos[npc][1] = -k * z[(n << 1) - 2];
         sos[npc][0] = 1.;
         sos[npc][1] = -z[(n << 1) - 2];
         sos[npc][2] = sos[npc][5] = 0.;
         sos[npc][3] = 1.;
         sos[npc][4] = -p[(n << 1) - 2];
     } else {
-//        sos[0][0] *= k;
-//        sos[0][1] *= -k * z[(n << 1) - 2];
-//        sos[0][2] *= k;
         sos[0][0] = 1.;
         sos[0][2] = 1. - (LREAL) npr;
         sos[0][1] = -m * z[(n << 1) - 2];
     }
+
+    sos[N][0] *= k;
+    sos[N][1] *= k;
+    sos[N][2] *= k;
 }
 
 inline LREAL transformBilinear(const size_t n,
