@@ -3,7 +3,7 @@
  * (https://github.com/peads/demodulator).
  * with code originally part of the misc_snippets distribution
  * (https://github.com/peads/misc_snippets).
- * Copyright (c) 2023 Patrick Eads.
+ * Copyright (c) 2023-2024 Patrick Eads.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,17 +54,6 @@ inline LREAL warpButter(const LREAL alpha,
                         const size_t n,
                         LREAL *__restrict__ z) {
 
-//    size_t j = (k - 1) << 2;
-//    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
-//    const LREAL a = COS(w);
-//    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
-//    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
-//    const LREAL zj = SIN(w) * d;
-//
-//    z[j + 2] = z[j] = -zr + 1.;
-//    z[j + 1] = zj;
-//    z[j + 3] = -zj;
-
     return warpButterGeneric(alpha, beta, k, n, z);
 }
 
@@ -102,13 +91,13 @@ inline LREAL warpCheby1(const LREAL tng,
     return warpCheby1Generic(tng, ep, k, n, z);
 }
 
-//TODO this isn't correct and needs to be fixed
 inline LREAL warpCheby1Hp(const LREAL tng,
-                        const LREAL ep,
-                        const size_t k,
-                        const size_t n,
-                        LREAL *__restrict__ z) {
-    return 2. - warpCheby1Generic(tng, ep, k, n, z);
+                          const LREAL ep,
+                          const size_t k,
+                          const size_t n,
+                          LREAL *__restrict__ z) {
+
+    return warpCheby1Generic(1. / tng, ep, k, n, z);
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
@@ -120,7 +109,10 @@ static inline void zp2Sos(const size_t n,
 
     size_t i, j;
     const size_t npc = n >> 1;
-    const size_t npr = (n & 1) ? 1 : 0;
+    const uint8_t isOdd = (n & 1);
+    const size_t N = isOdd ? npc : npc - 1;
+    const size_t npr = isOdd ? 1 : 0;
+    const LREAL m = npr ? 1. : 2.;
 
     for (j = 0, i = 0; j < npc; i += 4, ++j) {
         sos[j][3] = sos[j][0] = 1.;
@@ -130,18 +122,21 @@ static inline void zp2Sos(const size_t n,
         sos[j][5] = p[i] * p[i] + p[i + 1] * p[i + 1];
     }
 
-//    for (j = npc, i = (n << 1) - npc + 1; j < npc + npr; i += 4, ++j) {
     if (npc < npc + npr) {
-        sos[npc][0] = k;
-        sos[npc][1] = -k * z[(n << 1) - 2];
+        sos[npc][0] = 1.;
+        sos[npc][1] = -z[(n << 1) - 2];
         sos[npc][2] = sos[npc][5] = 0.;
         sos[npc][3] = 1.;
         sos[npc][4] = -p[(n << 1) - 2];
     } else {
-        sos[0][0] *= k;
-        sos[0][1] *= -k * z[(n << 1) - 2];
-        sos[0][2] *= k;
+        sos[0][0] = 1.;
+        sos[0][2] = 1. - (LREAL) npr;
+        sos[0][1] = -m * z[(n << 1) - 2];
     }
+
+    sos[N][0] *= k;
+    sos[N][1] *= k;
+    sos[N][2] *= k;
 }
 
 inline LREAL transformBilinear(const size_t n,
@@ -151,14 +146,16 @@ inline LREAL transformBilinear(const size_t n,
                                const warpGenerator_t warp,
                                LREAL sos[][6]) {
 
+    const uint8_t isOdd = (n & 1);
+    const uint8_t isChebyAndEven = !isOdd && (warp == warpCheby1);
     size_t i, k;
     LREAL a, zr, zj;
-    LREAL acc[2] = {1., 0};
+    LREAL acc[2] = {isChebyAndEven ? M_SQRT1_2 : 1., 0};
     LREAL *p = calloc(((n + 1) << 1), sizeof(LREAL));
     LREAL *z = calloc(((n + 1) << 1), sizeof(LREAL));
     LREAL *t = calloc((n << 1), sizeof(LREAL));
     size_t N = n >> 1;
-    N = (n & 1) ? N + 1 : N;
+    N = isOdd ? N + 1 : N;
     const char zero = isHighpass ? 1 : -1;
 #ifdef VERBOSE
     const char *one = isHighpass ? " - 1" : " + 1";
@@ -184,11 +181,7 @@ inline LREAL transformBilinear(const size_t n,
 #endif
     }
 
-    // TODO fix this less poor (and thus, less urgent) approximation
     acc[0] /= (LREAL) (1 << n);
-    if (!(n & 1) && warp == warpCheby1) {
-        acc[0] *= M_SQRT1_2;
-    }
 
     for (i = 0; i < n << 1; i += 2) {
         z[i] = zero;
@@ -232,7 +225,7 @@ inline void applyFilter(REAL *__restrict__ x,
         for (m = 0; m < sosLen; ++m) {
 
             yp[m] = sos[m][0] * yp[m] + sos[m][1] * yp[m + 1] + 1;
-            yp[m] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[m] + sos[m][5] /** wind[m]*/ * xp[m + 1];
+            yp[m] -= sos[m][3] + sos[m][4] * xp[m] + sos[m][5] * xp[m + 1];
         }
     }
 }
@@ -257,10 +250,10 @@ inline void applyComplexFilter(REAL *__restrict__ x,
             l = m << 1;
 
             yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2] + 1;
-            yp[l] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l] + sos[m][5] /** wind[m]*/ * xp[l + 2];
+            yp[l] -= sos[m][3] + sos[m][4] * xp[l] + sos[m][5] * xp[l + 2];
 
             yp[l + 1] = sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
-            yp[l + 1] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l + 1] + sos[m][5] /** wind[m]*/ * xp[l + 3];
+            yp[l + 1] -= sos[m][3] + sos[m][4] * xp[l + 1] + sos[m][5] * xp[l + 3];
         }
     }
 }

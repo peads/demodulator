@@ -3,7 +3,7 @@
 # (https://github.com/peads/demodulator).
 # with code originally part of the misc_snippets distribution
 # (https://github.com/peads/misc_snippets).
-# Copyright (c) 2023 Patrick Eads.
+# Copyright (c) 2023-2024 Patrick Eads.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

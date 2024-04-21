@@ -3,7 +3,7 @@
  * (https://github.com/peads/demodulator).
  * with code originally part of the misc_snippets distribution
  * (https://github.com/peads/misc_snippets).
- * Copyright (c) 2023 Patrick Eads.
+ * Copyright (c) 2023-2024 Patrick Eads.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -107,7 +107,6 @@ int main(int argc, char **argv) {
             .lowpassOut = 12500.,
             .inFilterDegree = 0,
             .outFilterDegree = 3,
-            .highpassInDegree = 3,
             .epsilon = .3,
             .exitFlag = 0,
             .mode = 0x10 // ww|dd|qq|ff
@@ -178,12 +177,6 @@ int main(int argc, char **argv) {
                 case 'q':
                     args.mode |= strtoul(optarg, NULL, 10) << 2;
                     break;
-                case 'n':
-                    args.highpassInDegree = strtoul(optarg, NULL, 10);
-                    break;
-//                case 'w':
-//                    args.mode |= strtoul(optarg, NULL, 10) << 6;
-//                    break;
                 default:
                     break;
             }

@@ -3,7 +3,7 @@
  * (https://github.com/peads/demodulator).
  * with code originally part of the misc_snippets distribution
  * (https://github.com/peads/misc_snippets).
- * Copyright (c) 2023 Patrick Eads.
+ * Copyright (c) 2023-2024 Patrick Eads.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@
  */
 #include "matrix.h"
 
-static size_t highpassInDegree;
 static LREAL samplingRate;
 static REAL esr;
 
@@ -38,7 +37,9 @@ static inline void processFilterOption(uint8_t mode,
     const LREAL wh = COSH(1. / (LREAL) degree * ACOSH(1. / SQRT(POW(10., epsilon) - 1.)));
 
 #ifdef VERBOSE
-    fprintf(stderr, "\nRatio of cutoff frequency to sampling frequency: %Lf\ndegree: %zu", w, degree);
+    fprintf(stderr,
+            "\nCutoff frequency: %.1Lf\nSampling frequency: %.1Lf\nRatio of cutoff frequency to sampling frequency: %.1Lf\ndegree: %zu",
+            fc, fs, w, degree);
     if (3 == mode || 1 == mode) {
         fprintf(stderr, PRINT_EP_WC, epsilon * 10., wh * fc);
     }
@@ -46,15 +47,27 @@ static inline void processFilterOption(uint8_t mode,
 
     switch (mode) {
         case 1:
+#ifdef VERBOSE
+            fprintf(stderr, "\nLowpass Chebychev Type 1 selected");
+#endif
             transformBilinear(degree, TAN(w * wh), epsilon, 0, warpCheby1, sos);
             break;
         case 2:
+#ifdef VERBOSE
+            fprintf(stderr, "\nHighpass Butterworth selected");
+#endif
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 1, warpButterHp, sos);
             break;
         case 3:
+#ifdef VERBOSE
+            fprintf(stderr, "\nHighpass Chebychev Type 1 selected");
+#endif
             transformBilinear(degree, TAN(w * wh), epsilon, 1, warpCheby1Hp, sos);
             break;
         default:
+#ifdef VERBOSE
+            fprintf(stderr, "\nLowpass Butterworth selected");
+#endif
             transformBilinear(degree, 1. / SIN(2. * w), TAN(w), 0, warpButter, sos);
             break;
     }
@@ -84,21 +97,23 @@ static inline void shiftOrigin(
     }
 }
 
-static inline void convertU8ToReal(
+static inline void normalizeInput(
         void *__restrict__ in,
         const size_t len,
         REAL *__restrict__ out) {
 
+    // could loop thru entire data to find true max/min, but this is good enough
+    const REAL denom = 2. / 255.;
     const size_t N = len >> 1;
     size_t i;
     uint8_t *buf = in;
 
     for (i = 0; i < N; i += 2) {
-        out[i] = (REAL) buf[i];
-        out[i + 1] = (REAL) buf[i + 1];
+        out[i] = (REAL) buf[i] * denom - 1.;
+        out[i + 1] = (REAL) buf[i + 1] * denom - 1.;
 
-        out[len - i - 2] = (REAL) buf[len - i - 2];
-        out[len - i - 1] = (REAL) buf[len - i - 1];
+        out[len - i - 2] = (REAL) buf[len - i - 2] * denom - 1.;
+        out[len - i - 1] = (REAL) buf[len - i - 1] * denom - 1.;
     }
 }
 
@@ -129,24 +144,16 @@ static inline void highpassDc(
         const size_t len,
         REAL *__restrict__ out) {
 
-    static size_t *sosLen = NULL;
-    static REAL (*sos)[6];
+    static REAL sos[2][6];
     static REAL *buf = NULL;
 
     if (!buf) {
-        sosLen = malloc(sizeof(size_t));
-        *sosLen = (highpassInDegree & 1) ? (highpassInDegree >> 1) + 1 : highpassInDegree >> 1;
-
-        REAL **temp = malloc(6 * sizeof(REAL*) + *sosLen * sizeof(REAL) * sizeof(REAL*));
-
-        sos = (REAL (*)[6])temp;
-
-        processFilterOption(2, highpassInDegree, sos, 1./*SQRT(POW(3., -1./(2. * (LREAL) highpassInDegree)))*/, samplingRate, 0.);
+        processFilterOption(2, 3, sos, 1., samplingRate, 0.);
         buf = calloc(len, sizeof(REAL));
     }
 
-    convertU8ToReal(in, len, buf);
-    applyComplexFilter(buf, out, len, *sosLen, sos);
+    shiftOrigin(in, len, buf);
+    applyComplexFilter(buf, out, len, 2, sos);
 }
 
 static inline void fmDemod(const REAL *__restrict__ in,
@@ -181,23 +188,22 @@ void *processMatrix(void *ctx) {
     size_t filterBytes;
 
     args->inFilterDegree = args->lowpassIn && !args->inFilterDegree
-            ? args->outFilterDegree
-            : args->inFilterDegree ;
+                           ? args->outFilterDegree
+                           : args->inFilterDegree;
     const size_t outputLen = args->bufSize >> 2;
     const uint8_t demodMode = (args->mode >> 4) & 3;
     const size_t sosLenOut = (args->outFilterDegree & 1)
-            ? (args->outFilterDegree >> 1) + 1
-            : (args->outFilterDegree >> 1);
+                             ? (args->outFilterDegree >> 1) + 1
+                             : (args->outFilterDegree >> 1);
     const size_t sosLenIn = (args->inFilterDegree & 1)
-            ? (args->inFilterDegree >> 1) + 1
-            : (args->inFilterDegree >> 1);
+                            ? (args->inFilterDegree >> 1) + 1
+                            : (args->inFilterDegree >> 1);
 
     iqCorrection_t processInput = NULL;
     REAL sosIn[sosLenIn][6];
     REAL sosOut[sosLenOut][6];
 
     samplingRate = args->sampleRate;
-    highpassInDegree = args->highpassInDegree;
 
     switch ((args->mode >> 2) & 3) {
         case 1:
@@ -208,7 +214,7 @@ void *processMatrix(void *ctx) {
             processInput = highpassDc;
             break;
         case 3:
-            processInput = convertU8ToReal;
+            processInput = normalizeInput;
             break;
         default:
             processInput = shiftOrigin;
@@ -236,8 +242,12 @@ void *processMatrix(void *ctx) {
         sem_post(args->empty);
 
         if (!demodMode) {
-            convertU8ToReal(buf, args->bufSize, filterRet);
-            applyComplexFilter(filterRet, filterRet + args->bufSize, args->bufSize, sosLenIn, sosIn);
+            normalizeInput(buf, args->bufSize, filterRet);
+            applyComplexFilter(filterRet,
+                    filterRet + args->bufSize,
+                    args->bufSize,
+                    sosLenIn,
+                    sosIn);
             fwrite(filterRet + args->bufSize, sizeof(REAL), args->bufSize, args->outFile);
         } else {
             processInput(buf, args->bufSize, filterRet);
@@ -247,7 +257,11 @@ void *processMatrix(void *ctx) {
                         sosLenOut, sosOut);
                 fwrite(filterRet + args->bufSize, sizeof(REAL), outputLen, args->outFile);
             } else {
-                applyComplexFilter(filterRet, filterRet + args->bufSize, args->bufSize, sosLenIn, sosIn);
+                applyComplexFilter(filterRet,
+                        filterRet + args->bufSize,
+                        args->bufSize,
+                        sosLenIn,
+                        sosIn);
                 fmDemod(filterRet + args->bufSize, args->bufSize, demodRet);
                 applyFilter(demodRet, filterRet + twiceBufSize, outputLen, sosLenOut,
                         sosOut);
