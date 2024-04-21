@@ -45,7 +45,7 @@ inline LREAL warpButterHp(const LREAL alpha,
                           const size_t n,
                           LREAL *__restrict__ z) {
 
-    return 2. - warpButterGeneric(alpha, beta, k, n, z);
+    return warpButterGeneric(alpha, 1. / beta, k, n, z);
 }
 
 inline LREAL warpButter(const LREAL alpha,
@@ -53,17 +53,6 @@ inline LREAL warpButter(const LREAL alpha,
                         const size_t k,
                         const size_t n,
                         LREAL *__restrict__ z) {
-
-//    size_t j = (k - 1) << 2;
-//    const LREAL w = M_PI_2 * (1. / (LREAL) n * (-1. + (LREAL) (k << 1)) + 1.);
-//    const LREAL a = COS(w);
-//    const LREAL d = 1. / (a - alpha);// 1. / SIN(2. * theta));
-//    const LREAL zr = (-beta/*tan(theta)*/ + a) * d;
-//    const LREAL zj = SIN(w) * d;
-//
-//    z[j + 2] = z[j] = -zr + 1.;
-//    z[j + 1] = zj;
-//    z[j + 3] = -zj;
 
     return warpButterGeneric(alpha, beta, k, n, z);
 }
@@ -107,7 +96,8 @@ inline LREAL warpCheby1Hp(const LREAL tng,
                           const size_t k,
                           const size_t n,
                           LREAL *__restrict__ z) {
-    return warpCheby1Generic(1./tng, ep, k, n, z);
+
+    return warpCheby1Generic(1. / tng, ep, k, n, z);
 }
 
 /// Note this simplification will not work for non-bilinear transform transfer functions
