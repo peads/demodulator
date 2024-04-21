@@ -102,7 +102,6 @@ inline LREAL warpCheby1(const LREAL tng,
     return warpCheby1Generic(tng, ep, k, n, z);
 }
 
-//TODO this isn't correct and needs to be fixed
 inline LREAL warpCheby1Hp(const LREAL tng,
                           const LREAL ep,
                           const size_t k,
