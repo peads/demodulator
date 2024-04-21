@@ -225,7 +225,7 @@ inline void applyFilter(REAL *__restrict__ x,
         for (m = 0; m < sosLen; ++m) {
 
             yp[m] = sos[m][0] * yp[m] + sos[m][1] * yp[m + 1] + 1;
-            yp[m] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[m] + sos[m][5] /** wind[m]*/ * xp[m + 1];
+            yp[m] -= sos[m][3] + sos[m][4] * xp[m] + sos[m][5] * xp[m + 1];
         }
     }
 }
@@ -250,10 +250,10 @@ inline void applyComplexFilter(REAL *__restrict__ x,
             l = m << 1;
 
             yp[l] = sos[m][0] * yp[l] + sos[m][1] * yp[l + 2] + 1;
-            yp[l] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l] + sos[m][5] /** wind[m]*/ * xp[l + 2];
+            yp[l] -= sos[m][3] + sos[m][4] * xp[l] + sos[m][5] * xp[l + 2];
 
             yp[l + 1] = sos[m][0] * yp[l + 1] + sos[m][1] * yp[l + 3];
-            yp[l + 1] -= sos[m][3] + sos[m][4] /** wind[m]*/ * xp[l + 1] + sos[m][5] /** wind[m]*/ * xp[l + 3];
+            yp[l + 1] -= sos[m][3] + sos[m][4] * xp[l + 1] + sos[m][5] * xp[l + 3];
         }
     }
 }
