@@ -45,7 +45,8 @@ inline LREAL warpButterHp(const LREAL alpha,
                           const size_t n,
                           LREAL *__restrict__ z) {
 
-    return warpButterGeneric(alpha, 1. / beta, k, n, z);
+//    return warpButterGeneric(alpha, 1. / beta, k, n, z);
+    return 2. - warpButterGeneric(alpha, beta, k, n, z);
 }
 
 inline LREAL warpButter(const LREAL alpha,
